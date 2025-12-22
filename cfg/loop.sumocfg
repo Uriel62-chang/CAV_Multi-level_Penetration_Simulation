@@ -1,0 +1,14 @@
+<configuration>
+  <input>
+    <net-file value="../net/loop.net.xml"/>
+    <route-files value="../routes/loop.rou.xml"/>
+    <additional-files value="../add/detectors.add.xml"/>
+  </input>
+  <time>
+    <begin value="0"/>
+    <end value="3600"/>
+  </time>
+  <report>
+    <no-step-log value="true"/>
+  </report>
+</configuration>

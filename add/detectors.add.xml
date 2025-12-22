@@ -1,0 +1,3 @@
+<additional>
+  <e1Detector id="det0" lane="e0_0" pos="250" freq="60" file="../out/e1Detector.xml"/>
+</additional>

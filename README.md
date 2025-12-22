@@ -6,17 +6,19 @@
 
 ```text
 .
-├── add/                    # 附加文件（如检测器定义）
+├── add/                    # SUMO附加文件（检测器配置）
 ├── cfg/                    # SUMO仿真配置文件
-├── graph/                  # 可视化图表目录（包含FD图等）
-├── net/                    # SUMO路网文件
-├── out/                    # 仿真输出文件（XML结果及CSV）
-├── scripts/                # 核心脚本目录
-│   ├── batch.py            # 批处理仿真脚本
-│   ├── e1Parser.py         # 检测器数据解析
-│   ├── FlowGenerate.py     # 混合车流生成
-│   └── run.py              # 单次仿真执行脚本
-└── DataVisualization.py    # 数据可视化脚本
+├── graph/                  # 仿真结果图表（基本图、通行能力等）
+├── net/                    # 路网文件 (.net.xml, .nod.xml, .edg.xml)
+├── out/                    # 仿真输出数据（原始XML及汇总CSV）
+├── routes/                 # 生成的车辆路径文件 (.rou.xml)
+├── scripts/                # 核心Python脚本
+│   ├── batch.py            # 批处理控制脚本
+│   ├── e1Parser.py         # 检测器数据解析工具
+│   ├── FlowGenerate.py     # 混合交通流生成器
+│   └── run.py              # 单次仿真运行器
+├── DataVisualization.py    # 数据可视化与绘图脚本
+└── README.md               # 项目说明文档
 ```
 
 ## 快速上手 (Ubuntu 20.04)
@@ -78,3 +80,6 @@ python3 DataVisualization.py
 
 生成的图表将保存在 `graph/` 目录下。
 
+## 声明
+
+该仿真实验由个人独立完成，仅用于研究、学习。

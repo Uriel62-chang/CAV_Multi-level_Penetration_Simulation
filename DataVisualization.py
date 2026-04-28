@@ -34,7 +34,7 @@ def main():
     # 分组聚类（以“渗透率”、“车辆数”、“密度”为依据——对多个随机种子的车流取平均流量）
     df_agg = df.groupby(["pCAV", "vehN", "density"])["mean_flow(veh/h)"].mean().reset_index()
 
-    # 排序、去重后手机所有情况的渗透率
+    # 排序、去重后收集所有情况的渗透率
     p_cav = sorted(df_agg["pCAV"].unique())
 
     # 存储通行能力的列表

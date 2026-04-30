@@ -55,18 +55,18 @@ netconvert -n net/nodes.nod.xml -e net/edges.edg.xml -o net/loop.net.xml
 ### 4. 运行仿真
 
 #### 单次验证
-生成车流并使用 GUI 查看（建议拉大 Delay 以观察车流）：
+生成车流并使用 GUI 查看（建议拉大 Delay 以观察车流），运行前先清理旧数据：
 
 ```bash
+rm -r graph/* out/* routes/*
 python3 scripts/FlowGenerate.py --vehN 40 --pCAV 0.5 --loops 300 --seed 1 --out routes/loop.rou.xml
 sumo-gui -c cfg/loop.sumocfg
 ```
 
 #### 批量仿真
-执行批量仿真（5% 间隔渗透率，扫描不同车辆密度），运行前先清理旧数据：
+执行批量仿真（5% 间隔渗透率，扫描不同车辆密度）：
 
 ```bash
-rm -r graph/* out/* routes/*
 python3 scripts/batch.py --pstep 0.05 --seeds 1 --outcsv out/results_raw_p05.csv
 ```
 

@@ -13,11 +13,11 @@
 ├── out/                    # 仿真输出数据（原始XML及汇总CSV）
 ├── routes/                 # 生成的车辆路径文件 (.rou.xml)
 ├── scripts/                # 核心Python脚本
-│   ├── batch.py            # 批处理控制脚本
-│   ├── e1Parser.py         # 检测器数据解析工具
-│   ├── FlowGenerate.py     # 混合交通流生成器
-│   └── run.py              # 单次仿真运行器
-├── DataVisualization.py    # 数据可视化与绘图脚本
+│   ├── batch_run.py        # 批处理控制脚本
+│   ├── detector_parser.py  # 检测器数据解析工具
+│   ├── flow_generator.py   # 混合交通流生成器
+│   └── single_run.py       # 单次仿真运行器
+├── visualization.py        # 数据可视化与绘图脚本
 └── README.md               # 项目说明文档
 ```
 
@@ -59,7 +59,7 @@ netconvert -n net/nodes.nod.xml -e net/edges.edg.xml -o net/loop.net.xml
 
 ```bash
 rm -r graph/* out/* routes/*
-python3 scripts/FlowGenerate.py --vehN 40 --pCAV 0.5 --loops 300 --seed 1 --out routes/loop.rou.xml
+python3 scripts/flow_generator.py --vehN 40 --pCAV 0.5 --loops 300 --seed 1 --out routes/loop.rou.xml
 sumo-gui -c cfg/loop.sumocfg
 ```
 
@@ -67,7 +67,7 @@ sumo-gui -c cfg/loop.sumocfg
 执行批量仿真（5% 间隔渗透率，扫描不同车辆密度）：
 
 ```bash
-python3 scripts/batch.py --pstep 0.05 --seeds 1 --outcsv out/results_raw_p05.csv
+python3 scripts/batch_run.py --pstep 0.05 --seeds 1 --outcsv out/results_raw_p05.csv
 ```
 
 ### 5. 数据分析与可视化
@@ -75,7 +75,7 @@ python3 scripts/batch.py --pstep 0.05 --seeds 1 --outcsv out/results_raw_p05.csv
 处理仿真结果并生成图表：
 
 ```bash
-python3 DataVisualization.py
+python3 visualization.py
 ```
 
 生成的图表将保存在 `graph/` 目录下。

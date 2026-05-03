@@ -25,7 +25,8 @@
 │   └── DEVELOPMENT.md      # 开发路线图
 ├── AGENTS.md               # 项目约定（opencode 自动加载）
 ├── visualization.py        # 数据可视化
-└── README.md
+├── README.md
+└── LICENSE
 ```
 
 ## 环境依赖

@@ -4,6 +4,7 @@ import sys
 import subprocess
 import pandas as pd
 
+# 将当前文件的所在目录的上级目录（项目根目录）加入到系统搜索路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from scripts.flow_generator import generate_flow
@@ -64,6 +65,7 @@ def run_simulation(vehicle_count: int, cav_ratio: float, seed: int,
     row_data = [run_id, vehicle_count, cav_ratio, seed, mean_flow, max_flow, mean_speed, detector_output]
     result_df = pd.DataFrame(data=[row_data], columns=columns)
 
+    # 导出csv文件（若文件存在且不为空，则不增加表头）
     write_header = not (os.path.isfile(output_csv) and os.path.getsize(output_csv) > 0)
     result_df.to_csv(output_csv, mode="a", header=write_header, index=False, encoding="utf-8")
 

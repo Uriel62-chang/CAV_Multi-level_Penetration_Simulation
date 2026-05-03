@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 
+# 将当前文件的所在目录的上级目录（项目根目录）加入到系统搜索路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from scripts.single_run import run_simulation

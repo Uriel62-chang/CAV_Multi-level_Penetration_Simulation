@@ -14,11 +14,11 @@ def _build_route(start_edge_index: int, loops: int) -> str:
 
 
 def generate_flow(vehicle_count: int, cav_ratio: float, loops: int, seed: int, output_path: str):
+    # or "."：针对输出目录为当前目录的情况，即：out_path = "xxx.rou.xml"，以防os.makedirs()检测到空目录报错
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     random.seed(seed)
 
     # CAV数量
-
     cav_count = int(round(vehicle_count * cav_ratio))
     # CAV、HV组成的列表（元素数量为vehicle_count）
     vehicle_types = ["CAV"] * cav_count + ["HV"] * (vehicle_count - cav_count)

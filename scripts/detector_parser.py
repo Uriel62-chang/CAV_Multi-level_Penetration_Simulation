@@ -1,7 +1,6 @@
 import argparse
 import xml.etree.ElementTree as ET
 
-
 def parse_detector(xml_path: str, warmup_period: float = 600.0):
     # 解析xml文件并拿到根节点
     root = ET.parse(xml_path).getroot()

@@ -1,4 +1,8 @@
-presentation(don't push)/
-.claude/
-TEST.sh
 __pycache__/
+net/loop.net.xml
+routes/*.rou.xml
+out/
+graph/
+add/det_tmp.add.xml
+TEST.sh
+AGENTS.md

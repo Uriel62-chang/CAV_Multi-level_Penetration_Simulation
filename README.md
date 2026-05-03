@@ -4,7 +4,7 @@
 
 *SUMO-based mixed traffic flow simulation and capacity analysis under multi-level CAV penetration rates.*
 
-> 当前版本 **v0.1.0** · [开发路线图](vibecoding/DEVELOPMENT.md)
+> 当前版本 **v0.2.0** · [开发路线图](vibecoding/DEVELOPMENT.md)
 
 ## 目录结构
 
@@ -25,7 +25,8 @@
 │   └── DEVELOPMENT.md      # 开发路线图
 ├── AGENTS.md               # 项目约定（opencode 自动加载）
 ├── visualization.py        # 数据可视化
-└── README.md
+├── README.md
+└── LICENSE
 ```
 
 ## 环境依赖
@@ -51,20 +52,22 @@ netconvert -n net/nodes.nod.xml -e net/edges.edg.xml -o net/loop.net.xml
 生成车流并用 GUI 预览（建议拉大 Delay 以观察车流）：
 
 ```bash
-python scripts/flow_generator.py --vehN 40 --pCAV 0.5 --loops 300 --seed 1 --out routes/loop.rou.xml
+# 默认使用 IDM 跟驰模型；可选 --model ACC / CACC
+python3 scripts/flow_generator.py --vehN 40 --pCAV 0.5 --loops 300 --seed 1 --model IDM --out routes/loop.rou.xml
 sumo-gui -c cfg/loop.sumocfg
 ```
 
 ### 3. 批量仿真
 
 ```bash
-python scripts/batch_run.py --pstep 0.05 --seeds 1 --outcsv out/results_raw.csv
+# 默认 --model IDM；可选 ACC / CACC（每次仿真仅指定一种模型）
+python3 scripts/batch_run.py --pstep 0.05 --seeds 1 --model IDM --outcsv out/results_raw.csv
 ```
 
 ### 4. 可视化
 
 ```bash
-python visualization.py --csv out/results_raw.csv
+python3 visualization.py --csv out/results_raw.csv
 ```
 
 生成的图表保存在 `graph/` 下。

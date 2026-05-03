@@ -31,7 +31,8 @@ def _generate_detector_config(detector_xml_abs: str, frequency: int = 60) -> str
 def run_simulation(vehicle_count: int, cav_ratio: float, seed: int,
                    loops: int = 300, sim_end_time: int = 3600,
                    warmup_period: int = 600, detector_frequency: int = 60,
-                   sumo_command: str = "sumo", output_csv: str = "out/results_raw.csv"):
+                   sumo_command: str = "sumo", output_csv: str = "out/results_raw.csv",
+                   model: str = "IDM"):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     os.makedirs(ROUTES_DIR, exist_ok=True)
 
@@ -41,7 +42,7 @@ def run_simulation(vehicle_count: int, cav_ratio: float, seed: int,
     detector_output_abs = os.path.abspath(detector_output)  # 检测器的绝对路径
 
     # 调用flow_generator生成本次仿真的混合车流
-    generate_flow(vehicle_count, cav_ratio, loops, seed, route_file)
+    generate_flow(vehicle_count, cav_ratio, loops, seed, route_file, model)
 
     # 生成本次仿真的检测器（可自设频率）
     detector_config = _generate_detector_config(detector_output_abs, detector_frequency)
@@ -54,6 +55,7 @@ def run_simulation(vehicle_count: int, cav_ratio: float, seed: int,
         "-a", detector_config,  # 本次仿真生成的检测器
         "-b", "0",  # 本次仿真的起始时间
         "-e", str(sim_end_time),  # 本次仿真的终止时间
+        "--step-length", "0.1",  # 仿真步长（与 CAV actionStepLength 对齐）
         "--no-step-log", "true"
     ])
 
@@ -61,8 +63,8 @@ def run_simulation(vehicle_count: int, cav_ratio: float, seed: int,
     mean_flow, max_flow, mean_speed = parse_detector(detector_output, warmup_period)
 
     # 保存仿真生数据
-    columns = ["run_id", "vehN", "pCAV", "seed", "mean_flow(veh/h)", "max_flow(veh/h)", "mean_speed(m/s)", "det_xml"]
-    row_data = [run_id, vehicle_count, cav_ratio, seed, mean_flow, max_flow, mean_speed, detector_output]
+    columns = ["run_id", "vehN", "pCAV", "seed", "model", "mean_flow(veh/h)", "max_flow(veh/h)", "mean_speed(m/s)", "det_xml"]
+    row_data = [run_id, vehicle_count, cav_ratio, seed, model, mean_flow, max_flow, mean_speed, detector_output]
     result_df = pd.DataFrame(data=[row_data], columns=columns)
 
     # 导出csv文件（若文件存在且不为空，则不增加表头）
@@ -85,6 +87,8 @@ def main():
     parser.add_argument("--freq", type=int, default=60)  # 检测器统计频率
     parser.add_argument("--sumo", default="sumo")  # sumo命令，也可以是sumo-gui
     parser.add_argument("--outcsv", default="out/results_raw.csv")  # 生数据输出路径（csv文件）
+    parser.add_argument("--model", type=str, default="IDM", choices=["IDM", "ACC", "CACC"],
+                        help="CAV跟驰模型: IDM / ACC / CACC")
     args = parser.parse_args()
 
     run_simulation(
@@ -97,6 +101,7 @@ def main():
         detector_frequency=args.freq,
         sumo_command=args.sumo,
         output_csv=args.outcsv,
+        model=args.model,
     )
 
 

@@ -29,6 +29,8 @@ def main():
     parser.add_argument("--warmup", type=int, default=600)  # 预热期
     parser.add_argument("--freq", type=int, default=60)  # 检测器统计
     parser.add_argument("--outcsv", default="out/results_raw_p05.csv")  # 生数据输出路径
+    parser.add_argument("--model", type=str, default="IDM", choices=["IDM", "ACC", "CACC"],
+                        help="CAV跟驰模型: IDM / ACC / CACC")
     args = parser.parse_args()
 
     # 若没有提供渗透率列表，则依据步长生成
@@ -52,6 +54,7 @@ def main():
                     warmup_period=args.warmup,
                     detector_frequency=args.freq,
                     output_csv=args.outcsv,
+                    model=args.model,
                 )
 
 

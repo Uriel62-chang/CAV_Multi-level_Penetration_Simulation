@@ -8,6 +8,9 @@
     <begin value="0"/>
     <end value="3600"/>
   </time>
+  <processing>
+    <step-length value="0.1"/>
+  </processing>
   <report>
     <no-step-log value="true"/>
   </report>

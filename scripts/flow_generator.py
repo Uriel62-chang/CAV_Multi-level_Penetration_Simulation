@@ -6,6 +6,16 @@ EDGES = ["e0", "e1", "e2", "e3"]
 EDGE_LENGTH = 500.0
 RING_LENGTH = EDGE_LENGTH * 4
 
+# CAV 跟驰模型可选值
+CAV_MODELS = {"IDM", "ACC", "CACC"}
+
+# CAV 各跟驰模型的 tau（期望车头时距）
+CAV_TAU_MAP = {
+    "IDM": "0.6",
+    "ACC": "1.1",
+    "CACC": "0.6",
+}
+
 
 def _build_route(start_edge_index: int, loops: int) -> str:
     # 拼接完整环路
@@ -13,7 +23,19 @@ def _build_route(start_edge_index: int, loops: int) -> str:
     return " ".join(one_lap * loops)
 
 
-def generate_flow(vehicle_count: int, cav_ratio: float, loops: int, seed: int, output_path: str):
+def _build_cav_vtype(model: str) -> str:
+    """根据跟驰模型生成 CAV vType XML 行"""
+    if model not in CAV_TAU_MAP:
+        raise ValueError(f"不支持的 CAV 跟驰模型: {model}，可选: {sorted(CAV_MODELS)}")
+    tau = CAV_TAU_MAP[model]
+    return (
+        f'  <vType id="CAV" accel="3.0" decel="4.5" length="5" minGap="0.5" maxSpeed="33.33" '
+        f'speedDev="0.0" carFollowModel="{model}" tau="{tau}" actionStepLength="0.1"/>'
+    )
+
+
+def generate_flow(vehicle_count: int, cav_ratio: float, loops: int, seed: int,
+                  output_path: str, model: str = "IDM"):
     # or "."：针对输出目录为当前目录的情况，即：out_path = "xxx.rou.xml"，以防os.makedirs()检测到空目录报错
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     random.seed(seed)
@@ -30,22 +52,13 @@ def generate_flow(vehicle_count: int, cav_ratio: float, loops: int, seed: int, o
     lines.append('<?xml version="1.0" encoding="UTF-8"?>')
     lines.append('<routes>')
 
-    '''
-    参数说明：
-    tau：反应时间
-    sigma：驾驶不稳定性
-    minGap：最小车头间距
-    '''
-    # HV：Krauss（更大时距tau、更大随机性sigma）
+    # HV：Krauss（人类驾驶参数）
     lines.append(
         '  <vType id="HV" accel="2.0" decel="4.5" length="5" minGap="2.5" maxSpeed="33.33" '
-        'carFollowModel="Krauss" tau="1.2" sigma="0.5"/>'
+        'speedDev="0.1" carFollowModel="Krauss" tau="1.5" sigma="0.5" actionStepLength="1.0"/>'
     )
-    # CAV：Krauss（更小tau、更小sigma、更小minGap）作为"更稳、更短时距"的等效ACC/CAV
-    lines.append(
-        '  <vType id="CAV" accel="2.5" decel="4.5" length="5" minGap="1.0" maxSpeed="33.33" '
-        'carFollowModel="Krauss" tau="0.6" sigma="0.1"/>'
-    )
+    # CAV：按 model 参数动态选用跟驰模型（IDM / ACC / CACC）
+    lines.append(_build_cav_vtype(model))
 
     # 定义每辆车的空间属性及其自身路线
     spacing = RING_LENGTH / vehicle_count
@@ -78,9 +91,11 @@ def main():
     parser.add_argument("--loops", type=int, default=300)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--out", type=str, default="routes/loop.rou.xml")
+    parser.add_argument("--model", type=str, default="IDM", choices=sorted(CAV_MODELS),
+                        help="CAV跟驰模型: IDM / ACC / CACC")
     args = parser.parse_args()
 
-    generate_flow(args.vehN, args.pCAV, args.loops, args.seed, args.out)
+    generate_flow(args.vehN, args.pCAV, args.loops, args.seed, args.out, args.model)
 
 
 if __name__ == "__main__":

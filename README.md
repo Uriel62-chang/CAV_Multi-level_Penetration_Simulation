@@ -38,7 +38,6 @@
 │   └── DEVELOPMENT.md      # 开发路线图
 ├── AGENTS.md               # 项目约定
 ├── visualization.py        # 数据可视化
-├── cmd_tmp.txt             # 常用命令备忘
 ├── README.md
 └── LICENSE
 ```

@@ -1,0 +1,11 @@
+{
+  "scenario": "scenario_0",
+  "num_sides": 4,
+  "num_lanes": 1,
+  "radius_m": null,
+  "edge_length_m": 500.0,
+  "total_length_m": 2000.0,
+  "total_length_km": 2.0,
+  "edge_ids": ["e0", "e1", "e2", "e3"],
+  "speed_mps": 33.33
+}

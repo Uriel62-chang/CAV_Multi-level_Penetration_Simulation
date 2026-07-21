@@ -1,7 +1,7 @@
 __pycache__/
-net/loop.net.xml
+net/scenario_*/loop.net.xml
 routes/*.rou.xml
 out/
 graph/
 add/det_tmp.add.xml
-vibecoding/PHASE2.md
+cmd_tmp.txt

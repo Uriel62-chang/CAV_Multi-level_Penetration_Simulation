@@ -6,22 +6,27 @@
 
 - `batch_run.py` — 批量仿真控制器，直接调用 `single_run.run_simulation()`
 - `single_run.py` — 单次仿真编排，直接调用 `flow_generator.generate_flow()` 和 `detector_parser.parse_detector()`
-- `flow_generator.py` — 混合车流生成
+- `flow_generator.py` — 混合车流生成，场景专属车辆偏移函数（`_place_vehicles_s0/s1`）
 - `detector_parser.py` — SUMO 检测器 XML 解析
+- `network_generator.py` — 多边形闭环路网生成器
 - `visualization.py` — 数据可视化（位于项目根目录）
 
-## 代码风格
+### 场景化设计
 
-- 模块名：`snake_case`（PEP 8）
-- 变量/函数名：`snake_case`，含描述性全称，禁止单字母缩写
-- 注释：中文
+路网按场景分目录（`net/scenario_X/`），各目录含 `net.json` 元数据。`single_run.py` 通过 `--net` 参数读取元数据，自动适配 edges、检测器、偏移逻辑。新增场景仅需实现专属 `_place_vehicles_sN()` 函数。
 
 ## CLI 接口
 
-命令行参数保持不变，常用命令：
 ```bash
-python3 scripts/batch_run.py --pstep 0.20 --seeds 1 --outcsv out/results_raw_p20.csv
-python3 visualization.py --csv out/results_raw_p20.csv
+# 批量仿真（--net 指定路网；--model 可选 IDM / ACC / CACC）
+python3 scripts/batch_run.py --pstep 0.20 --seeds 1 --model IDM --net net/scenario_0/loop.net.xml --outcsv out/results.csv
+
+# 单次仿真
+python3 scripts/single_run.py --vehN 30 --pCAV 0.5 --model IDM --net net/scenario_1/loop.net.xml
+
+# 可视化（scenario_1 需通过 --net 自动读取环路总长）
+python3 visualization.py --csv out/results.csv
+python3 visualization.py --csv out/results.csv --net net/scenario_1/loop.net.xml
 ```
 
 ## 环境

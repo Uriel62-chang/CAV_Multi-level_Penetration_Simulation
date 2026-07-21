@@ -1,0 +1,34 @@
+<nodes>
+    <node id="n0" x="318.82" y="0.00" type="priority"/>
+    <node id="n1" x="312.69" y="62.20" type="priority"/>
+    <node id="n2" x="294.55" y="122.01" type="priority"/>
+    <node id="n3" x="265.09" y="177.13" type="priority"/>
+    <node id="n4" x="225.44" y="225.44" type="priority"/>
+    <node id="n5" x="177.13" y="265.09" type="priority"/>
+    <node id="n6" x="122.01" y="294.55" type="priority"/>
+    <node id="n7" x="62.20" y="312.69" type="priority"/>
+    <node id="n8" x="0.00" y="318.82" type="priority"/>
+    <node id="n9" x="-62.20" y="312.69" type="priority"/>
+    <node id="n10" x="-122.01" y="294.55" type="priority"/>
+    <node id="n11" x="-177.13" y="265.09" type="priority"/>
+    <node id="n12" x="-225.44" y="225.44" type="priority"/>
+    <node id="n13" x="-265.09" y="177.13" type="priority"/>
+    <node id="n14" x="-294.55" y="122.01" type="priority"/>
+    <node id="n15" x="-312.69" y="62.20" type="priority"/>
+    <node id="n16" x="-318.82" y="0.00" type="priority"/>
+    <node id="n17" x="-312.69" y="-62.20" type="priority"/>
+    <node id="n18" x="-294.55" y="-122.01" type="priority"/>
+    <node id="n19" x="-265.09" y="-177.13" type="priority"/>
+    <node id="n20" x="-225.44" y="-225.44" type="priority"/>
+    <node id="n21" x="-177.13" y="-265.09" type="priority"/>
+    <node id="n22" x="-122.01" y="-294.55" type="priority"/>
+    <node id="n23" x="-62.20" y="-312.69" type="priority"/>
+    <node id="n24" x="-0.00" y="-318.82" type="priority"/>
+    <node id="n25" x="62.20" y="-312.69" type="priority"/>
+    <node id="n26" x="122.01" y="-294.55" type="priority"/>
+    <node id="n27" x="177.13" y="-265.09" type="priority"/>
+    <node id="n28" x="225.44" y="-225.44" type="priority"/>
+    <node id="n29" x="265.09" y="-177.13" type="priority"/>
+    <node id="n30" x="294.55" y="-122.01" type="priority"/>
+    <node id="n31" x="312.69" y="-62.20" type="priority"/>
+</nodes>

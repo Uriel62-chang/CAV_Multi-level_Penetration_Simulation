@@ -1,13 +1,17 @@
 import argparse
+import json
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
-RING_LENGTH_KM = 2.0  # 环路长度 (km)，用于计算密度
-CAPACITY_SUMMARY_PATH = "graph/Capacity_summary.png"
+RING_LENGTH_KM = 2.0  # 环路长度 (km)，用于计算密度（可通过 --ring-length 覆盖）
 
 
-def load_and_aggregate(csv_path: str):
+def load_and_aggregate(csv_path: str, ring_length_km: float = RING_LENGTH_KM):
+    """读取批量仿真 CSV，计算密度并按渗透率/车辆数聚合平均流量
+
+    返回 (aggregated_df, cav_ratios_list)；文件不存在时返回 (None, None)。
+    """
     # 1. 检查文件是否存在
     if not os.path.exists(csv_path):
         print(f"错误: 找不到文件 {csv_path}")
@@ -26,7 +30,7 @@ def load_and_aggregate(csv_path: str):
     print(f"正在读取数据: {csv_path} ...")
     data = pd.read_csv(csv_path)
     # 计算密度 k = N / L (veh/km)
-    data["density"] = data["vehN"] / RING_LENGTH_KM
+    data["density"] = data["vehN"] / ring_length_km
 
     # 分组聚类（以"渗透率"、"车辆数"、"密度"为依据——对多个随机种子的车流取平均流量）
     aggregated = data.groupby(["pCAV", "vehN", "density"])["mean_flow(veh/h)"].mean().reset_index()
@@ -36,6 +40,10 @@ def load_and_aggregate(csv_path: str):
 
 
 def compute_capacities(aggregated: pd.DataFrame, cav_ratios: list):
+    """从聚合数据中提取每个渗透率对应的通行能力（峰值流量）和临界密度
+
+    返回 [{"cav_ratio", "peak_flow", "peak_density"}, ...]。
+    """
     # 存储通行能力的列表
     capacities = []
     # 遍历所有渗透率
@@ -56,6 +64,10 @@ def compute_capacities(aggregated: pd.DataFrame, cav_ratios: list):
 
 def plot_density_flow(ratio: float, density: pd.Series, flow: pd.Series,
                       peak_density: float, peak_flow: float, output_dir: str):
+    """绘制单个渗透率下的密度-流量基本图，标注通行能力峰值
+
+    输出至 {output_dir}/fd_p{渗透率%}.png。
+    """
     # 框定画布大小
     plt.figure(figsize=(10, 5))
 
@@ -67,8 +79,8 @@ def plot_density_flow(ratio: float, density: pd.Series, flow: pd.Series,
     plt.title(f"Density-Flow Curve (CAV penetration rate: {int(ratio * 100)}%)", fontsize=20)
     plt.xlabel("Density (veh/km)", fontsize=15)
     plt.ylabel("Flow (veh/h)", fontsize=15)
-    plt.xlim(0, 70)
-    plt.ylim(0, 3000)
+    plt.xlim(0, density.max() * 1.1)
+    plt.ylim(0, peak_flow * 1.1)
 
     # 显示折点的y值
     for x, y in zip(density, flow):
@@ -83,7 +95,11 @@ def plot_density_flow(ratio: float, density: pd.Series, flow: pd.Series,
     plt.close()
 
 
-def plot_capacity_summary(capacities: list):
+def plot_capacity_summary(capacities: list, output_dir: str):
+    """绘制 CAV 渗透率-通行能力汇总曲线，标注全局最大容量点
+
+    输出至 {output_dir}/Capacity_summary.png。
+    """
     # 绘制CAV渗透率-通行能力曲线
     # 框定画布大小
     plt.figure(figsize=(10, 5))
@@ -107,7 +123,7 @@ def plot_capacity_summary(capacities: list):
     plt.title("CAV Penetration Rate - Capacity Curve", fontsize=20)
     plt.xlabel("CAV Penetration Rate (%)", fontsize=15)
     plt.ylabel("Capacity (veh/h)", fontsize=15)
-    plt.ylim(500, 3500)
+    plt.ylim(0, max_capacity * 1.1)
 
     # 仅在图中显示最大通行能力的y值
     for x, y in zip(cav_percentages, capacity_values):
@@ -117,9 +133,10 @@ def plot_capacity_summary(capacities: list):
     plt.legend(loc="upper left")
     plt.grid(axis="y")
 
-    os.makedirs("graph", exist_ok=True)
-    plt.savefig(CAPACITY_SUMMARY_PATH)
-    print(f"[OK] [CAV渗透率-通行能力]曲线已成功保存至{CAPACITY_SUMMARY_PATH}")
+    os.makedirs(output_dir, exist_ok=True)
+    save_path = os.path.join(output_dir, "Capacity_summary.png")
+    plt.savefig(save_path)
+    print(f"[OK] [CAV渗透率-通行能力]曲线已成功保存至{save_path}")
     plt.close()
 
 
@@ -128,9 +145,28 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--csv", type=str, default="out/results_raw_p05.csv")
     parser.add_argument("--outDir", type=str, default="graph/fd_plots")
+    parser.add_argument("--ring-length", type=float, default=None,
+                        help="环路总长 (km)，用于计算密度。可指定值或传入 --net 自动读取 net.json")
+    parser.add_argument("--net", type=str, default=None,
+                        help="路网文件路径，自动读取 net.json 中的环路总长")
     args = parser.parse_args()
 
-    aggregated, cav_ratios = load_and_aggregate(args.csv)
+    # 确定环路总长：优先 --ring-length > --net 自动读取 > 默认值
+    ring_length_km = RING_LENGTH_KM
+    if args.ring_length is not None:
+        ring_length_km = args.ring_length
+    elif args.net is not None:
+        net_dir = os.path.dirname(args.net)
+        meta_path = os.path.join(net_dir, "net.json")
+        if os.path.isfile(meta_path):
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            ring_length_km = meta.get("total_length_km", RING_LENGTH_KM)
+            print(f"从 {meta_path} 读取环路总长: {ring_length_km} km")
+        else:
+            print(f"警告: 未找到 {meta_path}，使用默认环路总长 {RING_LENGTH_KM} km")
+
+    aggregated, cav_ratios = load_and_aggregate(args.csv, ring_length_km)
     if aggregated is None:
         return
 
@@ -149,7 +185,7 @@ def main():
             args.outDir,
         )
 
-    plot_capacity_summary(capacities)
+    plot_capacity_summary(capacities, args.outDir)
 
 
 if __name__ == "__main__":

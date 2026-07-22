@@ -144,8 +144,9 @@ def run_simulation(vehicle_count: int, cav_ratio: float, seed: int,
     # 保存仿真生数据
     columns = ["run_id", "vehN", "pCAV", "seed", "model", "detector_freq",
                "mean_flow(veh/h)", "max_flow(veh/h)", "mean_speed(m/s)", "det_xml"]
+    det_xml_all = ";".join(detector_outputs)
     row_data = [run_id, vehicle_count, cav_ratio, seed, model, detector_frequency,
-                mean_flow, max_flow, mean_speed, detector_outputs[0]]
+                mean_flow, max_flow, mean_speed, det_xml_all]
     result_df = pd.DataFrame(data=[row_data], columns=columns)
 
     # 导出csv文件（若文件存在且不为空，则不增加表头）

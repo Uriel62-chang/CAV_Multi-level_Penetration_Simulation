@@ -4,7 +4,12 @@
 
 *SUMO-based mixed traffic flow simulation and capacity analysis under multi-level CAV penetration rates.*
 
-> 当前版本 **v0.3.0** · [开发路线图](vibecoding/DEVELOPMENT.md)
+> 当前版本 **v0.3.1** · [开发路线图](vibecoding/DEVELOPMENT.md)
+
+### v0.3.1 修复
+
+- **scenario_0 junction margin**：`_place_vehicles_s0()` 补全边界回绕逻辑（与 s1/s2/s3 对齐），避免特定车辆数下 departPos 落在边端点。
+- **多车道 det_xml**：`det_xml` 列改为分号拼接所有车道检测器路径，不再只记录第一条车道。
 
 ### v0.3.0 主要变更
 

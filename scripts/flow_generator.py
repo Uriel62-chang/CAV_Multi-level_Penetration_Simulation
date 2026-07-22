@@ -46,7 +46,8 @@ def _place_vehicles_s0(vehicle_count: int, edge_length: float,
                         edge_count: int) -> list:
     """scenario_0 车辆偏移（方形闭环，v0.2.0 原始逻辑）
 
-    车辆沿环路等距均匀分布，用取模计算所在边和位置。
+    车辆沿环路等距均匀分布，用截断除法避免浮点取模误差。
+    靠近边末端的车辆回绕至下一边起点。
     返回 [(edge_index, position), ...]。
     """
     ring_length = edge_length * edge_count
@@ -54,8 +55,12 @@ def _place_vehicles_s0(vehicle_count: int, edge_length: float,
     result = []
     for i in range(vehicle_count):
         offset = i * spacing
-        edge_index = int(offset // edge_length) % edge_count
-        position = offset % edge_length
+        edge_index = int(offset // edge_length)
+        position = offset - edge_index * edge_length
+        if position > edge_length - JUNCTION_MARGIN_M:
+            edge_index += 1
+            position = 0.0
+        edge_index %= edge_count
         result.append((edge_index, position))
     return result
 

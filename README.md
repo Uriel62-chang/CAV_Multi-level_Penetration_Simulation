@@ -446,6 +446,8 @@ The following files are not included because of storage size:
 
 After SSM compaction, the retained raw experiment directory is approximately 58 GB. The complete dataset can be regenerated through the pipeline above.
 
+> Update this section if `run_level_results.csv` is also included or released through an external archive.
+
 ---
 
 ## Repository Structure

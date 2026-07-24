@@ -1,111 +1,551 @@
 # CAV Multi-level Penetration Simulation
 
-基于 SUMO 的 CAV 多级渗透率混合交通流仿真与通行能力分析。
+> A reproducible SUMO experiment platform for evaluating how CAV penetration and car-following control affect **capacity, safety, emissions, and delay** under different road constraints.
 
-*SUMO-based mixed traffic flow simulation and capacity analysis under multi-level CAV penetration rates.*
+`SUMO 1.27.1` · `Python 3.10+` · `10,080 simulations` · `5 random seeds` · `v0.4.0`
 
-> 当前版本 **v0.3.1** · [开发路线图](vibecoding/DEVELOPMENT.md)
+[Key Findings](#key-findings) ·
+[Scenario Design](#scenario-design) ·
+[Core Results](#core-results) ·
+[Quick Start](#quick-start) ·
+[Experiment Report](REPORT.md)
 
-### v0.3.1 修复
+---
 
-- **scenario_0 junction margin**：`_place_vehicles_s0()` 补全边界回绕逻辑（与 s1/s2/s3 对齐），避免特定车辆数下 departPos 落在边端点。
-- **多车道 det_xml**：`det_xml` 列改为分号拼接所有车道检测器路径，不再只记录第一条车道。
+## Research Question
 
-### v0.3.0 主要变更
+> **Do the capacity gains of CAV car-following control come with safety, emission, or travel-time costs?**
 
-- **检测器频率 60s → 120s**：修复与环路单圈耗时（≈60s）的采样共振。v0.2.0 使用的 60s 频率与车辆周期通过检测器的时间形成 1:1 共振，导致流量数据大幅非物理波动。120s 下每窗口覆约 2 圈流量，消除共振。所有场景结果不可与旧版 60s 数据直接混用。
-- **场景化路网**：新增 scenario_1（32边形单车道平滑闭环）、scenario_2（32边形双车道 + LC2013 换道）、scenario_3（32边形双车道 + 125m 单车道瓶颈），原方形闭环迁移为 scenario_0（baseline）。
-- **多边形路网生成器**：`scripts/network_generator.py`，支持任意边数/车道数/半径。
-- **多车道检测器聚合**：`parse_detector_multi()` 按时间窗口跨车道加权聚合。
-- **场景注册表**：`flow_generator.py` 中 `_PLACEMENT_REGISTRY`，新增场景仅需追加 1 个偏移函数。
+The project compares **IDM** and **CACC** across four progressively constrained road structures. Rather than asking which model is universally better, it asks:
 
-## 目录结构
+> **Which control strategy performs better under which road structure and traffic density?**
+
+---
+
+## Scenario Design
+
+The four scenarios support three controlled comparisons:
+
+- `s0 → s1`: geometry smoothing;
+- `s1 → s2`: added lateral freedom;
+- `s2 → s3`: introduction of a 125 m `2→1→2` merge bottleneck.
+
+![Four controlled road scenarios](graph/v0.4.0/scenario_overview.png)
+
+*From left to right, the scenarios isolate geometry smoothing, added lateral freedom, and the effect of a merge bottleneck.*
+
+---
+
+## Key Findings
+
+### 1. CACC releases capacity in an unconstrained dual-lane network
+
+In scenario **s2** at `pCAV = 1.0`, CACC reaches a peak flow of **7,128 veh/h**, compared with **6,276 veh/h** for IDM—a **13.6% increase**.
+
+Mean lap delay at this operating point is close to zero for both models.
+
+> This benefit is scenario-dependent and does not persist under the merge constraint in s3.
+
+### 2. The advantage reverses at a high-density merge bottleneck
+
+In scenario **s3** at `vehN = 120` and `pCAV = 1.0`:
+
+| Model | Flow | Mean lap delay | CO₂ intensity |
+|---|---:|---:|---:|
+| IDM | **3,204 veh/h** | **74.2 s** | 228 g/veh-km |
+| CACC | 1,536 veh/h | 215.8 s | 345 g/veh-km |
+
+At this fixed high-density operating point, IDM carries approximately **2.1 times** the flow of CACC while producing much lower delay and CO₂ intensity.
+
+> These values describe one fixed operating point, not the absolute peak capacities of s3. The s3 peak capacities are 3,902 veh/h for IDM and 3,564 veh/h for CACC.
+
+### 3. TTC conflicts concentrate around geometric and topological constraints
+
+Under the current `TTC < 3.0 s` SSM configuration:
+
+- s0 contains frequent conflicts associated with periodic sharp-turn braking;
+- s1 contains relatively few conflicts;
+- s2 contains no detected TTC conflicts within the tested parameter grid;
+- s3 contains dense conflict activity around forced merging.
+
+The observed distribution is consistent with road geometry and loss of lateral freedom being major contributors to conflict formation.
+
+> This interpretation is limited to the current SSM threshold, model parameters, and experiment grid. Trajectory-level validation and threshold sensitivity analysis are planned for v0.4.1.
+
+---
+
+## Core Trade-off
+
+![Safety versus flow trade-off](graph/v0.4.0/chart_safety_flow.png)
+
+*CACC achieves high throughput in smooth, unconstrained networks, but the same advantage does not transfer directly to a dense merge bottleneck.*
+
+---
+
+## Why This Matters
+
+Earlier versions of the project primarily evaluated CAV performance through **traffic capacity**. Capacity alone, however, cannot determine whether a traffic state is also safe, energy-efficient, or time-efficient.
+
+v0.4.0 therefore extends the evaluation framework to four dimensions:
+
+| Dimension | Primary metric | Supporting metrics |
+|---|---|---|
+| Capacity | Traffic flow and peak capacity | Mean speed and temporal speed variance |
+| Safety | TTC conflicts per 1,000 veh-km | Minimum TTC, DRAC, emergency braking and lane-change gaps |
+| Emissions | CO₂ g/veh-km | NOx, PMx and fuel consumption |
+| Efficiency | Mean lap delay | P95 delay, lap-time variation and time loss |
+
+All safety and emission intensity metrics use `total_vehicle_km` as the common normalization denominator.
+
+The results indicate that **no single car-following model is globally optimal across road structures**. CACC performs strongly in smooth and unconstrained environments, while its high-throughput regime can deteriorate under forced merging.
+
+---
+
+## Core Results
+
+All plots are generated from five-seed aggregated data. Means and variability are retained in `aggregated_results.csv`.
+
+### Capacity
+
+CACC outperforms IDM in s1 and s2 under high CAV penetration. The global peak of **7,128 veh/h** occurs in s2 with CACC at `pCAV = 1.0`.
+
+The s3 bottleneck reduces peak capacity by approximately 45–50% relative to s2, and IDM performs better than CACC at the highest tested density.
+
+![Capacity response across four scenarios](graph/v0.4.0/chart_capacity.png)
+
+### Safety–Flow Trade-off
+
+The main safety metric is:
 
 ```text
-.
-├── add/                    # SUMO 附加文件（检测器配置）
-├── cfg/                    # SUMO 仿真配置文件
-├── graph/                  # 仿真结果图表（运行后生成）
-├── net/                    # 路网源文件（按场景分目录）
-│   ├── scenario_0/         # 方形闭环（baseline）
-│   ├── scenario_1/         # 32边形单车道平滑闭环
-│   ├── scenario_2/         # 32边形双车道闭环
-│   └── scenario_3/         # 32边形双车道 + 125m单车道瓶颈
-├── out/                    # 仿真输出数据（运行后生成）
-├── routes/                 # 生成的车辆路径文件（运行后生成）
-├── scripts/                # 核心 Python 脚本
-│   ├── batch_run.py        # 批量仿真控制器
-│   ├── detector_parser.py  # 检测器 XML 解析
-│   ├── flow_generator.py   # 混合交通流生成
-│   ├── network_generator.py# 多边形路网生成器
-│   └── single_run.py       # 单次仿真编排
-├── vibecoding/             # 开发辅助文档
-│   └── DEVELOPMENT.md      # 开发路线图
-├── AGENTS.md               # 项目约定
-├── visualization.py        # 数据可视化
-├── README.md
-└── LICENSE
+TTC conflict events / 1,000 vehicle-km
 ```
 
-## 环境依赖
+This normalized rate is used instead of raw TTC totals because total travelled distance differs across traffic densities and congestion states.
 
-- [SUMO](https://sumo.dlr.de/) ≥ 1.25 (`sumo`, `netconvert`)
-- Python ≥ 3.10
-- pandas、matplotlib
+The principal trade-off is shown in the overview figure above:
+
+- s0 conflicts are associated with periodic braking at 90° corners;
+- s3 conflicts concentrate around the merge bottleneck;
+- s1 contains few conflicts;
+- s2 contains no detected conflicts under the current configuration.
+
+### CO₂–Flow Trade-off
+
+In unconstrained scenarios, differences between IDM and CACC are relatively small and are largely associated with traffic density.
+
+Under the high-density s3 bottleneck, CACC's flow reduction, delay increase, and CO₂ deterioration occur simultaneously.
+
+![CO2 intensity versus traffic flow](graph/v0.4.0/chart_co2_flow.png)
+
+### Lap Delay
+
+Scenarios s1 and s2 remain close to free-flow operation under most tested conditions. Delay in s0 accumulates through repeated braking at the four sharp corners.
+
+Scenario s3 produces the largest delays. At `pCAV = 1.0` and `vehN = 120`, mean CACC lap delay reaches **215.8 s**, compared with **74.2 s** for IDM.
+
+![Mean lap delay across CAV penetration levels](graph/v0.4.0/chart_delay.png)
+
+### Scenario-Dependent Summary
+
+| Scenario | CACC relative to IDM | Primary interpretation |
+|---|---|---|
+| s0 — sharp geometry | Small capacity gain; conflicts persist | Sharp corners repeatedly disturb longitudinal flow |
+| s1 — smooth single lane | Clear capacity advantage; few conflicts | Smooth geometry supports stable dense following |
+| s2 — smooth dual lane | **Largest capacity advantage**; no detected TTC | Dual lanes reduce longitudinal constraints and permit lane-changing |
+| s3 — merge bottleneck | **Advantage reverses** at high density | Forced merging disrupts the high-throughput regime observed in s2 |
+
+> **Main result:** under the current experimental configuration, CACC is highly effective in smooth, unconstrained networks, but its capacity advantage can diminish or reverse under a dense merge bottleneck.
+
+This is an experimental observation rather than a claim that either model is universally superior. Full causal verification requires vehicle-level trajectory analysis.
+
+---
+
+## Experiment Design
+
+```text
+4 scenarios
+× 2 car-following models
+× 21 CAV penetration levels
+× 12 vehicle-count levels
+× 5 random seeds
+= 10,080 SUMO simulations
+```
+
+| Parameter | Value |
+|---|---|
+| Scenarios | s0, s1, s2, s3 |
+| CAV models | IDM, CACC |
+| CAV penetration | 0.00–1.00 in increments of 0.05 |
+| Vehicle count | 10–120 in increments of 10 |
+| Random seeds | 1–5 |
+| Simulation duration | 3,600 s |
+| Warm-up period | 600 s |
+| Simulation step | 0.1 s |
+| Detector period | 120 s |
+| SSM TTC threshold | 3.0 s |
+| SSM DRAC threshold | 3.0 m/s² |
+| Emission class | HBEFA3/PC_G_EU4 for both HV and CAV |
+
+The 120-second detector period covers approximately two free-flow laps in the smooth scenarios and avoids the sampling resonance previously observed with a 60-second period.
+
+Full configuration details, vehicle parameters, result tables, discussion and references are available in the [Experiment Report](REPORT.md).
+
+---
+
+## Metric Methodology
+
+### Why use SUMO SSM for TTC?
+
+SUMO already knows the road topology, lane relationships and conflict participants. Using SSM avoids reconstructing leader–follower relationships from global Cartesian coordinates on curved and merging roads.
+
+### Why normalize by vehicle-kilometres?
+
+Different vehicle counts and congestion states produce different total travelled distances. Raw event or emission totals are therefore not directly comparable.
+
+```text
+TTC event rate
+= TTC conflict count / total vehicle-km × 1,000
+```
+
+```text
+CO₂ intensity
+= total CO₂ / total vehicle-km
+```
+
+### Why use `vehroute exitTimes` for lap time?
+
+In a closed-loop network, unfinished trip duration represents the time a vehicle exists in the simulation, not the duration of one completed lap.
+
+Lap times are reconstructed from successive route-edge exit times.
+
+### Why distinguish `0` and `NaN`?
+
+```text
+0   = the source was parsed successfully and no event occurred
+NaN = the source was missing, invalid, inapplicable or could not be parsed
+```
+
+Detailed definitions are documented in the source (see `scripts/schema.py` for field definitions and `scripts/parsing/runner.py` for invariant validation).
+
+---
+
+## Reproducible Pipeline
+
+```text
+10,080 RunSpec
+        │
+        ▼
+6-worker parallel SUMO
+        │
+        ▼
+independent run directories
+        │
+        ▼
+serial seven-parser pipeline
+        │
+        ▼
+summary.json × 10,080
+        │
+        ▼
+single result writer
+        │
+        ▼
+run_level_results.csv
+        │
+        ▼
+five-seed aggregation
+        │
+        ▼
+aggregated_results.csv
+        │
+        ▼
+publication figures
+```
+
+| Stage | Main function | Wall time |
+|---|---|---:|
+| Parallel simulation | Six concurrent SUMO processes | ~17 h |
+| Serial parsing | Seven parsers and invariant validation | 13.5 min |
+| Result writer | 10,080 summaries → run-level CSV | ~2 s |
+| Five-seed aggregation | 10,080 rows → 2,016 groups | ~1 s |
+
+The simulation scheduler provides:
+
+- deterministic `run_id` generation;
+- isolated output directories;
+- resume support;
+- atomic status files;
+- timeout and cancellation handling;
+- heavy-task-first scheduling.
+
+The parser pipeline provides:
+
+- serial low-memory XML parsing;
+- atomic `summary.json` and `parse_status.json`;
+- resume support;
+- explicit parser failure semantics;
+- seven cross-metric invariant checks.
+
+---
+
+## Data Quality
+
+```text
+10,080 / 10,080  simulations completed
+2,016 / 2,016    aggregated groups with n_valid = 5
+29 / 29          parser unit tests passed
+0                duplicate run IDs
+0                parser failures
+0                invariant violations
+```
+
+The testing strategy contains three levels:
+
+1. parser fixture unit tests;
+2. short SUMO smoke and positive-event tests;
+3. representative multi-scenario integration tests and full-grid closure checks.
+
+During the original batch, 74 runs failed because of memory pressure. They were rerun with one concurrent SUMO process and all were recovered before aggregation.
+
+---
+
+## Quick Start
+
+### Requirements
+
+```bash
+sumo --version
+python3 --version
+```
+
+Recommended versions:
+
+```text
+SUMO >= 1.27.1
+Python >= 3.10
+```
+
+Install the plotting and data-analysis dependencies:
 
 ```bash
 pip install pandas matplotlib
 ```
 
-## 快速上手
-
-### 1. 编译路网
+### Run the parser tests
 
 ```bash
-# 生成路网源文件
-netconvert -n net/scenario_0/nodes.nod.xml -e net/scenario_0/edges.edg.xml -o net/scenario_0/loop.net.xml
-netconvert -n net/scenario_1/nodes.nod.xml -e net/scenario_1/edges.edg.xml -o net/scenario_1/loop.net.xml
-netconvert -n net/scenario_2/nodes.nod.xml -e net/scenario_2/edges.edg.xml -o net/scenario_2/loop.net.xml
-netconvert -n net/scenario_3/nodes.nod.xml -e net/scenario_3/edges.edg.xml -o net/scenario_3/loop.net.xml
+python3 tests/run_tests.py
 ```
 
-### 2. 单次验证
+Expected result:
+
+```text
+29/29 PASS
+```
+
+### Run one simulation
 
 ```bash
-# GUI 预览路网
-sumo-gui -n net/scenario_3/loop.net.xml
-
-# 单次仿真（含车流生成 + SUMO 仿真 + 检测器解析）
-python3 scripts/single_run.py --vehN 60 --pCAV 0.5 --model IDM --net net/scenario_3/loop.net.xml --outcsv out/test.csv
+python3 -m scripts.simulation.single_run \
+  --vehN 60 \
+  --pCAV 0.5 \
+  --model IDM \
+  --net net/scenario_2/loop.net.xml
 ```
 
-### 3. 批量仿真
+### Regenerate the v0.4.0 figures
 
 ```bash
-# scenario_0 方形闭环（单车道，vehN 10~120）
-python3 scripts/batch_run.py --pstep 0.05 --model IDM --net net/scenario_0/loop.net.xml --outcsv out/results_s0_IDM.csv
-
-# scenario_1 32边形单车道平滑闭环
-python3 scripts/batch_run.py --pstep 0.05 --model IDM --net net/scenario_1/loop.net.xml --outcsv out/results_s1_IDM.csv
-
-# scenario_2 32边形双车道闭环（vehN 20~240）
-python3 scripts/batch_run.py --pstep 0.05 --vehN-list "20,40,60,80,100,120,140,160,180,200,220,240" --model CACC --net net/scenario_2/loop.net.xml --outcsv out/results_s2_CACC.csv
-
-# scenario_3 32边形双车道 + 125m 单车道瓶颈
-python3 scripts/batch_run.py --pstep 0.05 --vehN-list "20,40,60,80,100,120,140,160,180,200,220,240" --model IDM --net net/scenario_3/loop.net.xml --outcsv out/results_s3_IDM.csv
+python3 -m scripts.results.visualization \
+  --aggregated results/aggregated_results.csv \
+  --v4
 ```
 
-### 4. 可视化
+<details>
+<summary><strong>Full 10,080-run reproduction workflow</strong></summary>
+
+Replace `<pipeline-version>` with the exact value recorded in the formal experiment manifest.
 
 ```bash
-python3 visualization.py --csv out/results_s0_IDM.csv --outDir graph/s0_IDM
-python3 visualization.py --csv out/results_s1_IDM.csv --net net/scenario_1/loop.net.xml --outDir graph/s1_IDM
-python3 visualization.py --csv out/results_s2_IDM.csv --net net/scenario_2/loop.net.xml --outDir graph/s2_IDM
-python3 visualization.py --csv out/results_s3_IDM.csv --net net/scenario_3/loop.net.xml --outDir graph/s3_IDM
+# Stage 1: parallel SUMO simulation
+python3 -m scripts.simulation.batch_run \
+  --sumo-processes 6 \
+  --resume \
+  --output-root /path/to/raw \
+  --pipeline-version <pipeline-version>
+
+# Stage 2: serial parsing
+python3 -m scripts.parsing.batch \
+  --input-root /path/to/raw \
+  --resume \
+  --pipeline-version <pipeline-version>
+
+# Stage 3: single result writer
+python3 -m scripts.results.writer \
+  --input-root /path/to/raw \
+  --output-dir /path/to/results \
+  --manifest /path/to/raw/manifest.json \
+  --pipeline-version <pipeline-version>
+
+# Step 14: five-seed aggregation
+python3 -m scripts.results.aggregate \
+  --input /path/to/results/run_level_results.csv \
+  --output /path/to/results/aggregated_results.csv
+
+# Step 15: figures
+python3 -m scripts.results.visualization \
+  --aggregated /path/to/results/aggregated_results.csv \
+  --v4
 ```
 
-生成的图表（密度-流量基本图 + 渗透率-通行能力曲线）保存在 `graph/` 下。
+</details>
 
-## 声明
+**Hardware guidance for `--sumo-processes`.** SUMO processes are CPU-bound and memory-hungry—each loads the network independently and writes raw XML output. RAM is the binding constraint; s3 at vehN=120 is the worst case per process. Before launching a full grid, check your machine:
 
-该项目由个人独立完成，仅用于研究、学习。
+| Resource | Rule of thumb | Check |
+|---|---|---|
+| RAM | Budget **2 GB per SUMO process** for headroom (s3 vehN=120 can spike); total SUMO memory must fit within *available* RAM | `free -h` (look at the `available` column) |
+| CPU | `--sumo-processes ≤ nproc − 2` (reserve at least two logical cores for the OS and the Python parent) | `nproc` |
+| Disk | ~6 GB per 1,000 runs with SSM compact mode; **~600 GB** if `--device.ssm.trajectories` is `true` (the default) | `df -h <output-root>` |
+| I/O | Run directories are independent (no file conflicts), but a spinning disk may bottleneck at high concurrency | SSD strongly recommended |
+
+**Pick your concurrency from available RAM** (CPU is rarely the bottleneck first):
+
+| Available RAM | Safe `--sumo-processes` | Example machine |
+|---|---|---|
+| 8 GB | 1–2 | lightweight laptop |
+| 12–16 GB | 2–4 | typical dev laptop / small desktop |
+| 24–32 GB | 4–8 | workstation |
+| 48+ GB | 8–12 | server |
+
+Always run with `--resume` from the first launch—it costs nothing on a clean start and lets you recover from OOM kills or power loss without repeating completed work. If SUMO processes exit with non-zero codes at high vehicle counts (typically s3 vehN ≥ 100), cut `--sumo-processes` in half and resume; the offending runs will be re-attempted with less memory pressure.
+
+---
+
+## Data Availability
+
+The repository includes:
+
+- `results/aggregated_results.csv`  
+  2,016 scenario–model–penetration–vehicle-count groups aggregated across five random seeds;
+
+- experiment manifest and plotting scripts;
+
+- the four v0.4.0 result figures under `graph/v0.4.0/`;
+
+- parser fixtures and unit tests.
+
+All published figures can be regenerated from `aggregated_results.csv`.
+
+The following files are not included because of storage size:
+
+- raw SUMO XML outputs;
+- per-run `summary.json` files;
+- the full run-level dataset, unless published separately.
+
+After SSM compaction, the retained raw experiment directory is approximately 58 GB. The complete dataset can be regenerated through the pipeline above.
+
+> Update this section if `run_level_results.csv` is also included or released through an external archive.
+
+---
+
+## Repository Structure
+
+```text
+scripts/
+├── config.py
+├── run_spec.py
+├── schema.py
+├── simulation/
+│   ├── single_run.py
+│   ├── batch_run.py
+│   ├── flow_generator.py
+│   └── network_generator.py
+├── parsing/
+│   ├── runner.py
+│   ├── batch.py
+│   ├── detector.py
+│   ├── stderr.py
+│   ├── ssm.py
+│   ├── lanechange.py
+│   ├── edge_performance.py
+│   ├── edge_emissions.py
+│   └── vehroute.py
+└── results/
+    ├── writer.py
+    ├── aggregate.py
+    └── visualization.py
+
+tests/
+├── fixtures/
+├── test_ssm_parser.py
+├── test_vehroute_parser.py
+├── test_edge_performance_parser.py
+├── test_edge_emissions_parser.py
+└── run_tests.py
+
+results/
+└── aggregated_results.csv
+
+graph/v0.4.0/
+├── scenario_overview.png
+├── chart_capacity.png
+├── chart_safety_flow.png
+├── chart_co2_flow.png
+└── chart_delay.png
+```
+
+---
+
+## Limitations
+
+- Emission and safety metrics are not yet separated into HV and CAV sub-populations.
+- The absence of detected TTC conflicts in s2 applies only to the current `TTC < 3.0 s` threshold and tested parameter grid.
+- ACC is supported by earlier project versions but is not part of the formal v0.4.0 comparison.
+- TTC events have not yet been independently reproduced using FCD or TraCI trajectories.
+- Five random seeds describe observed variability but should not automatically be interpreted as formal statistical significance.
+- The free-flow lap baseline should be extended with an additional CACC single-vehicle comparison.
+- Current unit tests focus on four parser modules and do not yet fully cover the scheduler and orchestration layers.
+
+---
+
+## Roadmap
+
+| Version | Focus |
+|---|---|
+| v0.4.1 | HV/CAV subgroup metrics, physical THW, FCD/TraCI TTC validation and threshold sensitivity |
+| v0.5.0 | Real-trajectory-driven car-following model calibration and simulation validation |
+| v0.6.0 | TraCI-based dynamic traffic control |
+| v0.7.0 | CACC communication degradation, including packet loss and latency |
+
+---
+
+## Documentation
+
+| Document | Purpose |
+|---|---|
+| [Experiment Report](REPORT.md) | Complete experimental design, result tables, discussion and conclusions |
+| `scripts/` source | Inline docstrings; see § Repository Structure below for module map |
+
+---
+
+## Citation
+
+When using this project, please cite the repository and release version:
+
+```bibtex
+@software{cav_multi_level_penetration_simulation_2026,
+  author  = {Uriel62-chang},
+  title   = {CAV Multi-level Penetration Simulation},
+  version = {v0.4.0},
+  year    = {2026},
+  url     = {https://github.com/Uriel62-chang/CAV_Multi-level_Penetration_Simulation}
+}
+```
+
+---
+
+## License
+
+This project is released under the [MIT License](LICENSE).

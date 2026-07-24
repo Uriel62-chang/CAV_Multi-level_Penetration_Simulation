@@ -1,0 +1,100 @@
+"""Simple test runner for parser unit tests."""
+import sys
+import os
+import traceback
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import test functions
+from test_ssm_parser import (
+    test_minimal_parses_conflicts,
+    test_mirror_deduplication,
+    test_warmup_filtering,
+    test_empty_file_returns_zero_events,
+    test_missing_file_returns_nan_counts,
+    test_missing_fields_return_nan_not_zero,
+    test_malformed_xml_returns_nan,
+    test_idempotent as ssm_idempotent,
+)
+from test_vehroute_parser import (
+    test_minimal_lap_times,
+    test_warmup_filters_laps,
+    test_sim_end_filters_laps,
+    test_empty_file_returns_zero_laps,
+    test_missing_file_returns_nan,
+    test_missing_exit_times_returns_zero_laps,
+    test_insufficient_exit_times,
+    test_malformed_xml_returns_nan as vr_malformed,
+    test_idempotent as vr_idempotent,
+)
+from test_edge_performance_parser import (
+    test_minimal_veh_km_calculation,
+    test_empty_file_returns_zero as ep_empty,
+    test_missing_file_returns_nan as ep_missing,
+    test_missing_fields,
+    test_malformed_xml_returns_nan as ep_malformed,
+    test_idempotent as ep_idempotent,
+)
+from test_edge_emissions_parser import (
+    test_minimal_emissions_units,
+    test_empty_file_returns_zero as ee_empty,
+    test_missing_file_returns_nan as ee_missing,
+    test_missing_fields_default_to_zero_contribution,
+    test_malformed_xml_returns_nan as ee_malformed,
+    test_idempotent as ee_idempotent,
+)
+
+all_tests = [
+    # SSM
+    ("test_ssm_parser", "test_minimal_parses_conflicts", test_minimal_parses_conflicts),
+    ("test_ssm_parser", "test_mirror_deduplication", test_mirror_deduplication),
+    ("test_ssm_parser", "test_warmup_filtering", test_warmup_filtering),
+    ("test_ssm_parser", "test_empty_file_returns_zero_events", test_empty_file_returns_zero_events),
+    ("test_ssm_parser", "test_missing_file_returns_nan_counts", test_missing_file_returns_nan_counts),
+    ("test_ssm_parser", "test_missing_fields_return_nan_not_zero", test_missing_fields_return_nan_not_zero),
+    ("test_ssm_parser", "test_malformed_xml_returns_nan", test_malformed_xml_returns_nan),
+    ("test_ssm_parser", "test_idempotent", ssm_idempotent),
+    # Vehroute
+    ("test_vehroute_parser", "test_minimal_lap_times", test_minimal_lap_times),
+    ("test_vehroute_parser", "test_warmup_filters_laps", test_warmup_filters_laps),
+    ("test_vehroute_parser", "test_sim_end_filters_laps", test_sim_end_filters_laps),
+    ("test_vehroute_parser", "test_empty_file_returns_zero_laps", test_empty_file_returns_zero_laps),
+    ("test_vehroute_parser", "test_missing_file_returns_nan", test_missing_file_returns_nan),
+    ("test_vehroute_parser", "test_missing_exit_times_returns_zero_laps", test_missing_exit_times_returns_zero_laps),
+    ("test_vehroute_parser", "test_insufficient_exit_times", test_insufficient_exit_times),
+    ("test_vehroute_parser", "test_malformed_xml_returns_nan", vr_malformed),
+    ("test_vehroute_parser", "test_idempotent", vr_idempotent),
+    # Edge Performance
+    ("test_edge_performance_parser", "test_minimal_veh_km_calculation", test_minimal_veh_km_calculation),
+    ("test_edge_performance_parser", "test_empty_file_returns_zero", ep_empty),
+    ("test_edge_performance_parser", "test_missing_file_returns_nan", ep_missing),
+    ("test_edge_performance_parser", "test_missing_fields", test_missing_fields),
+    ("test_edge_performance_parser", "test_malformed_xml_returns_nan", ep_malformed),
+    ("test_edge_performance_parser", "test_idempotent", ep_idempotent),
+    # Edge Emissions
+    ("test_edge_emissions_parser", "test_minimal_emissions_units", test_minimal_emissions_units),
+    ("test_edge_emissions_parser", "test_empty_file_returns_zero", ee_empty),
+    ("test_edge_emissions_parser", "test_missing_file_returns_nan", ee_missing),
+    ("test_edge_emissions_parser", "test_missing_fields_default_to_zero_contribution", test_missing_fields_default_to_zero_contribution),
+    ("test_edge_emissions_parser", "test_malformed_xml_returns_nan", ee_malformed),
+    ("test_edge_emissions_parser", "test_idempotent", ee_idempotent),
+]
+
+passed = 0
+failed = 0
+
+for module, name, func in all_tests:
+    try:
+        func()
+        print(f"  PASS {module}::{name}")
+        passed += 1
+    except Exception as e:
+        print(f"  FAIL {module}::{name}")
+        traceback.print_exc()
+        print()
+        failed += 1
+
+print(f"\n{'='*50}")
+print(f"Results: {passed} passed, {failed} failed, {passed+failed} total")
+if failed:
+    sys.exit(1)

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SSMLog>
+    <conflict begin="3.10" end="33.10" ego="veh24" foe="veh26">
+        <minTTC time="17.00" position="3.79,389.97" type="3" value="1.45" speed="0.00"/>
+        <maxDRAC time="17.00" position="3.79,389.97" type="3" value="1.90" speed="0.00"/>
+    </conflict>
+    <conflict begin="19.50" end="36.60" ego="veh10" foe="veh6">
+        <minTTC time="23.00" position="36.37,474.22" type="3" value="1.79" speed="0.00"/>
+        <maxDRAC time="19.50" position="46.16,492.52" type="3" value="2.28" speed="6.70"/>
+    </conflict>
+    <conflict begin="21.40" end="35.20" ego="veh10" foe="veh16">
+        <minTTC time="29.10" position="12.80,418.43" type="2" value="2.46" speed="9.77"/>
+        <maxDRAC time="29.10" position="12.80,418.43" type="2" value="1.83" speed="9.77"/>
+    </conflict>
+    <conflict begin="3.10" end="37.40" ego="veh26" foe="veh24">
+        <minTTC time="17.00" position="3.79,389.97" type="2" value="1.45" speed="5.51"/>
+        <maxDRAC time="17.00" position="3.79,389.97" type="2" value="1.90" speed="5.51"/>
+    </conflict>
+    <conflict begin="100.00" end="120.00" ego="veh50" foe="veh51">
+        <minTTC time="110.00" position="10.0,400.0" type="3" value="4.50" speed="0.00"/>
+        <maxDRAC time="110.00" position="10.0,400.0" type="3" value="1.20" speed="0.00"/>
+    </conflict>
+</SSMLog>

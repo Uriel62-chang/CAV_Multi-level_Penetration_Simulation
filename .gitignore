@@ -1,7 +1,19 @@
 __pycache__/
 net/scenario_*/loop.net.xml
 routes/*.rou.xml
-out/
-graph/
+/out/
 add/det_tmp.add.xml
-cmd_tmp.txt
+add/edge_data.add.xml
+requirements-lock-v0.4-dev.txt
+
+# 本地开发文档（不发布）
+/docs/
+v0.4.0*.md
+
+# 运行时数据目录
+/raw/
+
+# 大体积中间产物（最终聚合数据除外）
+/results/run_level_results.csv
+/results/failed_runs.csv
+/results/writer_report.json

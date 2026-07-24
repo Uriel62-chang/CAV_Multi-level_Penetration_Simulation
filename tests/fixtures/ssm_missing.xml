@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SSMLog>
+    <conflict begin="3.10" end="33.10" ego="veh24" foe="veh26">
+        <!-- minTTC and maxDRAC missing entirely -->
+    </conflict>
+    <conflict begin="19.50" end="36.60" ego="veh10" foe="veh6">
+        <minTTC time="23.00" position="36.37,474.22" type="3" value="1.79" speed="0.00"/>
+    </conflict>
+</SSMLog>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<meandata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/meandata_file.xsd">
+    <interval begin="120.00" end="420.00" id="perf_all">
+        <!-- edge missing speed and sampledSeconds -->
+        <edge id="AGGREGATED" traveltime="195.39" timeLoss="13074.01"/>
+    </interval>
+    <interval begin="420.00" end="600.00" id="perf_all">
+        <edge id="AGGREGATED" sampledSeconds="11454.87" speed="10.95" timeLoss="7583.95"/>
+    </interval>
+</meandata>

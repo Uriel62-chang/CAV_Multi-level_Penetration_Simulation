@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<meandata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/meandata_file.xsd">
+    <interval begin="120.00" end="420.00" id="emis_all">
+        <!-- edge with missing emission attributes -->
+        <edge id="AGGREGATED" sampledSeconds="17725.32" traveltime="195.39"/>
+    </interval>
+</meandata>

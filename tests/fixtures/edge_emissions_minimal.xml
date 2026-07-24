@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<meandata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/meandata_file.xsd">
+    <interval begin="120.00" end="420.00" id="emis_all">
+        <edge id="AGGREGATED" sampledSeconds="17725.32" CO_abs="584103.79" CO2_abs="52065938.32" HC_abs="3976.16" PMx_abs="5366.66" NOx_abs="20112.49" fuel_abs="16878966.62" electricity_abs="0.00" traveltime="195.39"/>
+    </interval>
+    <interval begin="420.00" end="600.00" id="emis_all">
+        <edge id="AGGREGATED" sampledSeconds="10624.15" CO_abs="363922.50" CO2_abs="31126175.71" HC_abs="2479.35" PMx_abs="3399.24" NOx_abs="12004.36" fuel_abs="10090615.01" electricity_abs="0.00"/>
+    </interval>
+</meandata>

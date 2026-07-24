@@ -388,12 +388,12 @@ python3 -m scripts.results.writer \
   --manifest /path/to/raw/manifest.json \
   --pipeline-version <pipeline-version>
 
-# Step 14: five-seed aggregation
+# Aggregate across seeds (mean / std / median / min / max)
 python3 -m scripts.results.aggregate \
   --input /path/to/results/run_level_results.csv \
   --output /path/to/results/aggregated_results.csv
 
-# Step 15: figures
+# Generate the four trade-off figures
 python3 -m scripts.results.visualization \
   --aggregated /path/to/results/aggregated_results.csv \
   --v4
@@ -445,8 +445,6 @@ The following files are not included because of storage size:
 - the full run-level dataset, unless published separately.
 
 After SSM compaction, the retained raw experiment directory is approximately 58 GB. The complete dataset can be regenerated through the pipeline above.
-
-> Update this section if `run_level_results.csv` is also included or released through an external archive.
 
 ---
 

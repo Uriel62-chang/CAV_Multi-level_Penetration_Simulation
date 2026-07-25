@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from scripts.run_spec import SimulationResult
 from scripts.simulation.single_run import run_simulation
@@ -36,6 +37,13 @@ def test_single_run_reuses_batch_parser_and_writer(monkeypatch, tmp_path):
         lambda *args: {"test": True},
     )
 
+    network_dir = tmp_path / "net" / "scenario_0"
+    network_dir.mkdir(parents=True)
+    network_path = network_dir / "loop.net.xml"
+    network_path.write_text("<net/>", encoding="utf-8")
+    source_metadata = Path("net/scenario_0/net.json")
+    (network_dir / "net.json").write_text(source_metadata.read_text(encoding="utf-8"))
+
     output_csv = tmp_path / "single.csv"
     result = run_simulation(
         vehicle_count=10,
@@ -46,6 +54,7 @@ def test_single_run_reuses_batch_parser_and_writer(monkeypatch, tmp_path):
         warmup_period=1,
         detector_frequency=2,
         output_csv=str(output_csv),
+        network_file=str(network_path),
     )
 
     manifest_path = tmp_path / "single_raw" / "manifest.json"

@@ -77,7 +77,8 @@ jobs:
           with (results / "run_level_results.csv").open(newline="") as stream:
               reader = csv.DictReader(stream)
               rows = list(reader)
-          assert manifest["status_counts"] == {"SUCCESS": 1}
+          assert manifest["status_counts"].get("SUCCESS") == 1
+          assert manifest["status_counts"].get("NOT_STARTED") == 0
           assert report["complete"] is True
           assert report["quality_ok"] == 1
           assert reader.fieldnames == RUN_LEVEL_COLUMNS

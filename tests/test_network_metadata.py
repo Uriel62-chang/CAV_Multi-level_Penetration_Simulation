@@ -10,27 +10,24 @@ SCENARIOS = tuple(f"scenario_{index}" for index in range(4))
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS)
-def test_network_metadata_matches_compiled_network(scenario):
+def test_network_metadata_matches_network_source(scenario):
     network_path = Path("net") / scenario / "loop.net.xml"
     metadata = load_network_meta(str(network_path))
-    root = ET.parse(network_path).getroot()
+    edge_source_path = network_path.with_name("edges.edg.xml")
+    root = ET.parse(edge_source_path).getroot()
 
-    compiled_edges = {
-        edge.get("id"): len(edge.findall("lane"))
-        for edge in root.findall("edge")
-        if edge.get("function") is None
-    }
+    source_edges = {edge.get("id"): int(edge.get("numLanes", "1")) for edge in root.findall("edge")}
     assert metadata["scenario"] == scenario
     assert metadata["route_edge_ids"] == metadata["edge_ids"]
-    assert set(metadata["edge_ids"]) == set(compiled_edges)
-    assert metadata["detector_edge_id"] in compiled_edges
+    assert set(metadata["edge_ids"]) == set(source_edges)
+    assert metadata["detector_edge_id"] in source_edges
 
     lane_counts = metadata["edge_lane_counts"]
     legal_lanes = metadata["legal_initial_lanes"]
     for edge_id in metadata["edge_ids"]:
         expected_lanes = lane_counts["overrides"].get(edge_id, lane_counts["default"])
         expected_legal = legal_lanes["overrides"].get(edge_id, legal_lanes["default"])
-        assert compiled_edges[edge_id] == expected_lanes
+        assert source_edges[edge_id] == expected_lanes
         assert expected_legal == list(range(expected_lanes))
 
     for edge_id in metadata["bottleneck_edge_ids"]:

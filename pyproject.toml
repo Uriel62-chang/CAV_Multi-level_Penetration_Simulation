@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cav-multi-level-penetration-simulation"
+version = "0.4.0.post1"
+requires-python = ">=3.10"
+dependencies = [
+  "matplotlib>=3.7",
+  "numpy>=1.24",
+  "pandas>=2.0",
+]
+
+[project.scripts]
+cav-batch = "scripts.simulation.batch_run:main"
+cav-run = "scripts.simulation.single_run:main"
+cav-parse = "scripts.parsing.batch:main"
+cav-write = "scripts.results.writer:main"
+cav-aggregate = "scripts.results.aggregate:main"
+cav-visualize = "scripts.results.visualization:main"
+
+[project.optional-dependencies]
+dev = ["mypy>=2.3", "pytest>=7", "ruff>=0.5"]
+
+[tool.setuptools.packages.find]
+include = ["scripts*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_configs = true
+show_error_codes = true
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM"]

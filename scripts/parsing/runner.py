@@ -1,23 +1,21 @@
 """阶段二：单 run 解析器 — 状态机 + 不变量校验。
 
-    parse_one_run(run_dir, pipeline_version)
-      1. 读取 simulation_status.json 重建 RunSpec
-      2. 写 parse_status.json (RUNNING)
-      3. 调用 single_run.parse_run_outputs()
-      4. 校验不变量
-      5. 原子写 summary.json + parse_status.json
+parse_one_run(run_dir, pipeline_version)
+  1. 读取 simulation_status.json 重建 RunSpec
+  2. 写 parse_status.json (RUNNING)
+  3. 调用 single_run.parse_run_outputs()
+  4. 校验不变量
+  5. 原子写 summary.json + parse_status.json
 """
+
 import json
 import math
-import os
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from scripts.run_spec import RunSpec, atomic_write_json
+from scripts.provenance import sha256_file
+from scripts.run_spec import atomic_write_json, load_run_spec
 from scripts.simulation.single_run import parse_run_outputs
 
 # ── 必须存在的原始文件 ──
@@ -42,8 +40,8 @@ def _find_ssm_file(run_dir: Path) -> Path | None:
 def _find_detector_files(run_dir: Path, num_lanes: int) -> list[str]:
     """返回存在的检测器文件路径列表"""
     paths = []
-    for l in range(num_lanes):
-        p = run_dir / f"detector_lane{l}.xml"
+    for lane_index in range(num_lanes):
+        p = run_dir / f"detector_lane{lane_index}.xml"
         if p.exists():
             paths.append(str(p))
     return paths
@@ -54,36 +52,57 @@ def _check_preconditions(run_dir: Path, pipeline_version: str) -> dict | None:
     status_path = run_dir / "simulation_status.json"
 
     if not status_path.exists():
-        return {"status": "SIMULATION_NOT_SUCCESS",
-                "error_message": "simulation_status.json not found"}
+        return {
+            "status": "SIMULATION_NOT_SUCCESS",
+            "error_message": "simulation_status.json not found",
+        }
 
     try:
         sim_status = json.loads(status_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"status": "SIMULATION_NOT_SUCCESS",
-                "error_message": "simulation_status.json unreadable"}
+        return {
+            "status": "SIMULATION_NOT_SUCCESS",
+            "error_message": "simulation_status.json unreadable",
+        }
 
     if sim_status.get("status") != "SUCCESS":
-        return {"status": "SIMULATION_NOT_SUCCESS",
-                "error_message": f"simulation status={sim_status.get('status')}"}
+        return {
+            "status": "SIMULATION_NOT_SUCCESS",
+            "error_message": f"simulation status={sim_status.get('status')}",
+        }
 
     if sim_status.get("return_code") != 0:
-        return {"status": "SIMULATION_NOT_SUCCESS",
-                "error_message": f"simulation return_code={sim_status.get('return_code')}"}
+        return {
+            "status": "SIMULATION_NOT_SUCCESS",
+            "error_message": f"simulation return_code={sim_status.get('return_code')}",
+        }
 
     if sim_status.get("pipeline_version") != pipeline_version:
-        return {"status": "SIMULATION_NOT_SUCCESS",
-                "error_message": "pipeline_version mismatch"}
+        return {"status": "SIMULATION_NOT_SUCCESS", "error_message": "pipeline_version mismatch"}
+
+    try:
+        spec = load_run_spec(run_dir, expected_sha256=sim_status.get("run_spec_sha256"))
+    except ValueError as exc:
+        return {"status": "SIMULATION_NOT_SUCCESS", "error_message": str(exc)}
+    if spec.pipeline_version != pipeline_version:
+        return {
+            "status": "SIMULATION_NOT_SUCCESS",
+            "error_message": "run_spec pipeline_version mismatch",
+        }
+    for field in ("schema_version", "config_sha256", "network_sha256", "experiment_id"):
+        if sim_status.get(field) != getattr(spec, field):
+            return {"status": "SIMULATION_NOT_SUCCESS", "error_message": f"{field} mismatch"}
 
     # 必要文件检查
     for fname in _REQUIRED_FILES:
         if not (run_dir / fname).exists():
-            return {"status": "SIMULATION_NOT_SUCCESS",
-                    "error_message": f"missing file: {fname}"}
+            return {"status": "SIMULATION_NOT_SUCCESS", "error_message": f"missing file: {fname}"}
 
     if _find_ssm_file(run_dir) is None:
-        return {"status": "SIMULATION_NOT_SUCCESS",
-                "error_message": "missing ssm.xml / ssm_compact.xml"}
+        return {
+            "status": "SIMULATION_NOT_SUCCESS",
+            "error_message": "missing ssm.xml / ssm_compact.xml",
+        }
 
     return None
 
@@ -107,7 +126,6 @@ def _validate_invariants(summary: dict) -> list[str]:
     unsafe_lc = s.get("unsafe_lc_gap_count", 0)
     veh_km = s.get("total_vehicle_km", float("nan"))
     laps = s.get("completed_lap_count", 0)
-    mean_lap = s.get("mean_lap_time_s", float("nan"))
 
     if raw != inv + warm + valid:
         errors.append(f"SSM ledger: raw({raw}) != inv({inv}) + warm({warm}) + valid({valid})")
@@ -119,7 +137,11 @@ def _validate_invariants(summary: dict) -> list[str]:
         errors.append(f"TTC events({ttc}) > valid({valid})")
     if drac > valid:
         errors.append(f"DRAC events({drac}) > valid({valid})")
-    if isinstance(ttc_veh, (int, float)) and not math.isnan(ttc_veh) and ttc_veh > s.get("vehN", 9999):
+    if (
+        isinstance(ttc_veh, (int, float))
+        and not math.isnan(ttc_veh)
+        and ttc_veh > s.get("vehN", 9999)
+    ):
         errors.append(f"TTC affected({ttc_veh}) > vehN({s.get('vehN')})")
     if isinstance(eb_veh, (int, float)) and not math.isnan(eb_veh) and eb_veh > s.get("vehN", 9999):
         errors.append(f"EB affected({eb_veh}) > vehN({s.get('vehN')})")
@@ -133,8 +155,7 @@ def _validate_invariants(summary: dict) -> list[str]:
     return errors
 
 
-def parse_one_run(run_dir: Path, pipeline_version: str,
-                  network_file: str = "") -> dict:
+def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") -> dict:
     """解析单个 run 目录，返回 parse_status dict。
 
     状态机：RUNNING → SUCCESS | FAILED | INVALID_DATA | SIMULATION_NOT_SUCCESS
@@ -149,53 +170,36 @@ def parse_one_run(run_dir: Path, pipeline_version: str,
     # ── 预检 ──
     skip_reason = _check_preconditions(run_dir, pipeline_version)
     if skip_reason:
-        return {
-            "run_id": run_id, "status": skip_reason["status"],
+        parse_status = {
+            "run_id": run_id,
+            "status": skip_reason["status"],
             "pipeline_version": pipeline_version,
+            "started_at": started_at,
+            "finished_at": datetime.now(timezone.utc).isoformat(),
             "wall_time_s": 0.0,
             "error_message": skip_reason["error_message"],
         }
+        atomic_write_json(status_path, parse_status)
+        return parse_status
 
     # ── 写 RUNNING ──
-    atomic_write_json(status_path, {
-        "run_id": run_id, "status": "RUNNING",
-        "pipeline_version": pipeline_version, "started_at": started_at,
-    })
+    atomic_write_json(
+        status_path,
+        {
+            "run_id": run_id,
+            "status": "RUNNING",
+            "pipeline_version": pipeline_version,
+            "started_at": started_at,
+        },
+    )
 
     try:
-        # ── 重建 RunSpec ──
-        sim_status = json.loads(
-            (run_dir / "simulation_status.json").read_text(encoding="utf-8"))
-        spec = RunSpec(
-            scenario="", model="", pcav=0.0, vehicle_count=0, seed=0, run_id=run_id,
-            simulation_end=float(sim_status.get("wall_time_s", 3600)),
-            warmup=600.0, step_length=0.1, pipeline_version=pipeline_version,
-        )
-        # 从 run_id 反推参数: s3_CACC_p050_v120_seed1
-        parts = run_id.split("_")
-        try:
-            spec = RunSpec(
-                scenario="scenario_" + parts[0][1:],
-                model=parts[1],
-                pcav=int(parts[2][1:]) / 100.0,
-                vehicle_count=int(parts[3][1:]),
-                seed=int(parts[4][4:]),
-                run_id=run_id,
-                simulation_end=3600.0,
-                warmup=600.0,
-                step_length=0.1,
-                pipeline_version=pipeline_version,
-            )
-        except (IndexError, ValueError):
-            return {
-                "run_id": run_id, "status": "FAILED",
-                "pipeline_version": pipeline_version,
-                "wall_time_s": time.monotonic() - t0,
-                "error_message": f"Cannot parse run_id: {run_id}",
-            }
+        # ── 只从 run_spec.json 重建 RunSpec；目录名仅作标识 ──
+        sim_status = json.loads((run_dir / "simulation_status.json").read_text(encoding="utf-8"))
+        spec = load_run_spec(run_dir, expected_sha256=sim_status["run_spec_sha256"])
 
         # ── 解析 ──
-        net_file = network_file or f"net/{spec.scenario}/loop.net.xml"
+        net_file = network_file or spec.network_file
         summary = parse_run_outputs(run_dir, spec, net_file)
 
         # ── 不变量校验 ──
@@ -208,21 +212,37 @@ def parse_one_run(run_dir: Path, pipeline_version: str,
             summary["_invariant_errors"] = errors
             atomic_write_json(summary_path, summary)
             parse_status = {
-                "run_id": run_id, "status": "INVALID_DATA",
+                "run_id": run_id,
+                "status": "INVALID_DATA",
                 "pipeline_version": pipeline_version,
-                "started_at": started_at, "finished_at": finished_at,
+                "run_spec_sha256": spec.sha256(),
+                "schema_version": spec.schema_version,
+                "config_sha256": spec.config_sha256,
+                "network_sha256": spec.network_sha256,
+                "experiment_id": spec.experiment_id,
+                "started_at": started_at,
+                "finished_at": finished_at,
                 "wall_time_s": wall_time,
                 "error_message": "; ".join(errors),
+                "summary_sha256": sha256_file(summary_path),
             }
         else:
             summary.pop("_invariant_errors", None)
             atomic_write_json(summary_path, summary)
             parse_status = {
-                "run_id": run_id, "status": "SUCCESS",
+                "run_id": run_id,
+                "status": "SUCCESS",
                 "pipeline_version": pipeline_version,
-                "started_at": started_at, "finished_at": finished_at,
+                "run_spec_sha256": spec.sha256(),
+                "schema_version": spec.schema_version,
+                "config_sha256": spec.config_sha256,
+                "network_sha256": spec.network_sha256,
+                "experiment_id": spec.experiment_id,
+                "started_at": started_at,
+                "finished_at": finished_at,
                 "wall_time_s": wall_time,
                 "error_message": None,
+                "summary_sha256": sha256_file(summary_path),
             }
 
         atomic_write_json(status_path, parse_status)
@@ -231,7 +251,8 @@ def parse_one_run(run_dir: Path, pipeline_version: str,
     except Exception as e:
         wall_time = time.monotonic() - t0
         parse_status = {
-            "run_id": run_id, "status": "FAILED",
+            "run_id": run_id,
+            "status": "FAILED",
             "pipeline_version": pipeline_version,
             "started_at": started_at,
             "finished_at": datetime.now(timezone.utc).isoformat(),

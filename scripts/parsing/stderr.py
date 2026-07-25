@@ -17,7 +17,6 @@ def parse_emergency_braking(stderr_text: str, warmup_period: float = 600.0):
         }
         若 stderr_text 为 None 或无法解析，返回 NaN 标记。
     """
-    import math
 
     if stderr_text is None:
         return {

@@ -18,7 +18,6 @@ def parse_lanechange(xml_path: str, warmup_period: float = 600.0):
             "parse_success": bool,
         }
     """
-    import math
 
     result = {
         "lane_change_count": 0,
@@ -54,9 +53,7 @@ def parse_lanechange(xml_path: str, warmup_period: float = 600.0):
         follower_secure = _parse_float_attr(change, "followerSecureGap")
 
         leader_unsafe = (
-            leader_gap is not None
-            and leader_secure is not None
-            and leader_gap < leader_secure
+            leader_gap is not None and leader_secure is not None and leader_gap < leader_secure
         )
         follower_unsafe = (
             follower_gap is not None
@@ -69,9 +66,7 @@ def parse_lanechange(xml_path: str, warmup_period: float = 600.0):
 
     result["lane_change_count"] = total
     result["unsafe_lc_gap_count"] = unsafe
-    result["unsafe_lc_gap_ratio"] = (
-        unsafe / total if total > 0 else float("nan")
-    )
+    result["unsafe_lc_gap_ratio"] = unsafe / total if total > 0 else float("nan")
     result["parse_success"] = True
     return result
 

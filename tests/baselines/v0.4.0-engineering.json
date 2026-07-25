@@ -1,0 +1,38 @@
+{
+  "source": {
+    "git_commit": "07a5952f3d34c100463d4d3f0f0b287c440c0fb2",
+    "python_version": "3.10.12",
+    "sumo_version": "1.27.1",
+    "description": "Pre-improvement HEAD behaviour captured before engineering-only refactoring"
+  },
+  "representative_runs": {
+    "scenario_0": {
+      "routes_sha256": "0c7a4816123a7707db9661aa5aa131bde6ef00db853961b9d513d5c9502b5c90",
+      "additional_sha256": "eefaa979566f6be781b4d2a9360aa461656c2a101be177474068aa6dbeca196a",
+      "sumo_command_sha256": "65c8d5a57c768b81e3128193cd829352b0bba9799cdd5d9ded4f47d353fdd3a2"
+    },
+    "scenario_1": {
+      "routes_sha256": "b01de9340d29f4cb58bfaeb51cff7f8c033bf88c6dc953324d2acc58ff590331",
+      "additional_sha256": "d843692e7984204a5c6dfcceb6023a6e95995001a7cf545983b155cdac34adee",
+      "sumo_command_sha256": "eb46238c86ea9e450c0bfaab5ebbc78d55dffc439c9d4cc62c65f40ed764b8e8"
+    },
+    "scenario_2": {
+      "routes_sha256": "6c0a817e29c28dd4765a1645c369385a6ca7b7680508a67a35efb760c21f2900",
+      "additional_sha256": "bfae3c59e5809159c58b57fa8675eca58e4ddaf1b3b9f7077eefd2532b28b001",
+      "sumo_command_sha256": "bbb1156e689d8d216cf54489591fe62e4dc0f9d7bd94528464e35f6a64eff69a"
+    },
+    "scenario_3": {
+      "routes_sha256": "9dccf3589d84921888ab680d60929b33c2e63ca5c51b597ba37282b44e1d7bbd",
+      "additional_sha256": "bfae3c59e5809159c58b57fa8675eca58e4ddaf1b3b9f7077eefd2532b28b001",
+      "sumo_command_sha256": "1e98c8af85562db1818ed90bdf3d1400b2b4f480a383435b95d5cda769d24d88"
+    }
+  },
+  "default_grid": {
+    "run_count": 10080,
+    "run_ids_sha256": "03ce02d733f30cc41d370e0e62505e0a5893fa8e50a2d0b454cc904250204da3"
+  },
+  "schemas": {
+    "summary_required_keys_sha256": "3e0e6441587f26604222e99eb543e47df8b6ea66f4bb963a4b1fb797a5754848",
+    "run_level_columns_sha256": "6ee56d33a0d6326d09726a86c0e4c57039c7c4da461e7e05c5716d93da76781b"
+  }
+}

@@ -3,13 +3,11 @@
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
-
 # 镜像判定：方向相反且 min(较短时长) 覆盖比 ≥ 阈值
 _MIRROR_OVERLAP_RATIO = 0.8
 
 
-def _overlap_ratio(a_begin: float, a_end: float,
-                   b_begin: float, b_end: float) -> float:
+def _overlap_ratio(a_begin: float, a_end: float, b_begin: float, b_end: float) -> float:
     """重叠时长 / min(|A|, |B|)。"""
     duration_a = a_end - a_begin
     duration_b = b_end - b_begin
@@ -19,9 +17,12 @@ def _overlap_ratio(a_begin: float, a_end: float,
     return overlap / min(duration_a, duration_b)
 
 
-def parse_ssm(xml_path: str, warmup_period: float = 600.0,
-              ttc_threshold: float = 3.0,
-              drac_threshold: float = 3.0):
+def parse_ssm(
+    xml_path: str,
+    warmup_period: float = 600.0,
+    ttc_threshold: float = 3.0,
+    drac_threshold: float = 3.0,
+):
     """解析 SUMO SSM 输出 XML。
 
     1. 收集所有有效记录
@@ -31,7 +32,6 @@ def parse_ssm(xml_path: str, warmup_period: float = 600.0,
     Returns dict with event counts, min/max values, vehicle counts,
     audit trail counters, and parse_success flag.
     """
-    import math
 
     result = {
         "ttc_conflict_event_count": 0,
@@ -57,8 +57,7 @@ def parse_ssm(xml_path: str, warmup_period: float = 600.0,
     records = []
     invalid = 0
 
-    for conflict in root.findall("conflict"):
-        records.append(conflict)
+    records.extend(root.findall("conflict"))
 
     raw_count = len(records)
 
@@ -97,14 +96,16 @@ def parse_ssm(xml_path: str, warmup_period: float = 600.0,
             except (ValueError, TypeError):
                 drac_val = None
 
-        parsed.append({
-            "ego": ego,
-            "foe": foe,
-            "begin": begin,
-            "end": end,
-            "min_ttc": ttc_val,
-            "max_drac": drac_val,
-        })
+        parsed.append(
+            {
+                "ego": ego,
+                "foe": foe,
+                "begin": begin,
+                "end": end,
+                "min_ttc": ttc_val,
+                "max_drac": drac_val,
+            }
+        )
 
     valid_count = len(parsed)
 
@@ -136,8 +137,10 @@ def parse_ssm(xml_path: str, warmup_period: float = 600.0,
                 if not keep[i_rev] or i_rev in matched_reverse:
                     continue
                 ov = _overlap_ratio(
-                    r_fwd["begin"], r_fwd["end"],
-                    r_rev["begin"], r_rev["end"],
+                    r_fwd["begin"],
+                    r_fwd["end"],
+                    r_rev["begin"],
+                    r_rev["end"],
                 )
                 if ov >= _MIRROR_OVERLAP_RATIO and ov > best_overlap:
                     best_overlap = ov
@@ -150,13 +153,11 @@ def parse_ssm(xml_path: str, warmup_period: float = 600.0,
                 # 合并极值到保留记录
                 r_rev = parsed[best_idx]
                 if r_rev["min_ttc"] is not None and (
-                    r_fwd["min_ttc"] is None
-                    or r_rev["min_ttc"] < r_fwd["min_ttc"]
+                    r_fwd["min_ttc"] is None or r_rev["min_ttc"] < r_fwd["min_ttc"]
                 ):
                     r_fwd["min_ttc"] = r_rev["min_ttc"]
                 if r_rev["max_drac"] is not None and (
-                    r_fwd["max_drac"] is None
-                    or r_rev["max_drac"] > r_fwd["max_drac"]
+                    r_fwd["max_drac"] is None or r_rev["max_drac"] > r_fwd["max_drac"]
                 ):
                     r_fwd["max_drac"] = r_rev["max_drac"]
 
@@ -171,19 +172,12 @@ def parse_ssm(xml_path: str, warmup_period: float = 600.0,
         if not keep[idx]:
             continue
 
-        has_ttc = (
-            rec["min_ttc"] is not None
-            and rec["min_ttc"] < ttc_threshold
-        )
-        has_drac = (
-            rec["max_drac"] is not None
-            and rec["max_drac"] > drac_threshold
-        )
+        has_ttc = rec["min_ttc"] is not None and rec["min_ttc"] < ttc_threshold
+        has_drac = rec["max_drac"] is not None and rec["max_drac"] > drac_threshold
 
         if has_ttc:
             ttc_events += 1
-            if rec["min_ttc"] < min_ttc:
-                min_ttc = rec["min_ttc"]
+            min_ttc = min(min_ttc, rec["min_ttc"])
             if rec["ego"]:
                 ttc_involved.add(rec["ego"])
             if rec["foe"]:
@@ -191,8 +185,7 @@ def parse_ssm(xml_path: str, warmup_period: float = 600.0,
 
         if has_drac:
             drac_events += 1
-            if rec["max_drac"] > max_drac:
-                max_drac = rec["max_drac"]
+            max_drac = max(max_drac, rec["max_drac"])
 
     result["ssm_raw_record_count"] = raw_count
     result["ssm_invalid_record_count"] = invalid

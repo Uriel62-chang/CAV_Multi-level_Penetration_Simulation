@@ -18,7 +18,6 @@ def parse_edge_emissions(xml_path: str):
             "parse_success": bool,
         }
     """
-    import math
 
     result = {
         "total_CO2_kg": float("nan"),

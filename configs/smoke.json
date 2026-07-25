@@ -1,0 +1,20 @@
+{
+  "config_version": "smoke",
+  "pipeline_version": "v0.4.0.post1",
+  "schema_version": "1",
+  "scenarios": ["scenario_0"],
+  "models": ["IDM"],
+  "pcav_levels": [0.5],
+  "vehicle_counts": [2],
+  "seeds": [1],
+  "seed_scope": "vehicle_type_assignment",
+  "simulation_end": 220,
+  "warmup": 10,
+  "step_length": 0.1,
+  "detector_frequency": 20,
+  "edge_data_frequency": 20,
+  "loops": 4,
+  "network_files": {
+    "scenario_0": "net/scenario_0/loop.net.xml"
+  }
+}

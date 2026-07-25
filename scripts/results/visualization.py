@@ -1,25 +1,24 @@
 """v0.4.0 数据可视化 —— 兼容 v0.3.0 基本图 + v0.4.0 四组 trade-off 图表。
 
-    v0.3.0 模式（默认）：
-      python3 -m scripts.results.visualization --csv out/results_raw_p05.csv
+v0.3.0 模式（默认）：
+  python3 -m scripts.results.visualization --csv out/results_raw_p05.csv
 
-    v0.4.0 模式：
-      python3 -m scripts.results.visualization --aggregated results/aggregated_results.csv --v4
+v0.4.0 模式：
+  python3 -m scripts.results.visualization --aggregated results/aggregated_results.csv --v4
 """
+
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 RING_LENGTH_KM = 2.0  # 环路长度 (km)，v0.3.0 兼容
 
@@ -27,6 +26,7 @@ RING_LENGTH_KM = 2.0  # 环路长度 (km)，v0.3.0 兼容
 # ═══════════════════════════════════════════════════════════════════
 # v0.3.0 兼容：密度-流量基本图 + 通行能力汇总
 # ═══════════════════════════════════════════════════════════════════
+
 
 def load_and_aggregate(csv_path: str, ring_length_km: float = RING_LENGTH_KM):
     if not os.path.exists(csv_path):
@@ -45,16 +45,24 @@ def compute_capacities(aggregated: pd.DataFrame, cav_ratios: list):
     for ratio in cav_ratios:
         subset = aggregated[aggregated["pCAV"] == ratio]
         peak_row = subset["mean_flow(veh/h)"].idxmax()
-        capacities.append({
-            "cav_ratio": ratio,
-            "peak_flow": subset.loc[peak_row, "mean_flow(veh/h)"],
-            "peak_density": subset.loc[peak_row, "density"],
-        })
+        capacities.append(
+            {
+                "cav_ratio": ratio,
+                "peak_flow": subset.loc[peak_row, "mean_flow(veh/h)"],
+                "peak_density": subset.loc[peak_row, "density"],
+            }
+        )
     return capacities
 
 
-def plot_density_flow(ratio: float, density: pd.Series, flow: pd.Series,
-                      peak_density: float, peak_flow: float, output_dir: str):
+def plot_density_flow(
+    ratio: float,
+    density: pd.Series,
+    flow: pd.Series,
+    peak_density: float,
+    peak_flow: float,
+    output_dir: str,
+):
     plt.figure(figsize=(10, 5))
     plt.plot(density, flow, marker="o", color="blue", label="Flow", linewidth=2, linestyle="-")
     plt.plot(peak_density, peak_flow, marker="*", markersize=12, color="red", label="Capacity")
@@ -63,7 +71,7 @@ def plot_density_flow(ratio: float, density: pd.Series, flow: pd.Series,
     plt.ylabel("Flow (veh/h)", fontsize=15)
     plt.xlim(0, density.max() * 1.1)
     plt.ylim(0, peak_flow * 1.1)
-    for x, y in zip(density, flow):
+    for x, y in zip(density, flow, strict=True):
         plt.text(x, y, str(y), ha="center", va="bottom")
     plt.legend(loc="upper left")
     plt.grid(axis="y")
@@ -77,18 +85,33 @@ def plot_capacity_summary(capacities: list, output_dir: str):
     plt.figure(figsize=(10, 5))
     cav_percentages = [c["cav_ratio"] * 100 for c in capacities]
     capacity_values = [c["peak_flow"] for c in capacities]
-    plt.plot(cav_percentages, capacity_values, marker="o", markersize=8,
-             label="Capacity", color="blue", linewidth=2, linestyle="-")
+    plt.plot(
+        cav_percentages,
+        capacity_values,
+        marker="o",
+        markersize=8,
+        label="Capacity",
+        color="blue",
+        linewidth=2,
+        linestyle="-",
+    )
     max_capacity = max(capacity_values)
     max_index = capacity_values.index(max_capacity)
     max_percentage = cav_percentages[max_index]
-    plt.plot(max_percentage, max_capacity, marker="*", markersize=12,
-             color="red", linestyle="None", label="Max Capacity")
+    plt.plot(
+        max_percentage,
+        max_capacity,
+        marker="*",
+        markersize=12,
+        color="red",
+        linestyle="None",
+        label="Max Capacity",
+    )
     plt.title("CAV Penetration Rate - Capacity Curve", fontsize=20)
     plt.xlabel("CAV Penetration Rate (%)", fontsize=15)
     plt.ylabel("Capacity (veh/h)", fontsize=15)
     plt.ylim(0, max_capacity * 1.1)
-    for x, y in zip(cav_percentages, capacity_values):
+    for x, y in zip(cav_percentages, capacity_values, strict=True):
         if y == max_capacity:
             plt.text(x, y, f"({x}, {y})", ha="center", va="bottom")
     plt.legend(loc="upper left")
@@ -108,7 +131,7 @@ def run_v03(args) -> None:
         net_dir = os.path.dirname(args.net)
         meta_path = os.path.join(net_dir, "net.json")
         if os.path.isfile(meta_path):
-            with open(meta_path, "r", encoding="utf-8") as f:
+            with open(meta_path, encoding="utf-8") as f:
                 ring_length_km = json.load(f).get("total_length_km", RING_LENGTH_KM)
             print(f"从 {meta_path} 读取环路总长: {ring_length_km} km")
 
@@ -119,9 +142,14 @@ def run_v03(args) -> None:
     capacities = compute_capacities(aggregated, cav_ratios)
     for capacity in capacities:
         subset = aggregated[aggregated["pCAV"] == capacity["cav_ratio"]]
-        plot_density_flow(capacity["cav_ratio"], subset["density"],
-                          subset["mean_flow(veh/h)"], capacity["peak_density"],
-                          capacity["peak_flow"], args.outDir)
+        plot_density_flow(
+            capacity["cav_ratio"],
+            subset["density"],
+            subset["mean_flow(veh/h)"],
+            capacity["peak_density"],
+            capacity["peak_flow"],
+            args.outDir,
+        )
     plot_capacity_summary(capacities, args.outDir)
 
 
@@ -130,13 +158,15 @@ def run_v03(args) -> None:
 # ═══════════════════════════════════════════════════════════════════
 
 SCENARIO_LABELS = {
-    "scenario_0": "s0 (square ring)", "scenario_1": "s1 (32-gon single-lane)",
-    "scenario_2": "s2 (dual-lane)", "scenario_3": "s3 (bottleneck)",
+    "scenario_0": "s0 (square ring)",
+    "scenario_1": "s1 (32-gon single-lane)",
+    "scenario_2": "s2 (dual-lane)",
+    "scenario_3": "s3 (bottleneck)",
 }
 # 模型配色：同面板内两模型需一眼可辨，使用高对比色
 MODEL_COLORS = {"IDM": "#2166ac", "CACC": "#b2182b"}  # 蓝 vs 红
 MODEL_STYLES = {
-    "IDM":  {"marker": "o", "linestyle": "-",  "linewidth": 1.5},
+    "IDM": {"marker": "o", "linestyle": "-", "linewidth": 1.5},
     "CACC": {"marker": "s", "linestyle": "--", "linewidth": 1.5},
 }
 
@@ -148,23 +178,33 @@ def _ensure_dir(path: Path) -> None:
 def chart_capacity_v4(df: pd.DataFrame, out_dir: Path) -> None:
     """x=pCAV, y=每个 pCAV 下最高 flow，四场景分面"""
     capacity = df.groupby(["scenario", "model", "pCAV"])["flow_mean"].max().reset_index()
-    fig, axes = plt.subplots(2, 2, figsize=(16, 11), sharex=True, sharey=False,
-                             constrained_layout=True)
+    fig, axes = plt.subplots(
+        2, 2, figsize=(16, 11), sharex=True, sharey=False, constrained_layout=True
+    )
     axes = axes.flatten()
-    for ax, (sc, label) in zip(axes, SCENARIO_LABELS.items()):
+    for ax, (sc, label) in zip(axes, SCENARIO_LABELS.items(), strict=True):
         sub = capacity[capacity["scenario"] == sc]
         for model in ["IDM", "CACC"]:
             d = sub[sub["model"] == model].sort_values("pCAV")
             if len(d) == 0:
                 continue
             s = MODEL_STYLES[model]
-            ax.plot(d["pCAV"] * 100, d["flow_mean"], marker=s["marker"],
-                    linestyle=s["linestyle"], linewidth=s["linewidth"],
-                    color=MODEL_COLORS[model], markersize=5, label=model, alpha=0.85)
+            ax.plot(
+                d["pCAV"] * 100,
+                d["flow_mean"],
+                marker=s["marker"],
+                linestyle=s["linestyle"],
+                linewidth=s["linewidth"],
+                color=MODEL_COLORS[model],
+                markersize=5,
+                label=model,
+                alpha=0.85,
+            )
         ax.set_title(label, fontsize=12)
         ax.set_ylabel("Capacity (veh/h)", fontsize=10)
-        ax.legend(fontsize=9); ax.grid(True, alpha=0.3)
-        ax.xaxis.set_major_formatter(mticker.FormatStrFormatter('%d%%'))
+        ax.legend(fontsize=9)
+        ax.grid(True, alpha=0.3)
+        ax.xaxis.set_major_formatter(mticker.FormatStrFormatter("%d%%"))
         ax.tick_params(labelbottom=True)  # 所有面板显示 x 轴刻度
     axes[2].set_xlabel("CAV Penetration Rate", fontsize=11)
     axes[3].set_xlabel("CAV Penetration Rate", fontsize=11)
@@ -178,7 +218,7 @@ def chart_capacity_v4(df: pd.DataFrame, out_dir: Path) -> None:
 def chart_safety_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
     """x=flow_mean, y=ttc_per_k_mean, s0+s3 双面板"""
     fig, axes = plt.subplots(1, 2, figsize=(16, 7), constrained_layout=True)
-    for ax, sc in zip(axes, ["scenario_0", "scenario_3"]):
+    for ax, sc in zip(axes, ["scenario_0", "scenario_3"], strict=True):
         sub = df[df["scenario"] == sc]
         for model in ["IDM", "CACC"]:
             d = sub[sub["model"] == model]
@@ -186,13 +226,22 @@ def chart_safety_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
                 continue
             s = MODEL_STYLES[model]
             sizes = np.clip(d["vehN"] / 2, 10, 120)
-            ax.scatter(d["flow_mean"], d["ttc_per_k_mean"], s=sizes, alpha=0.6,
-                       edgecolors="white", linewidth=0.3,
-                       color=MODEL_COLORS[model], marker=s["marker"], label=model)
+            ax.scatter(
+                d["flow_mean"],
+                d["ttc_per_k_mean"],
+                s=sizes,
+                alpha=0.6,
+                edgecolors="white",
+                linewidth=0.3,
+                color=MODEL_COLORS[model],
+                marker=s["marker"],
+                label=model,
+            )
         ax.set_title(SCENARIO_LABELS.get(sc, sc), fontsize=12)
         ax.set_xlabel("Flow (veh/h)", fontsize=10)
         ax.set_ylabel("TTC Events / 1000 veh-km", fontsize=10)
-        ax.legend(fontsize=9); ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=9)
+        ax.grid(True, alpha=0.3)
     fig.suptitle("Safety–Flow Trade-off: TTC/1000 veh-km vs Flow", fontsize=14)
     path = out_dir / "chart_safety_flow.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")
@@ -204,24 +253,33 @@ def chart_co2_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
     """x=flow_mean, y=co2_per_k_mean，四场景分面，x 轴统一"""
     x_min = df["flow_mean"].min() * 0.95
     x_max = df["flow_mean"].max() * 1.05
-    fig, axes = plt.subplots(2, 2, figsize=(16, 11), sharex=False, sharey=False,
-                             constrained_layout=True)
+    fig, axes = plt.subplots(
+        2, 2, figsize=(16, 11), sharex=False, sharey=False, constrained_layout=True
+    )
     axes = axes.flatten()
-    for ax, (sc, label) in zip(axes, SCENARIO_LABELS.items()):
+    for ax, (sc, label) in zip(axes, SCENARIO_LABELS.items(), strict=True):
         sub = df[df["scenario"] == sc]
         for model in ["IDM", "CACC"]:
             d = sub[sub["model"] == model]
             if len(d) == 0:
                 continue
             s = MODEL_STYLES[model]
-            ax.scatter(d["flow_mean"], d["co2_per_k_mean"], s=15, alpha=0.5,
-                       edgecolors="none", color=MODEL_COLORS[model],
-                       marker=s["marker"], label=model)
+            ax.scatter(
+                d["flow_mean"],
+                d["co2_per_k_mean"],
+                s=15,
+                alpha=0.5,
+                edgecolors="none",
+                color=MODEL_COLORS[model],
+                marker=s["marker"],
+                label=model,
+            )
         ax.set_title(label, fontsize=12)
         ax.set_xlabel("Flow (veh/h)", fontsize=10)
         ax.set_ylabel("CO₂ (g/veh-km)", fontsize=10)
         ax.set_xlim(x_min, x_max)
-        ax.legend(fontsize=9); ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=9)
+        ax.grid(True, alpha=0.3)
     fig.suptitle("CO₂–Flow Trade-off", fontsize=14)
     path = out_dir / "chart_co2_flow.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")
@@ -232,23 +290,33 @@ def chart_co2_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
 def chart_delay_v4(df: pd.DataFrame, out_dir: Path) -> None:
     """x=pCAV, y=delay_mean, vehN=120 only，四场景分面"""
     sub = df[df["vehN"] == 120]
-    fig, axes = plt.subplots(2, 2, figsize=(16, 11), sharex=True, sharey=False,
-                             constrained_layout=True)
+    fig, axes = plt.subplots(
+        2, 2, figsize=(16, 11), sharex=True, sharey=False, constrained_layout=True
+    )
     axes = axes.flatten()
-    for ax, (sc, label) in zip(axes, SCENARIO_LABELS.items()):
+    for ax, (sc, label) in zip(axes, SCENARIO_LABELS.items(), strict=True):
         d = sub[sub["scenario"] == sc]
         for model in ["IDM", "CACC"]:
             dm = d[d["model"] == model].sort_values("pCAV")
             if len(dm) == 0:
                 continue
             s = MODEL_STYLES[model]
-            ax.plot(dm["pCAV"] * 100, dm["delay_mean"], marker=s["marker"],
-                    linestyle=s["linestyle"], linewidth=s["linewidth"],
-                    color=MODEL_COLORS[model], markersize=5, label=model, alpha=0.85)
+            ax.plot(
+                dm["pCAV"] * 100,
+                dm["delay_mean"],
+                marker=s["marker"],
+                linestyle=s["linestyle"],
+                linewidth=s["linewidth"],
+                color=MODEL_COLORS[model],
+                markersize=5,
+                label=model,
+                alpha=0.85,
+            )
         ax.set_title(f"{label} (vehN=120)", fontsize=12)
         ax.set_ylabel("Mean Lap Delay (s)", fontsize=10)
-        ax.legend(fontsize=9); ax.grid(True, alpha=0.3)
-        ax.xaxis.set_major_formatter(mticker.FormatStrFormatter('%d%%'))
+        ax.legend(fontsize=9)
+        ax.grid(True, alpha=0.3)
+        ax.xaxis.set_major_formatter(mticker.FormatStrFormatter("%d%%"))
         ax.tick_params(labelbottom=True)  # 所有面板显示 x 轴刻度
     axes[2].set_xlabel("CAV Penetration Rate", fontsize=11)
     axes[3].set_xlabel("CAV Penetration Rate", fontsize=11)
@@ -277,22 +345,22 @@ def run_v4(args) -> None:
 # CLI
 # ═══════════════════════════════════════════════════════════════════
 
+
 def main():
     parser = argparse.ArgumentParser(description="v0.4.0 数据可视化")
     # v0.3.0 参数
-    parser.add_argument("--csv", default="out/results_raw_p05.csv",
-                        help="v0.3.0 模式：批量仿真 CSV")
+    parser.add_argument(
+        "--csv", default="out/results_raw_p05.csv", help="v0.3.0 模式：批量仿真 CSV"
+    )
     parser.add_argument("--ring-length", type=float, default=None)
-    parser.add_argument("--net", default=None,
-                        help="路网文件路径，自动读取环路总长")
+    parser.add_argument("--net", default=None, help="路网文件路径，自动读取环路总长")
     # v0.4.0 参数
-    parser.add_argument("--aggregated", default="results/aggregated_results.csv",
-                        help="v0.4.0 模式：多种子聚合 CSV")
-    parser.add_argument("--v4", action="store_true",
-                        help="启用 v0.4.0 四组 trade-off 图表模式")
+    parser.add_argument(
+        "--aggregated", default="results/aggregated_results.csv", help="v0.4.0 模式：多种子聚合 CSV"
+    )
+    parser.add_argument("--v4", action="store_true", help="启用 v0.4.0 四组 trade-off 图表模式")
     # 通用
-    parser.add_argument("--outDir", default="graph/v0.4.0",
-                        help="输出目录")
+    parser.add_argument("--outDir", default="graph/v0.4.0", help="输出目录")
     args = parser.parse_args()
 
     if args.v4:

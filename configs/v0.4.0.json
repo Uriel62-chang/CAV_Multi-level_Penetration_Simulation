@@ -1,0 +1,27 @@
+{
+  "config_version": "v0.4.0",
+  "pipeline_version": "v0.4.0.post1",
+  "schema_version": "1",
+  "scenarios": ["scenario_0", "scenario_1", "scenario_2", "scenario_3"],
+  "models": ["IDM", "CACC"],
+  "pcav_levels": [
+    0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3,
+    0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65,
+    0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0
+  ],
+  "vehicle_counts": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120],
+  "seeds": [1, 2, 3, 4, 5],
+  "seed_scope": "vehicle_type_assignment",
+  "simulation_end": 3600,
+  "warmup": 600,
+  "step_length": 0.1,
+  "detector_frequency": 120,
+  "edge_data_frequency": 300,
+  "loops": 300,
+  "network_files": {
+    "scenario_0": "net/scenario_0/loop.net.xml",
+    "scenario_1": "net/scenario_1/loop.net.xml",
+    "scenario_2": "net/scenario_2/loop.net.xml",
+    "scenario_3": "net/scenario_3/loop.net.xml"
+  }
+}

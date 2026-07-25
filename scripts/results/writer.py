@@ -8,6 +8,7 @@
       --manifest /home/lyc/simdata/cav-v0.4.0/raw/manifest.json \
       --pipeline-version v0.4.0-rc1
 """
+
 import argparse
 import csv
 import json
@@ -16,14 +17,14 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
+from scripts.provenance import sha256_file
 from scripts.run_spec import atomic_write_json
 from scripts.schema import RUN_LEVEL_COLUMNS
 
 
-def _read_summary(run_dir: Path, run_id: str,
-                  pipeline_version: str) -> tuple[dict | None, str | None]:
+def _read_summary(
+    run_dir: Path, run_id: str, pipeline_version: str
+) -> tuple[dict | None, str | None]:
     """读取 summary.json，返回 (data, error_reason)。error_reason 为 None 表示成功。"""
     sp = run_dir / "summary.json"
     if not sp.exists():
@@ -70,9 +71,22 @@ def _build_row(summary: dict, parse_status: str) -> dict:
 
     # data_quality 判定
     errors = summary.get("_invariant_errors", [])
-    if parse_status == "SUCCESS":
+    parser_flags = [
+        summary.get(name)
+        for name in (
+            "ssm_parse_success",
+            "lc_parse_success",
+            "ep_parse_success",
+            "ee_parse_success",
+            "vr_parse_success",
+        )
+    ]
+    if parse_status == "SUCCESS" and all(flag is True for flag in parser_flags):
         row["data_quality"] = "ok"
         row["data_quality_detail"] = ""
+    elif parse_status == "SUCCESS":
+        row["data_quality"] = "parser_warning"
+        row["data_quality_detail"] = "one or more parser audit flags are not true"
     elif parse_status == "INVALID_DATA":
         row["data_quality"] = "invariant_failed"
         row["data_quality_detail"] = json.dumps(errors, ensure_ascii=False) if errors else ""
@@ -101,6 +115,7 @@ def build_run_level_results(
     output_dir: Path,
     pipeline_version: str,
     manifest_path: Path,
+    results_filename: str = "run_level_results.csv",
 ) -> dict:
     """主入口：读取 summary.json，输出三文件。"""
 
@@ -110,6 +125,15 @@ def build_run_level_results(
     if not manifest_path.exists():
         raise FileNotFoundError(f"manifest not found: {manifest_path}")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("pipeline_version") != pipeline_version:
+        raise ValueError(
+            "manifest pipeline_version mismatch: "
+            f"{manifest.get('pipeline_version')} != {pipeline_version}"
+        )
+    if not manifest.get("schema_version"):
+        raise ValueError("manifest schema_version missing")
+    if not manifest.get("config_sha256"):
+        raise ValueError("manifest config_sha256 missing")
     manifest_results = manifest.get("results", [])
 
     expected_total = manifest.get("total", len(manifest_results))
@@ -133,34 +157,95 @@ def build_run_level_results(
         sim_status = _read_sim_status(run_dir)
         parse_status = _read_parse_status(run_dir)
 
+        try:
+            sim_data = json.loads((run_dir / "simulation_status.json").read_text(encoding="utf-8"))
+            parse_data = json.loads((run_dir / "parse_status.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            sim_data = {}
+            parse_data = {}
+        expected_hash = entry.get("run_spec_sha256")
+        metadata_error = None
+        for name, data in (("simulation", sim_data), ("parse", parse_data)):
+            if data.get("pipeline_version") != pipeline_version:
+                metadata_error = f"{name} pipeline_version mismatch"
+                break
+            if data.get("schema_version") != manifest["schema_version"]:
+                metadata_error = f"{name} schema_version mismatch"
+                break
+            if data.get("config_sha256") != manifest["config_sha256"]:
+                metadata_error = f"{name} config_sha256 mismatch"
+                break
+            if data.get("run_spec_sha256") != expected_hash:
+                metadata_error = f"{name} run_spec_sha256 mismatch"
+                break
+        summary_path = run_dir / "summary.json"
+        if (
+            metadata_error is None
+            and summary_path.is_file()
+            and parse_data.get("summary_sha256") != sha256_file(summary_path)
+        ):
+            metadata_error = "summary_sha256 mismatch"
+        if metadata_error:
+            failed_rows.append(
+                {
+                    "run_id": run_id,
+                    "scenario": "",
+                    "model": "",
+                    "pCAV": "",
+                    "vehN": "",
+                    "seed": "",
+                    "failure_stage": "METADATA",
+                    "failure_reason": metadata_error,
+                }
+            )
+            continue
+
         # 失败判定
         if sim_status != "SUCCESS":
-            failed_rows.append({
-                "run_id": run_id,
-                "scenario": "", "model": "", "pCAV": "", "vehN": "", "seed": "",
-                "failure_stage": "SIMULATION",
-                "failure_reason": f"simulation status={sim_status}",
-            })
+            failed_rows.append(
+                {
+                    "run_id": run_id,
+                    "scenario": "",
+                    "model": "",
+                    "pCAV": "",
+                    "vehN": "",
+                    "seed": "",
+                    "failure_stage": "SIMULATION",
+                    "failure_reason": f"simulation status={sim_status}",
+                }
+            )
             continue
 
         if parse_status not in ("SUCCESS", "INVALID_DATA"):
-            failed_rows.append({
-                "run_id": run_id,
-                "scenario": "", "model": "", "pCAV": "", "vehN": "", "seed": "",
-                "failure_stage": "PARSER" if parse_status != "MISSING" else "SUMMARY",
-                "failure_reason": f"parse status={parse_status}",
-            })
+            failed_rows.append(
+                {
+                    "run_id": run_id,
+                    "scenario": "",
+                    "model": "",
+                    "pCAV": "",
+                    "vehN": "",
+                    "seed": "",
+                    "failure_stage": "PARSER" if parse_status != "MISSING" else "SUMMARY",
+                    "failure_reason": f"parse status={parse_status}",
+                }
+            )
             continue
 
         # 读取 summary
         summary, error = _read_summary(run_dir, run_id, pipeline_version)
         if summary is None:
-            failed_rows.append({
-                "run_id": run_id,
-                "scenario": "", "model": "", "pCAV": "", "vehN": "", "seed": "",
-                "failure_stage": "SUMMARY",
-                "failure_reason": error or "unknown",
-            })
+            failed_rows.append(
+                {
+                    "run_id": run_id,
+                    "scenario": "",
+                    "model": "",
+                    "pCAV": "",
+                    "vehN": "",
+                    "seed": "",
+                    "failure_stage": "SUMMARY",
+                    "failure_reason": error or "unknown",
+                }
+            )
             continue
 
         # 构建 CSV 行
@@ -168,20 +253,33 @@ def build_run_level_results(
         success_rows.append(row)
 
     # ── 排序 ──
-    success_rows.sort(key=lambda r: (
-        r.get("scenario", ""), r.get("model", ""),
-        r.get("pCAV", 0), r.get("vehN", 0), r.get("seed", 0),
-    ))
+    success_rows.sort(
+        key=lambda r: (
+            r.get("scenario", ""),
+            r.get("model", ""),
+            r.get("pCAV", 0),
+            r.get("vehN", 0),
+            r.get("seed", 0),
+        )
+    )
 
     # ── 写入 run_level_results.csv ──
-    csv_path = output_dir / "run_level_results.csv"
+    csv_path = output_dir / results_filename
     _atomic_write_csv(csv_path, success_rows, RUN_LEVEL_COLUMNS)
     print(f"[WRITE] {len(success_rows)} rows → {csv_path}")
 
     # ── 写入 failed_runs.csv ──
     failed_path = output_dir / "failed_runs.csv"
-    failed_cols = ["run_id", "scenario", "model", "pCAV", "vehN", "seed",
-                   "failure_stage", "failure_reason"]
+    failed_cols = [
+        "run_id",
+        "scenario",
+        "model",
+        "pCAV",
+        "vehN",
+        "seed",
+        "failure_stage",
+        "failure_reason",
+    ]
     _atomic_write_csv(failed_path, failed_rows, failed_cols)
     print(f"[WRITE] {len(failed_rows)} failed → {failed_path}")
 
@@ -208,16 +306,15 @@ def build_run_level_results(
 
 def main():
     parser = argparse.ArgumentParser(description="v0.4.0 统一结果写入")
-    parser.add_argument("--input-root", required=True,
-                        help="raw run 目录根路径")
-    parser.add_argument("--output-dir", required=True,
-                        help="输出目录")
-    parser.add_argument("--manifest", required=True,
-                        help="正式实验 manifest.json")
-    parser.add_argument("--pipeline-version", default="v0.4.0-rc1",
-                        help="管线版本标识")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="只检查不写入")
+    parser.add_argument("--input-root", required=True, help="raw run 目录根路径")
+    parser.add_argument("--output-dir", required=True, help="输出目录")
+    parser.add_argument("--manifest", required=True, help="正式实验 manifest.json")
+    parser.add_argument(
+        "--pipeline-version",
+        default=None,
+        help="管线版本；默认从实验 manifest 读取",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="只检查不写入")
     args = parser.parse_args()
 
     input_root = Path(args.input_root)
@@ -226,9 +323,21 @@ def main():
     if not manifest_path.exists():
         print(f"[ERROR] manifest not found: {manifest_path}")
         sys.exit(1)
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"[ERROR] manifest unreadable: {exc}")
+        sys.exit(1)
+    manifest_version = manifest.get("pipeline_version")
+    if not manifest_version:
+        print("[ERROR] manifest missing pipeline_version")
+        sys.exit(1)
+    if args.pipeline_version and args.pipeline_version != manifest_version:
+        print("[ERROR] --pipeline-version does not match manifest")
+        sys.exit(1)
+    pipeline_version = args.pipeline_version or manifest_version
 
     if args.dry_run:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         total = manifest.get("total", 0)
         results = manifest.get("results", [])
         sim_ok = sum(1 for r in results if r.get("status") == "SUCCESS")
@@ -238,14 +347,18 @@ def main():
     report = build_run_level_results(
         input_root=input_root,
         output_dir=Path(args.output_dir),
-        pipeline_version=args.pipeline_version,
+        pipeline_version=pipeline_version,
         manifest_path=manifest_path,
     )
 
-    print(f"\n{'='*60}")
-    print(f"[DONE] csv_rows={report['csv_rows']}  "
-          f"ok={report['quality_ok']}  invalid={report['quality_invalid']}  "
-          f"excluded={report['excluded_runs']}  complete={report['complete']}")
+    print(f"\n{'=' * 60}")
+    print(
+        f"[DONE] csv_rows={report['csv_rows']}  "
+        f"ok={report['quality_ok']}  invalid={report['quality_invalid']}  "
+        f"excluded={report['excluded_runs']}  complete={report['complete']}"
+    )
+    if not report["complete"]:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

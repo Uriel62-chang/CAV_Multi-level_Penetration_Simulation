@@ -16,7 +16,6 @@ def parse_edge_performance(xml_path: str):
             "parse_success": bool,
         }
     """
-    import math
 
     result = {
         "total_vehicle_km": float("nan"),

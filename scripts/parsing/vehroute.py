@@ -3,9 +3,9 @@
 import xml.etree.ElementTree as ET
 
 
-def parse_lap_times(xml_path: str, edges_per_lap: int,
-                    warmup_period: float = 600.0,
-                    sim_end_time: float = 3600.0):
+def parse_lap_times(
+    xml_path: str, edges_per_lap: int, warmup_period: float = 600.0, sim_end_time: float = 3600.0
+):
     """解析 SUMO vehroute exitTimes XML，计算单圈时间。
 
     Args:
@@ -24,7 +24,6 @@ def parse_lap_times(xml_path: str, edges_per_lap: int,
             "parse_success": bool,
         }
     """
-    import math
 
     result = {
         "completed_lap_count": 0,
@@ -67,7 +66,7 @@ def parse_lap_times(xml_path: str, edges_per_lap: int,
         # 提取每圈终点时间
         # 第1圈终点 = times[edges_per_lap - 1]
         # 第2圈终点 = times[2*edges_per_lap - 1]
-        lap_ends = times[edges_per_lap - 1::edges_per_lap]
+        lap_ends = times[edges_per_lap - 1 :: edges_per_lap]
 
         # 计算圈时间
         for i in range(1, len(lap_ends)):
@@ -89,10 +88,11 @@ def parse_lap_times(xml_path: str, edges_per_lap: int,
     result["completed_lap_count"] = n
     result["mean_lap_time_s"] = sum(all_lap_times) / n
     result["lap_time_std_s"] = (
-        (sum((x - result["mean_lap_time_s"]) ** 2 for x in all_lap_times) / n) ** 0.5
-    )
+        sum((x - result["mean_lap_time_s"]) ** 2 for x in all_lap_times) / n
+    ) ** 0.5
     result["median_lap_time_s"] = (
-        all_lap_times[n // 2] if n % 2 == 1
+        all_lap_times[n // 2]
+        if n % 2 == 1
         else (all_lap_times[n // 2 - 1] + all_lap_times[n // 2]) / 2
     )
     result["p95_lap_time_s"] = all_lap_times[int(n * 0.95) if int(n * 0.95) < n else n - 1]

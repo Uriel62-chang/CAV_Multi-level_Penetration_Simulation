@@ -1,5 +1,4 @@
 import argparse
-import math
 import xml.etree.ElementTree as ET
 
 

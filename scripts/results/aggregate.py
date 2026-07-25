@@ -8,20 +8,22 @@
       --input /home/lyc/simdata/cav-v0.4.0/results/run_level_results.csv \
       --output /home/lyc/simdata/cav-v0.4.0/results/aggregated_results.csv
 """
+
 import argparse
-import os
 import sys
 from pathlib import Path
 
 import pandas as pd
-import numpy as np
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from scripts.schema import (
-    CAPACITY_COLUMNS, SAFETY_SSM_COLUMNS, SAFETY_EB_COLUMNS,
-    LANECHANGE_COLUMNS, EMISSIONS_COLUMNS, EFFICIENCY_COLUMNS,
-    NORMALIZED_COLUMNS, DELAY_COLUMNS,
+    CAPACITY_COLUMNS,
+    DELAY_COLUMNS,
+    EFFICIENCY_COLUMNS,
+    EMISSIONS_COLUMNS,
+    LANECHANGE_COLUMNS,
+    NORMALIZED_COLUMNS,
+    SAFETY_EB_COLUMNS,
+    SAFETY_SSM_COLUMNS,
 )
 
 # ── 需要进行跨种子统计的指标列（排除标识列和 data_quality） ──
@@ -54,39 +56,55 @@ def aggregate(input_csv: Path, output_csv: Path) -> pd.DataFrame:
     # 聚合函数
     agg_funcs = {
         col: ["mean", "std", "median", "min", "max", "count"]
-        for col in METRIC_COLUMNS if col in df_ok.columns
+        for col in METRIC_COLUMNS
+        if col in df_ok.columns
     }
 
     grouped = df_ok.groupby(list(GROUP_KEYS), dropna=False).agg(agg_funcs)
 
     # 展平 MultiIndex 列名：mean_flow_veh_h → flow_mean, flow_std, ...
     short_names = {
-        "mean_flow_veh_h": "flow", "max_flow_veh_h": "max_flow",
+        "mean_flow_veh_h": "flow",
+        "max_flow_veh_h": "max_flow",
         "mean_speed_m_s": "speed",
         "detector_mean_speed_temporal_variance": "speed_var",
         "detector_speed_window_count": "det_win",
-        "ssm_raw_record_count": "ssm_raw", "ssm_invalid_record_count": "ssm_inv",
-        "ssm_warmup_filtered_count": "ssm_warm", "ssm_valid_record_count": "ssm_valid",
+        "ssm_raw_record_count": "ssm_raw",
+        "ssm_invalid_record_count": "ssm_inv",
+        "ssm_warmup_filtered_count": "ssm_warm",
+        "ssm_valid_record_count": "ssm_valid",
         "ssm_mirrored_record_count": "ssm_mirr",
-        "ttc_conflict_event_count": "ttc", "min_ttc_s": "min_ttc",
+        "ttc_conflict_event_count": "ttc",
+        "min_ttc_s": "min_ttc",
         "ttc_affected_vehicle_count": "ttc_veh",
-        "drac_conflict_event_count": "drac", "max_drac_mps2": "max_drac",
-        "emergency_braking_count": "eb", "emergency_braking_affected_vehicle_count": "eb_veh",
-        "lane_change_count": "lc", "unsafe_lc_gap_count": "unsafe_lc",
+        "drac_conflict_event_count": "drac",
+        "max_drac_mps2": "max_drac",
+        "emergency_braking_count": "eb",
+        "emergency_braking_affected_vehicle_count": "eb_veh",
+        "lane_change_count": "lc",
+        "unsafe_lc_gap_count": "unsafe_lc",
         "unsafe_lc_gap_ratio": "unsafe_lc_ratio",
-        "total_CO2_kg": "co2", "total_NOx_g": "nox", "total_PMx_g": "pmx",
-        "total_fuel_kg": "fuel", "total_vehicle_km": "veh_km",
+        "total_CO2_kg": "co2",
+        "total_NOx_g": "nox",
+        "total_PMx_g": "pmx",
+        "total_fuel_kg": "fuel",
+        "total_vehicle_km": "veh_km",
         "total_time_loss_s": "time_loss",
-        "completed_lap_count": "laps", "mean_lap_time_s": "lap",
-        "median_lap_time_s": "lap_med", "p95_lap_time_s": "lap_p95",
+        "completed_lap_count": "laps",
+        "mean_lap_time_s": "lap",
+        "median_lap_time_s": "lap_med",
+        "p95_lap_time_s": "lap_p95",
         "lap_time_std_s": "lap_std",
         "ttc_events_per_1000_veh_km": "ttc_per_k",
         "emergency_brakes_per_1000_veh_km": "eb_per_k",
         "lane_changes_per_1000_veh_km": "lc_per_k",
-        "CO2_g_per_veh_km": "co2_per_k", "NOx_mg_per_veh_km": "nox_per_k",
-        "PMx_mg_per_veh_km": "pmx_per_k", "fuel_g_per_veh_km": "fuel_per_k",
+        "CO2_g_per_veh_km": "co2_per_k",
+        "NOx_mg_per_veh_km": "nox_per_k",
+        "PMx_mg_per_veh_km": "pmx_per_k",
+        "fuel_g_per_veh_km": "fuel_per_k",
         "time_loss_s_per_veh_km": "tl_per_k",
-        "mean_lap_delay_s": "delay", "p95_lap_delay_s": "delay_p95",
+        "mean_lap_delay_s": "delay",
+        "p95_lap_delay_s": "delay_p95",
     }
 
     new_columns = {}

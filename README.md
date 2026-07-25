@@ -2,13 +2,16 @@
 
 > A reproducible SUMO experiment platform for evaluating how CAV penetration and car-following control affect **capacity, safety, emissions, and delay** under different road constraints.
 
-`SUMO 1.27.1` · `Python 3.10+` · `10,080 simulations` · `5 random seeds` · `v0.4.0`
+`SUMO 1.27.1` · `Python 3.10+` · `10,080 simulations` · `5 random seeds` · `v0.4.0.post1`
 
 [Key Findings](#key-findings) ·
 [Scenario Design](#scenario-design) ·
 [Core Results](#core-results) ·
 [Quick Start](#quick-start) ·
-[Experiment Report](REPORT.md)
+[Experiment Report](REPORT.md) ·
+[Engineering Audit](ENGINEERING_AUDIT.md) ·
+[Migration](MIGRATION.md) ·
+[Release Checklist](RELEASE_CHECKLIST.md)
 
 ---
 
@@ -178,7 +181,7 @@ This is an experimental observation rather than a claim that either model is uni
 | CAV models | IDM, CACC |
 | CAV penetration | 0.00–1.00 in increments of 0.05 |
 | Vehicle count | 10–120 in increments of 10 |
-| Random seeds | 1–5 |
+| Vehicle-type assignment seeds | 1–5 |
 | Simulation duration | 3,600 s |
 | Warm-up period | 600 s |
 | Simulation step | 0.1 s |
@@ -186,6 +189,49 @@ This is an experimental observation rather than a claim that either model is uni
 | SSM TTC threshold | 3.0 s |
 | SSM DRAC threshold | 3.0 m/s² |
 | Emission class | HBEFA3/PC_G_EU4 for both HV and CAV |
+
+`--seed` only shuffles the Python-generated CAV/HV type assignment across fixed
+initial positions. It is not a SUMO random seed; the pipeline does not pass
+`--seed` or `--random` to SUMO. Run metadata records this scope as
+`seed_scope="vehicle_type_assignment"`.
+
+The formal experiment grid is defined in
+[`configs/v0.4.0.json`](configs/v0.4.0.json). Batch runs load this versioned
+configuration by default:
+
+```bash
+python3 -m scripts.simulation.batch_run \
+  --config configs/v0.4.0.json \
+  --dry-run
+```
+
+CLI grid options are explicit overrides. The resolved configuration and its
+stable SHA-256 are written to `manifest.json`, so an overridden run remains
+auditable. Invalid penetration levels, duplicate/empty lists, inconsistent
+network mappings, non-positive frequencies, and `warmup >= simulation_end` are
+rejected before any run directory is created.
+
+Each prepared run contains `run_spec.json` with the complete simulation
+parameters and derived penetration metadata (`requested_pcav`, `cav_count`,
+`hv_count`, and `realized_pcav`). `simulation_status.json` references its
+SHA-256; the parser refuses a missing or modified RunSpec instead of rebuilding
+parameters from the run directory name.
+
+For small vehicle populations, `realized_pcav` can differ from
+`requested_pcav` because the CAV count follows Python's existing
+`round(vehicle_count * requested_pcav)` rule. The existing CSV `pCAV` field
+continues to mean the requested value for v0.4.0 compatibility.
+
+The experiment-level `manifest.json` is created before SUMO starts. It records
+the full planned grid, Git state, Python/SUMO/netconvert versions, platform,
+launch command, resolved configuration hash, and SHA-256 values for every
+network and `net.json`. Interrupted runs therefore remain distinguishable from
+tasks that were never started.
+
+Simulation, parsing, and writing form a verified metadata chain. Resume checks
+the RunSpec, configuration, network, experiment and summary hashes; changing a
+summary or input prevents a stale result from being silently reused. The parser
+reads the pipeline version from `manifest.json` by default.
 
 The 120-second detector period covers approximately two free-flow laps in the smooth scenarios and avoids the sampling resonance previously observed with a 60-second period.
 
@@ -294,7 +340,7 @@ The parser pipeline provides:
 ```text
 10,080 / 10,080  simulations completed
 2,016 / 2,016    aggregated groups with n_valid = 5
-29 / 29          parser unit tests passed
+67 / 67          automated tests passed
 0                duplicate run IDs
 0                parser failures
 0                invariant violations
@@ -326,22 +372,31 @@ SUMO >= 1.27.1
 Python >= 3.10
 ```
 
-Install the plotting and data-analysis dependencies:
+Create an isolated environment and install the locked development dependencies:
 
 ```bash
-pip install pandas matplotlib
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-lock.txt
+python -m pip install --no-deps -e .
 ```
 
-### Run the parser tests
+SUMO remains a system dependency and is not part of the Python lock file.
+
+### Run the quality gates
 
 ```bash
-python3 tests/run_tests.py
+pytest -q
+ruff check .
+ruff format --check .
+mypy scripts/run_spec.py scripts/experiment_config.py scripts/provenance.py
+python -m compileall -q scripts tests
 ```
 
 Expected result:
 
 ```text
-29/29 PASS
+67 passed
 ```
 
 ### Run one simulation
@@ -365,28 +420,24 @@ python3 -m scripts.results.visualization \
 <details>
 <summary><strong>Full 10,080-run reproduction workflow</strong></summary>
 
-Replace `<pipeline-version>` with the exact value recorded in the formal experiment manifest.
-
 ```bash
 # Stage 1: parallel SUMO simulation
 python3 -m scripts.simulation.batch_run \
+  --config configs/v0.4.0.json \
   --sumo-processes 6 \
   --resume \
-  --output-root /path/to/raw \
-  --pipeline-version <pipeline-version>
+  --output-root /path/to/raw
 
 # Stage 2: serial parsing
 python3 -m scripts.parsing.batch \
   --input-root /path/to/raw \
-  --resume \
-  --pipeline-version <pipeline-version>
+  --resume
 
 # Stage 3: single result writer
 python3 -m scripts.results.writer \
   --input-root /path/to/raw \
   --output-dir /path/to/results \
-  --manifest /path/to/raw/manifest.json \
-  --pipeline-version <pipeline-version>
+  --manifest /path/to/raw/manifest.json
 
 # Aggregate across seeds (mean / std / median / min / max)
 python3 -m scripts.results.aggregate \
@@ -538,7 +589,7 @@ When using this project, please cite the repository and release version:
 @software{cav_multi_level_penetration_simulation_2026,
   author  = {Uriel62-chang},
   title   = {CAV Multi-level Penetration Simulation},
-  version = {v0.4.0},
+  version = {v0.4.0.post1},
   year    = {2026},
   url     = {https://github.com/Uriel62-chang/CAV_Multi-level_Penetration_Simulation}
 }

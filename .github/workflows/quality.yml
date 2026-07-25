@@ -1,0 +1,75 @@
+name: quality
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements-lock.txt
+      - name: Ruff lint
+        run: ruff check .
+      - name: Ruff format
+        run: ruff format --check .
+      - name: Unit tests
+        run: pytest -q
+      - name: Compile modules
+        run: python -m compileall -q scripts tests
+      - name: Type-check reproducibility core
+        run: mypy scripts/run_spec.py scripts/experiment_config.py scripts/provenance.py
+
+  sumo-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements-lock.txt
+      - name: Install SUMO
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sumo
+      - name: Run minimal simulation
+        run: |
+          timeout 120 python -m scripts.simulation.batch_run \
+            --config configs/smoke.json \
+            --output-root /tmp/cav-smoke \
+            --sumo-processes 1
+      - name: Verify smoke artifacts
+        run: |
+          python -m scripts.parsing.batch --input-root /tmp/cav-smoke
+          python -m scripts.results.writer \
+            --input-root /tmp/cav-smoke \
+            --output-dir /tmp/cav-smoke-results \
+            --manifest /tmp/cav-smoke/manifest.json
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          from scripts.schema import RUN_LEVEL_COLUMNS
+
+          raw = Path("/tmp/cav-smoke")
+          results = Path("/tmp/cav-smoke-results")
+          manifest = json.loads((raw / "manifest.json").read_text())
+          report = json.loads((results / "writer_report.json").read_text())
+          with (results / "run_level_results.csv").open(newline="") as stream:
+              reader = csv.DictReader(stream)
+              rows = list(reader)
+          assert manifest["status_counts"] == {"SUCCESS": 1}
+          assert report["complete"] is True
+          assert report["quality_ok"] == 1
+          assert reader.fieldnames == RUN_LEVEL_COLUMNS
+          assert len(rows) == 1 and rows[0]["data_quality"] == "ok"
+          PY

@@ -1,4 +1,5 @@
 {
+  "schema_version": "1",
   "scenario": "scenario_0",
   "num_sides": 4,
   "num_lanes": 1,
@@ -7,5 +8,11 @@
   "total_length_m": 2000.0,
   "total_length_km": 2.0,
   "edge_ids": ["e0", "e1", "e2", "e3"],
+  "route_edge_ids": ["e0", "e1", "e2", "e3"],
+  "detector_edge_id": "e0",
+  "detector_position_m": 250.0,
+  "bottleneck_edge_ids": [],
+  "edge_lane_counts": {"default": 1, "overrides": {}},
+  "legal_initial_lanes": {"default": [0], "overrides": {}},
   "speed_mps": 33.33
 }

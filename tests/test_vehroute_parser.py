@@ -2,9 +2,6 @@
 
 import math
 import os
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from scripts.parsing.vehroute import parse_lap_times
 
@@ -132,10 +129,8 @@ def test_malformed_xml_returns_nan():
 def test_idempotent():
     """Calling parse_lap_times twice should give identical results."""
     path = os.path.join(FIXTURES, "vehroute_minimal.xml")
-    r1 = parse_lap_times(path, edges_per_lap=EDGES_PER_LAP,
-                         warmup_period=0.0, sim_end_time=600.0)
-    r2 = parse_lap_times(path, edges_per_lap=EDGES_PER_LAP,
-                         warmup_period=0.0, sim_end_time=600.0)
+    r1 = parse_lap_times(path, edges_per_lap=EDGES_PER_LAP, warmup_period=0.0, sim_end_time=600.0)
+    r2 = parse_lap_times(path, edges_per_lap=EDGES_PER_LAP, warmup_period=0.0, sim_end_time=600.0)
     for k in r1:
         v1, v2 = r1[k], r2[k]
         if isinstance(v1, float) and math.isnan(v1) and math.isnan(v2):

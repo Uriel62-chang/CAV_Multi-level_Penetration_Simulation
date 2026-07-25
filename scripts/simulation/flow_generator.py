@@ -3,20 +3,40 @@ import os
 import random
 
 from scripts.config import (
-    CAV_ACCEL, CAV_ACTION_STEP_LENGTH, CAV_DECEL, CAV_LENGTH,
-    CAV_MAX_SPEED, CAV_MIN_GAP, CAV_MODELS, CAV_SPEED_DEV, CAV_TAU,
-    HV_ACCEL, HV_ACTION_STEP_LENGTH, HV_DECEL, HV_LENGTH,
-    HV_MAX_SPEED, HV_MIN_GAP, HV_SIGMA, HV_SPEED_DEV, HV_TAU,
-    JUNCTION_MARGIN_M, LC2013_COOPERATIVE, LC2013_KEEP_RIGHT,
-    LC2013_SIGMA, LC2013_SPEED_GAIN, LC2013_STRATEGIC,
+    CAV_ACCEL,
+    CAV_ACTION_STEP_LENGTH,
+    CAV_DECEL,
+    CAV_LENGTH,
+    CAV_MAX_SPEED,
+    CAV_MIN_GAP,
+    CAV_MODELS,
+    CAV_SPEED_DEV,
+    CAV_TAU,
+    HV_ACCEL,
+    HV_ACTION_STEP_LENGTH,
+    HV_DECEL,
+    HV_LENGTH,
+    HV_MAX_SPEED,
+    HV_MIN_GAP,
+    HV_SIGMA,
+    HV_SPEED_DEV,
+    HV_TAU,
+    JUNCTION_MARGIN_M,
+    LC2013_COOPERATIVE,
+    LC2013_KEEP_RIGHT,
+    LC2013_SIGMA,
+    LC2013_SPEED_GAIN,
+    LC2013_STRATEGIC,
 )
 
 
 def _lc2013_attrs() -> str:
     """返回 LC2013 换道模型参数字符串（多车道路网注入 vType）"""
-    return (f'lcStrategic="{LC2013_STRATEGIC}" lcSpeedGain="{LC2013_SPEED_GAIN}" '
-            f'lcKeepRight="{LC2013_KEEP_RIGHT}" lcCooperative="{LC2013_COOPERATIVE}" '
-            f'lcSigma="{LC2013_SIGMA}"')
+    return (
+        f'lcStrategic="{LC2013_STRATEGIC}" lcSpeedGain="{LC2013_SPEED_GAIN}" '
+        f'lcKeepRight="{LC2013_KEEP_RIGHT}" lcCooperative="{LC2013_COOPERATIVE}" '
+        f'lcSigma="{LC2013_SIGMA}"'
+    )
 
 
 def _build_route(edges: list, start_edge_index: int, loops: int) -> str:
@@ -42,8 +62,7 @@ def _build_cav_vtype(model: str, lc2013: str = "") -> str:
     )
 
 
-def _place_vehicles_s0(vehicle_count: int, edge_length: float,
-                        edge_count: int) -> list:
+def _place_vehicles_s0(vehicle_count: int, edge_length: float, edge_count: int) -> list:
     """scenario_0 车辆偏移（方形闭环，v0.2.0 原始逻辑）
 
     车辆沿环路等距均匀分布，用截断除法避免浮点取模误差。
@@ -65,8 +84,7 @@ def _place_vehicles_s0(vehicle_count: int, edge_length: float,
     return result
 
 
-def _place_vehicles_s1(vehicle_count: int, edge_length: float,
-                        edge_count: int) -> list:
+def _place_vehicles_s1(vehicle_count: int, edge_length: float, edge_count: int) -> list:
     """scenario_1 车辆偏移（多边形闭环，单车道）
 
     车辆沿环路等距均匀分布，用截断除法避免浮点取模误差。
@@ -87,8 +105,9 @@ def _place_vehicles_s1(vehicle_count: int, edge_length: float,
     return result
 
 
-def _place_vehicles_s2(vehicle_count: int, edge_length: float,
-                        edge_count: int, num_lanes: int) -> list:
+def _place_vehicles_s2(
+    vehicle_count: int, edge_length: float, edge_count: int, num_lanes: int
+) -> list:
     """scenario_2 车辆偏移（多边形闭环，多车道 + 换道）
 
     几何逻辑同 scenario_1；每辆车按索引奇偶交替分配车道。
@@ -110,8 +129,13 @@ def _place_vehicles_s2(vehicle_count: int, edge_length: float,
     return result
 
 
-def _place_vehicles_s3(vehicle_count: int, edge_length: float,
-                        edge_count: int, num_lanes: int) -> list:
+def _place_vehicles_s3(
+    vehicle_count: int,
+    edge_length: float,
+    edge_count: int,
+    num_lanes: int,
+    bottleneck_edge_indices: set[int] | None = None,
+) -> list:
     """scenario_3 车辆偏移（瓶颈边单车道约束）
 
     几何逻辑复用 _place_vehicles_s2；但 e15/e16 为单车道，
@@ -119,10 +143,11 @@ def _place_vehicles_s3(vehicle_count: int, edge_length: float,
     返回 [(edge_index, position, lane), ...]。
     """
     result = _place_vehicles_s2(vehicle_count, edge_length, edge_count, num_lanes)
-    BOTTLENECK_EDGES = {15, 16}
+    if not bottleneck_edge_indices:
+        raise ValueError("scenario_3 requires bottleneck edge metadata")
     modified = []
     for edge_index, position, lane in result:
-        if lane > 0 and edge_index in BOTTLENECK_EDGES:
+        if lane > 0 and edge_index in bottleneck_edge_indices:
             lane = 0
         modified.append((edge_index, position, lane))
     return modified
@@ -140,10 +165,20 @@ _PLACEMENT_REGISTRY = {
 _MULTI_LANE_SCENARIOS = {"scenario_2", "scenario_3"}
 
 
-def generate_flow(vehicle_count: int, cav_ratio: float, loops: int, seed: int,
-                  output_path: str, model: str = "IDM",
-                  edge_count: int = 4, edge_length: float = 500.0,
-                  scenario: str = "scenario_0", num_lanes: int = 1):
+def generate_flow(
+    vehicle_count: int,
+    cav_ratio: float,
+    loops: int,
+    seed: int,
+    output_path: str,
+    model: str = "IDM",
+    edge_count: int = 4,
+    edge_length: float = 500.0,
+    scenario: str = "scenario_0",
+    num_lanes: int = 1,
+    edge_ids: list[str] | None = None,
+    bottleneck_edge_ids: list[str] | None = None,
+):
     """生成混合车流 SUMO route 文件 (.rou.xml)
 
     步骤：等距分布车辆 → 随机打乱 CAV/HV 顺序 → 写入 vType + vehicle + route。
@@ -152,12 +187,25 @@ def generate_flow(vehicle_count: int, cav_ratio: float, loops: int, seed: int,
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     random.seed(seed)
 
-    edges = [f"e{i}" for i in range(edge_count)]
+    if scenario not in _PLACEMENT_REGISTRY:
+        raise ValueError(f"未知场景，缺少车辆偏移实现: {scenario}")
+    edges = edge_ids or [f"e{i}" for i in range(edge_count)]
+    if len(edges) != edge_count or len(set(edges)) != edge_count:
+        raise ValueError("edge_ids must contain edge_count unique route edges")
 
     # 场景分发
-    place_func = _PLACEMENT_REGISTRY.get(scenario, _place_vehicles_s0)
+    place_func = _PLACEMENT_REGISTRY[scenario]
     multi_lane = scenario in _MULTI_LANE_SCENARIOS
-    if multi_lane:
+    if scenario == "scenario_3":
+        bottleneck_indices = {
+            edges.index(edge_id) for edge_id in (bottleneck_edge_ids or []) if edge_id in edges
+        }
+        if len(bottleneck_indices) != len(bottleneck_edge_ids or []):
+            raise ValueError("bottleneck_edge_ids must be present in edge_ids")
+        vehicle_placements = place_func(
+            vehicle_count, edge_length, edge_count, num_lanes, bottleneck_indices
+        )
+    elif multi_lane:
         vehicle_placements = place_func(vehicle_count, edge_length, edge_count, num_lanes)
     else:
         vehicle_placements = place_func(vehicle_count, edge_length, edge_count)
@@ -165,14 +213,14 @@ def generate_flow(vehicle_count: int, cav_ratio: float, loops: int, seed: int,
     lc2013 = f" {_lc2013_attrs()}" if multi_lane else ""
 
     # CAV数量
-    cav_count = int(round(vehicle_count * cav_ratio))
+    cav_count = round(vehicle_count * cav_ratio)
     vehicle_types = ["CAV"] * cav_count + ["HV"] * (vehicle_count - cav_count)
     random.shuffle(vehicle_types)
 
     # 定义车流属性
     lines = []
     lines.append('<?xml version="1.0" encoding="UTF-8"?>')
-    lines.append('<routes>')
+    lines.append("<routes>")
 
     # HV：Krauss（人类驾驶参数）
     lines.append(
@@ -194,15 +242,16 @@ def generate_flow(vehicle_count: int, cav_ratio: float, loops: int, seed: int,
 
         edges_str = _build_route(edges, edge_index, loops)
         lines.append(f'  <route id="r{i}" edges="{edges_str}"/>')
-        depart_attrs = (f'departPos="{position:.2f}" departSpeed="max"'
-                        f' departLane="{lane}"' if lane is not None else
-                        f'departPos="{position:.2f}" departSpeed="max"')
+        depart_attrs = (
+            f'departPos="{position:.2f}" departSpeed="max" departLane="{lane}"'
+            if lane is not None
+            else f'departPos="{position:.2f}" departSpeed="max"'
+        )
         lines.append(
-            f'  <vehicle id="veh{i}" type="{vehicle_type}" route="r{i}" depart="0" '
-            f'{depart_attrs}/>'
+            f'  <vehicle id="veh{i}" type="{vehicle_type}" route="r{i}" depart="0" {depart_attrs}/>'
         )
 
-    lines.append('</routes>')
+    lines.append("</routes>")
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
@@ -215,23 +264,35 @@ def main():
     parser.add_argument("--vehN", type=int, default=40)
     parser.add_argument("--pCAV", type=float, default=0.5)
     parser.add_argument("--loops", type=int, default=300)
-    parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument(
+        "--seed", type=int, default=1, help="车辆类型排列种子（仅控制 Python 侧 CAV/HV 空间排列）"
+    )
     parser.add_argument("--out", type=str, default="routes/loop.rou.xml")
-    parser.add_argument("--model", type=str, default="IDM", choices=list(CAV_MODELS),
-                        help="CAV跟驰模型: IDM / ACC / CACC")
-    parser.add_argument("--edge-count", type=int, default=4,
-                        help="环路边数 (默认: 4)")
-    parser.add_argument("--edge-length", type=float, default=500.0,
-                        help="每条边长/m (默认: 500)")
-    parser.add_argument("--scenario", default="scenario_0",
-                        help="场景标识 (默认: scenario_0)")
-    parser.add_argument("--num-lanes", type=int, default=1,
-                        help="车道数 (默认: 1)")
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="IDM",
+        choices=list(CAV_MODELS),
+        help="CAV跟驰模型: IDM / ACC / CACC",
+    )
+    parser.add_argument("--edge-count", type=int, default=4, help="环路边数 (默认: 4)")
+    parser.add_argument("--edge-length", type=float, default=500.0, help="每条边长/m (默认: 500)")
+    parser.add_argument("--scenario", default="scenario_0", help="场景标识 (默认: scenario_0)")
+    parser.add_argument("--num-lanes", type=int, default=1, help="车道数 (默认: 1)")
     args = parser.parse_args()
 
-    generate_flow(args.vehN, args.pCAV, args.loops, args.seed, args.out,
-                  args.model, args.edge_count, args.edge_length,
-                  args.scenario, args.num_lanes)
+    generate_flow(
+        args.vehN,
+        args.pCAV,
+        args.loops,
+        args.seed,
+        args.out,
+        args.model,
+        args.edge_count,
+        args.edge_length,
+        args.scenario,
+        args.num_lanes,
+    )
 
 
 if __name__ == "__main__":

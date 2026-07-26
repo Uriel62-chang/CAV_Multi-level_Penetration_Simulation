@@ -59,6 +59,9 @@
 - 收紧后续版本边界：v0.4.1 定位为测量链路、实验设计修订和有界 pilot，
   不默认重跑既有 10,080-run 网格；仅在 pilot 门禁通过且确有研究必要时，
   以条件性的 v0.4.2 发布新正式实验，且不覆盖 v0.4.0/post3。
+- 修复 writer CLI 摘要仍读取已删除 `quality_invalid` 键的问题；摘要改为
+  当前 report schema 的 `quality_non_ok`、`quality_invariant_failed` 与
+  `quality_parser_warning`，并增加回归测试。
 
 ### 剩余历史数据边界
 

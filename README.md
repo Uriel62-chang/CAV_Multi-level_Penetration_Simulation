@@ -412,7 +412,7 @@ The parser pipeline provides:
 ```text
 10,080 / 10,080  simulations completed
 2,016 / 2,016    aggregated groups with n_valid = 5
-84 / 84          automated tests passed
+85 / 85          automated tests passed
 0                duplicate run IDs
 0                parser failures
 0                invariant violations
@@ -480,7 +480,7 @@ python -m compileall -q scripts tests
 Expected result:
 
 ```text
-84 passed
+85 passed
 ```
 
 ### Run one simulation

@@ -145,6 +145,17 @@ def _quality_counts(rows: list[dict]) -> dict[str, int]:
     }
 
 
+def _format_report_summary(report: dict) -> str:
+    """Format the CLI handoff using the current writer-report schema."""
+    return (
+        f"[DONE] csv_rows={report['csv_rows']}  "
+        f"ok={report['quality_ok']}  non_ok={report['quality_non_ok']}  "
+        f"invariant_failed={report['quality_invariant_failed']}  "
+        f"parser_warning={report['quality_parser_warning']}  "
+        f"excluded={report['excluded_runs']}  complete={report['complete']}"
+    )
+
+
 def build_run_level_results(
     input_root: Path,
     output_dir: Path,
@@ -391,11 +402,7 @@ def main():
     )
 
     print(f"\n{'=' * 60}")
-    print(
-        f"[DONE] csv_rows={report['csv_rows']}  "
-        f"ok={report['quality_ok']}  invalid={report['quality_invalid']}  "
-        f"excluded={report['excluded_runs']}  complete={report['complete']}"
-    )
+    print(_format_report_summary(report))
     if not report["complete"]:
         sys.exit(1)
 

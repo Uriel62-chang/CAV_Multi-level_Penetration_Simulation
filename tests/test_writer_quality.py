@@ -1,4 +1,9 @@
-from scripts.results.writer import _build_row, _completion_flags, _quality_counts
+from scripts.results.writer import (
+    _build_row,
+    _completion_flags,
+    _format_report_summary,
+    _quality_counts,
+)
 
 
 def _summary(**overrides):
@@ -65,3 +70,21 @@ def test_writer_complete_requires_valid_rows():
         "quality_non_ok": 1,
     }
     assert _completion_flags(0, counts["quality_non_ok"])["complete"] is False
+
+
+def test_writer_cli_summary_uses_current_quality_schema():
+    summary = _format_report_summary(
+        {
+            "csv_rows": 1,
+            "quality_ok": 1,
+            "quality_invariant_failed": 0,
+            "quality_parser_warning": 0,
+            "quality_non_ok": 0,
+            "excluded_runs": 0,
+            "complete": True,
+        }
+    )
+    assert summary == (
+        "[DONE] csv_rows=1  ok=1  non_ok=0  invariant_failed=0  "
+        "parser_warning=0  excluded=0  complete=True"
+    )

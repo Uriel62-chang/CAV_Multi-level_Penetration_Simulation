@@ -2,16 +2,16 @@
 
 > A reproducible SUMO experiment platform for evaluating how CAV penetration and car-following control affect **capacity, safety, emissions, and delay** under different road constraints.
 
-`SUMO 1.27.1` · `Python 3.10+` · `10,080 simulations` · `5 random seeds` · `v0.4.0.post1`
+`SUMO 1.27.1` · `Python 3.10+` · `10,080 simulations` · `5 assignment seeds` · `v0.4.0.post2`
 
 [Key Findings](#key-findings) ·
 [Scenario Design](#scenario-design) ·
 [Core Results](#core-results) ·
 [Quick Start](#quick-start) ·
-[Experiment Report](REPORT.md) ·
-[Engineering Audit](ENGINEERING_AUDIT.md) ·
-[Migration](MIGRATION.md) ·
-[Release Checklist](RELEASE_CHECKLIST.md)
+[Experiment Report](docs/report.md) ·
+[Engineering Audit](docs/engineering/audit.md) ·
+[Migration](docs/engineering/migration.md) ·
+[Release Checklist](docs/engineering/release-checklist.md)
 
 ---
 
@@ -106,7 +106,7 @@ The results indicate that **no single car-following model is globally optimal ac
 
 ## Core Results
 
-All plots are generated from five-seed aggregated data. Means and variability are retained in `aggregated_results.csv`.
+All plots are generated from data aggregated across five vehicle-type assignment seeds. Means and arrangement variability are retained in `aggregated_results.csv`.
 
 ### Capacity
 
@@ -171,7 +171,7 @@ This is an experimental observation rather than a claim that either model is uni
 × 2 car-following models
 × 21 CAV penetration levels
 × 12 vehicle-count levels
-× 5 random seeds
+× 5 vehicle-type assignment seeds
 = 10,080 SUMO simulations
 ```
 
@@ -193,7 +193,10 @@ This is an experimental observation rather than a claim that either model is uni
 `--seed` only shuffles the Python-generated CAV/HV type assignment across fixed
 initial positions. It is not a SUMO random seed; the pipeline does not pass
 `--seed` or `--random` to SUMO. Run metadata records this scope as
-`seed_scope="vehicle_type_assignment"`.
+`seed_scope="vehicle_type_assignment"`. The five seeds are therefore five
+vehicle-type arrangements, not five independent SUMO stochastic replications.
+At `pCAV=0` or `pCAV=1`, changing this seed does not change the vehicle-type
+arrangement.
 
 The formal experiment grid is defined in
 [`configs/v0.4.0.json`](configs/v0.4.0.json). Batch runs load this versioned
@@ -211,6 +214,17 @@ auditable. Invalid penetration levels, duplicate/empty lists, inconsistent
 network mappings, non-positive frequencies, and `warmup >= simulation_end` are
 rejected before any run directory is created.
 
+Audit the formal grid without running SUMO:
+
+```bash
+python3 -m scripts.experiment_audit --config configs/v0.4.0.json
+```
+
+The frozen v0.4.0 audit reports 2,400 requested/realized penetration
+mismatches, 400 duplicate penetration treatments, and 768 endpoint runs that
+add no new vehicle-type assignment information. Use `--json` for a
+machine-readable report.
+
 Each prepared run contains `run_spec.json` with the complete simulation
 parameters and derived penetration metadata (`requested_pcav`, `cav_count`,
 `hv_count`, and `realized_pcav`). `simulation_status.json` references its
@@ -221,6 +235,42 @@ For small vehicle populations, `realized_pcav` can differ from
 `requested_pcav` because the CAV count follows Python's existing
 `round(vehicle_count * requested_pcav)` rule. The existing CSV `pCAV` field
 continues to mean the requested value for v0.4.0 compatibility.
+
+This is a known defect in the completed v0.4.0 experiment design, not merely a
+display-rounding issue. At `vehN=10`, the 21 requested penetration levels map
+to only 11 realizable vehicle compositions. For example, requested
+`pCAV=0.15`, `0.20`, and `0.25` all produce 2 CAVs and 8 HVs, hence a realized
+penetration of `0.20`. Across the formal grid, 2,400 runs have
+`realized_pcav != requested_pcav`; 400 runs at `vehN=10` are duplicate
+penetration treatments for the same scenario, model, and assignment seed.
+
+The main reported operating points are unaffected because they use
+`vehN=60`, `80`, or `120`, where every 0.05 penetration step is exactly
+realizable. The defect primarily limits interpretation of low-density
+penetration-response curves, especially `vehN=10`. Historical v0.4.0 results
+must retain requested `pCAV` for compatibility and must not be relabelled as
+realized penetration.
+
+The release, experiment, pipeline and schema versions intentionally describe
+different compatibility boundaries:
+
+| Version axis | Value | Meaning |
+|---|---|---|
+| Release/package | `v0.4.0.post2` | Current documentation, audit and validation release |
+| Experiment config | `v0.4.0` | Published 10,080-run experimental design |
+| Pipeline | `v0.4.0.post1` | Unchanged simulation/parsing metadata semantics |
+| Result schema | `1` | RunSpec and result structure |
+
+Because post2 does not change the simulation pipeline, newly interpreted
+historical metadata correctly retains `pipeline_version="v0.4.0.post1"`.
+
+The post2 preservation boundary applies to the completed experiment and its
+numeric results—not to every sentence previously used to interpret them.
+Experimental inputs, raw observations, aggregated metric values and figures
+remain unchanged. Statements that conflict with those results or exceed their
+evidential support are corrected, including the requested/realized penetration
+interpretation, normalized TTC comparison, the former “four-dimensional win”
+claim and attribution of the IDM/CACC difference to tau.
 
 The experiment-level `manifest.json` is created before SUMO starts. It records
 the full planned grid, Git state, Python/SUMO/netconvert versions, platform,
@@ -235,7 +285,7 @@ reads the pipeline version from `manifest.json` by default.
 
 The 120-second detector period covers approximately two free-flow laps in the smooth scenarios and avoids the sampling resonance previously observed with a 60-second period.
 
-Full configuration details, vehicle parameters, result tables, discussion and references are available in the [Experiment Report](REPORT.md).
+Full configuration details, vehicle parameters, result tables, discussion and references are available in the [Experiment Report](docs/report.md).
 
 ---
 
@@ -340,7 +390,7 @@ The parser pipeline provides:
 ```text
 10,080 / 10,080  simulations completed
 2,016 / 2,016    aggregated groups with n_valid = 5
-67 / 67          automated tests passed
+69 / 69          automated tests passed
 0                duplicate run IDs
 0                parser failures
 0                invariant violations
@@ -396,7 +446,7 @@ python -m compileall -q scripts tests
 Expected result:
 
 ```text
-67 passed
+69 passed
 ```
 
 ### Run one simulation
@@ -458,7 +508,7 @@ python3 -m scripts.results.visualization \
 |---|---|---|
 | RAM | Budget **2 GB per SUMO process** for headroom (s3 vehN=120 can spike); total SUMO memory must fit within *available* RAM | `free -h` (look at the `available` column) |
 | CPU | `--sumo-processes ≤ nproc − 2` (reserve at least two logical cores for the OS and the Python parent) | `nproc` |
-| Disk | ~6 GB per 1,000 runs with SSM compact mode; **~600 GB** if `--device.ssm.trajectories` is `true` (the default) | `df -h <output-root>` |
+| Disk | ~6 GB per 1,000 runs with the default compact SSM output (`--device.ssm.trajectories=false`); the v0.4.0 experiment previously produced 423 GB in total (~42 GB per 1,000 runs) when full SSM trajectories were explicitly enabled | `df -h <output-root>` |
 | I/O | Run directories are independent (no file conflicts), but a spinning disk may bottleneck at high concurrency | SSD strongly recommended |
 
 **Pick your concurrency from available RAM** (CPU is rarely the bottleneck first):
@@ -479,7 +529,7 @@ Always run with `--resume` from the first launch—it costs nothing on a clean s
 The repository includes:
 
 - `results/aggregated_results.csv`  
-  2,016 scenario–model–penetration–vehicle-count groups aggregated across five random seeds;
+  2,016 scenario–model–penetration–vehicle-count groups aggregated across five vehicle-type assignment seeds;
 
 - experiment manifest and plotting scripts;
 
@@ -545,19 +595,36 @@ graph/v0.4.0/
 ├── chart_safety_flow.png
 ├── chart_co2_flow.png
 └── chart_delay.png
+
+docs/
+├── README.md
+├── report.md
+└── engineering/
+    ├── audit.md
+    ├── migration.md
+    └── release-checklist.md
 ```
 
 ---
 
 ## Limitations
 
+- The formal CSV `pCAV` column is the requested penetration. Integer vehicle
+  counts cause requested and realized penetration to differ in 2,400 runs; at
+  `vehN=10`, 21 requested levels collapse to 11 actual compositions.
+- The five seeds are vehicle-type assignment realizations rather than
+  independent SUMO stochastic replications. Endpoint penetrations do not gain
+  distinct arrangements from additional seeds, so endpoint `n_valid=5` does
+  not represent five independent observations.
 - Emission and safety metrics are not yet separated into HV and CAV sub-populations.
 - The absence of detected TTC conflicts in s2 applies only to the current `TTC < 3.0 s` threshold and tested parameter grid.
 - ACC is supported by earlier project versions but is not part of the formal v0.4.0 comparison.
 - TTC events have not yet been independently reproduced using FCD or TraCI trajectories.
-- Five random seeds describe observed variability but should not automatically be interpreted as formal statistical significance.
 - The free-flow lap baseline should be extended with an additional CACC single-vehicle comparison.
-- Current unit tests focus on four parser modules and do not yet fully cover the scheduler and orchestration layers.
+- Automated tests cover parsers, experiment configuration, RunSpec integrity,
+  provenance, simulation state transitions, resume validation, result writing,
+  aggregation, network metadata and representative SUMO pipelines. Regular CI
+  does not rerun the complete 10,080-run experiment.
 
 ---
 
@@ -576,7 +643,8 @@ graph/v0.4.0/
 
 | Document | Purpose |
 |---|---|
-| [Experiment Report](REPORT.md) | Complete experimental design, result tables, discussion and conclusions |
+| [Experiment Report](docs/report.md) | Complete experimental design, result tables, discussion and conclusions |
+| [Documentation index](docs/README.md) | Experiment report, engineering audit, migration and release checklist |
 | `scripts/` source | Inline docstrings; see § Repository Structure below for module map |
 
 ---
@@ -589,7 +657,7 @@ When using this project, please cite the repository and release version:
 @software{cav_multi_level_penetration_simulation_2026,
   author  = {Uriel62-chang},
   title   = {CAV Multi-level Penetration Simulation},
-  version = {v0.4.0.post1},
+  version = {v0.4.0.post2},
   year    = {2026},
   url     = {https://github.com/Uriel62-chang/CAV_Multi-level_Penetration_Simulation}
 }

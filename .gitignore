@@ -15,8 +15,7 @@ add/edge_data.add.xml
 requirements-lock-v0.4-dev.txt
 
 # 本地开发文档（不发布）
-/docs/
-v0.4.0*.md
+/docs/internal/
 
 # 运行时数据目录
 /raw/

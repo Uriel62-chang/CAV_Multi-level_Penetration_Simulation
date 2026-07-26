@@ -114,15 +114,15 @@ def aggregate(input_csv: Path, output_csv: Path) -> pd.DataFrame:
         short = short_names.get(col, col)
         for stat in ["mean", "std", "median", "min", "max"]:
             new_columns[(col, stat)] = f"{short}_{stat}"
+        new_columns[(col, "count")] = f"{short}_count"
     new_columns[("mean_flow_veh_h", "count")] = "n_valid"
 
     grouped.columns = grouped.columns.map(lambda x: new_columns.get(x, f"{x[0]}_{x[1]}"))
     grouped = grouped.reset_index()
 
-    # 确保 n_valid 列名正确
-    count_col = [c for c in grouped.columns if c.endswith("_count")]
-    if count_col:
-        grouped = grouped.rename(columns={count_col[0]: "n_valid"})
+    if not grouped.columns.is_unique:
+        duplicates = grouped.columns[grouped.columns.duplicated()].tolist()
+        raise RuntimeError(f"duplicate aggregated column names: {duplicates}")
 
     # 标准差为 NaN（n_valid=1 时）填 0
     std_cols = [c for c in grouped.columns if c.endswith("_std")]

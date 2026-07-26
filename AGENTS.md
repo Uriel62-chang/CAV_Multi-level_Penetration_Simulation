@@ -14,7 +14,7 @@
 - `results/writer.py` — 阶段三：统一结果写入
 - `results/aggregate.py` — 多种子聚合
 - `results/visualization.py` — 数据可视化
-- `config.py` `run_spec.py` `schema.py` — 共享模块（保留在 scripts/ 根部）
+- `config.py` `run_spec.py` `schema.py` `experiment_audit.py` — 共享模块（保留在 scripts/ 根部）
 
 ### 场景化设计
 
@@ -41,5 +41,12 @@ python3 -m scripts.results.visualization --csv out/results.csv --net net/scenari
 
 ## 辅助文档
 
-启动时自动读取 `docs/` 目录下的文档：
-- `docs/roadmap.md` — 开发路线图（已完成/待办阶段）
+以下文件是被 Git 忽略的本地维护记录，用于项目作者日后回顾 v0.4.0–post2
+期间已经识别或处理的实验与工程问题。它们不是运行、验证、复现实验或使用公开
+仓库所需的依赖；公开克隆中不存在这些文件属于预期行为。文件在本地存在时，可
+在维护项目或追溯历史决策时按需读取：
+
+- `docs/internal/roadmap.md` — 开发路线图（已完成/待办阶段）
+- `docs/internal/experiment-issues.md` — 已完成实验的设计问题与解释边界
+- `docs/internal/engineering-issues.md` — 工程问题与处理记录
+- `docs/internal/README.md` — 本地维护文档与历史归档索引

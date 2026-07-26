@@ -17,7 +17,7 @@ from scripts.config import (
     SSM_DRAC_THRESHOLD_MPS2,
     SSM_TTC_THRESHOLD_S,
 )
-from scripts.experiment_config import canonical_json
+from scripts.experiment_config import canonical_json, validate_analysis_windows
 from scripts.parsing import parse_detector, parse_detector_multi
 from scripts.parsing.edge_emissions import parse_edge_emissions
 from scripts.parsing.edge_performance import parse_edge_performance
@@ -104,6 +104,11 @@ def prepare_run(
       additional.add.xml      检测器 + edgeData 附加配置
     返回 PreparedRun 含所有输出路径。
     """
+    validate_analysis_windows(
+        spec.warmup,
+        spec.detector_frequency,
+        spec.edge_data_frequency,
+    )
     run_dir.mkdir(parents=True, exist_ok=True)
     write_run_spec(spec, run_dir)
 
@@ -350,8 +355,8 @@ def parse_run_outputs(
     )
 
     # ── 解析 edge performance / emissions ──
-    ep_result = parse_edge_performance(str(run_dir / "performance.xml"))
-    ee_result = parse_edge_emissions(str(run_dir / "emissions.xml"))
+    ep_result = parse_edge_performance(str(run_dir / "performance.xml"), warmup_period)
+    ee_result = parse_edge_emissions(str(run_dir / "emissions.xml"), warmup_period)
 
     # ── 解析 vehroute ──
     vr_result = parse_lap_times(

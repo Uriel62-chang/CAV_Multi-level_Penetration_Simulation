@@ -135,6 +135,11 @@ class ExperimentConfig:
             raise ValueError(
                 f"step_length must evenly divide CAV actionStepLength ({CAV_ACTION_STEP_LENGTH})"
             )
+        validate_analysis_windows(
+            self.warmup,
+            self.detector_frequency,
+            self.edge_data_frequency,
+        )
 
 
 def _require_nonempty_unique(name: str, values: tuple[Any, ...]) -> None:
@@ -142,6 +147,22 @@ def _require_nonempty_unique(name: str, values: tuple[Any, ...]) -> None:
         raise ValueError(f"{name} must not be empty")
     if len(values) != len(set(values)):
         raise ValueError(f"{name} must not contain duplicates")
+
+
+def _validate_window_alignment(warmup: float, frequency: int, frequency_name: str) -> None:
+    ratio = Decimal(str(warmup)) / Decimal(str(frequency))
+    if ratio != ratio.to_integral_value():
+        raise ValueError(f"warmup must be an exact multiple of {frequency_name}")
+
+
+def validate_analysis_windows(
+    warmup: float,
+    detector_frequency: int,
+    edge_data_frequency: int,
+) -> None:
+    """确保所有按完整 interval 过滤的指标从同一 warmup 边界开始。"""
+    _validate_window_alignment(warmup, detector_frequency, "detector_frequency")
+    _validate_window_alignment(warmup, edge_data_frequency, "edge_data_frequency")
 
 
 def load_experiment_config(path: str | Path) -> ExperimentConfig:

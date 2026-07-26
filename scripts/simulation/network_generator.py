@@ -2,6 +2,8 @@ import argparse
 import json
 import math
 import os
+import subprocess
+from pathlib import Path
 
 
 def generate_polygon_loop(
@@ -86,6 +88,46 @@ def generate_polygon_loop(
     return meta
 
 
+def build_network(scenario_dir: str | Path, netconvert_command: str = "netconvert") -> Path:
+    """从已跟踪的 node/edge 源文件编译 SUMO `loop.net.xml`。"""
+    directory = Path(scenario_dir)
+    node_path = directory / "nodes.nod.xml"
+    edge_path = directory / "edges.edg.xml"
+    output_path = directory / "loop.net.xml"
+    for path in (node_path, edge_path):
+        if not path.is_file():
+            raise FileNotFoundError(f"network source not found: {path}")
+    subprocess.run(
+        [
+            netconvert_command,
+            "--node-files",
+            str(node_path),
+            "--edge-files",
+            str(edge_path),
+            "--output-file",
+            str(output_path),
+        ],
+        check=True,
+    )
+    print(f"SUMO 路网已编译: {output_path}")
+    return output_path
+
+
+def build_all_networks(
+    parent_dir: str | Path, netconvert_command: str = "netconvert"
+) -> list[Path]:
+    """编译 parent_dir 下所有包含已跟踪源文件的 scenario 目录。"""
+    parent = Path(parent_dir)
+    scenario_dirs = sorted(
+        path
+        for path in parent.glob("scenario_*")
+        if (path / "nodes.nod.xml").is_file() and (path / "edges.edg.xml").is_file()
+    )
+    if not scenario_dirs:
+        raise FileNotFoundError(f"no scenario sources found under: {parent}")
+    return [build_network(path, netconvert_command) for path in scenario_dirs]
+
+
 def main():
     parser = argparse.ArgumentParser(description="生成多边形闭环路网源文件")
     parser.add_argument("--scenario", default="scenario_1", help="场景目录名 (默认: scenario_1)")
@@ -96,10 +138,21 @@ def main():
         "--speed", type=float, default=33.33, help="限速 m/s (默认: 33.33 ≈ 120km/h)"
     )
     parser.add_argument("--outdir", default="net", help="输出父目录 (默认: net)")
+    parser.add_argument(
+        "--build-all",
+        action="store_true",
+        help="从 outdir 下已跟踪的四场景源文件编译 loop.net.xml",
+    )
+    parser.add_argument("--netconvert", default="netconvert", help="netconvert 可执行文件")
     args = parser.parse_args()
+
+    if args.build_all:
+        build_all_networks(args.outdir, args.netconvert)
+        return
 
     scenario_dir = os.path.join(args.outdir, args.scenario)
     generate_polygon_loop(scenario_dir, args.sides, args.radius, args.lanes, args.speed)
+    build_network(scenario_dir, args.netconvert)
 
 
 if __name__ == "__main__":

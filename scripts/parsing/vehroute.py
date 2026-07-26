@@ -3,6 +3,13 @@
 import xml.etree.ElementTree as ET
 
 
+def _quantile_higher(sorted_values: list[float], quantile: float) -> float:
+    """返回离散 higher 分位数：ceil((n - 1) * q) 对应的顺序统计量。"""
+    import math
+
+    return sorted_values[math.ceil((len(sorted_values) - 1) * quantile)]
+
+
 def parse_lap_times(
     xml_path: str, edges_per_lap: int, warmup_period: float = 600.0, sim_end_time: float = 3600.0
 ):
@@ -95,7 +102,7 @@ def parse_lap_times(
         if n % 2 == 1
         else (all_lap_times[n // 2 - 1] + all_lap_times[n // 2]) / 2
     )
-    result["p95_lap_time_s"] = all_lap_times[int(n * 0.95) if int(n * 0.95) < n else n - 1]
+    result["p95_lap_time_s"] = _quantile_higher(all_lap_times, 0.95)
     result["parse_success"] = True
 
     return result

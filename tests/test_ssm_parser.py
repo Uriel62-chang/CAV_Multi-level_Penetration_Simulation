@@ -73,6 +73,14 @@ def test_warmup_filtering():
     assert result["ttc_conflict_event_count"] == 0  # the one survivor has TTC > threshold
 
 
+def test_warmup_uses_metric_extreme_time():
+    result = parse_ssm(os.path.join(FIXTURES, "ssm_warmup_boundary.xml"), warmup_period=600.0)
+    assert result["ssm_warmup_filtered_count"] == 0
+    assert result["ssm_valid_record_count"] == 1
+    assert result["ttc_conflict_event_count"] == 1
+    assert result["drac_conflict_event_count"] == 0
+
+
 def test_empty_file_returns_zero_events():
     """Empty SSMLog should return 0 events, not crash."""
     result = parse_ssm(

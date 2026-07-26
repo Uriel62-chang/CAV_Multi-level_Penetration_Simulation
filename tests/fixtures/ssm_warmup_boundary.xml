@@ -1,0 +1,6 @@
+<SSMLog>
+  <conflict begin="599" end="603" ego="a" foe="b">
+    <minTTC time="602" value="1.5"/>
+    <maxDRAC time="599.5" value="4.0"/>
+  </conflict>
+</SSMLog>

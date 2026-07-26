@@ -47,6 +47,17 @@ def test_minimal_emissions_units():
     assert result["total_fuel_kg"] > 0
 
 
+def test_warmup_filters_complete_intervals():
+    result = parse_edge_emissions(
+        os.path.join(FIXTURES, "edge_emissions_minimal.xml"),
+        warmup_period=420.0,
+    )
+    assert math.isclose(result["total_CO2_kg"], 31126175.71 / 1e6, rel_tol=1e-6)
+    assert math.isclose(result["total_NOx_g"], 12004.36 / 1e3, rel_tol=1e-6)
+    assert math.isclose(result["total_PMx_g"], 3399.24 / 1e3, rel_tol=1e-6)
+    assert math.isclose(result["total_fuel_kg"], 10090615.01 / 1e6, rel_tol=1e-6)
+
+
 def test_empty_file_returns_zero():
     """Empty meandata: valid XML but no data → returns 0.0, not NaN."""
     result = parse_edge_emissions(

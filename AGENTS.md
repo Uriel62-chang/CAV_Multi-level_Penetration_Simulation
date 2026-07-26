@@ -2,12 +2,14 @@
 
 ## 脚本架构
 
-`scripts/` 为 Python 包（含 `__init__.py`），按领域分为三个子包，脚本间通过 import 直接调用函数，**不使用 subprocess** 互相调用。
+`scripts/` 为 Python 包（含 `__init__.py`），按领域分为三个子包，Python
+脚本之间通过 import 直接调用函数，**不使用 subprocess** 互相调用。调用 SUMO、
+netconvert 等外部系统程序不属于这一限制。
 
 - `simulation/single_run.py` — 单次仿真编排，直接调用 `flow_generator.generate_flow()` 和解析器
 - `simulation/batch_run.py` — 批量仿真控制器，直接调用 `single_run.prepare_run()`
 - `simulation/flow_generator.py` — 混合车流生成，场景专属车辆偏移函数（`_place_vehicles_s0/s1`）
-- `simulation/network_generator.py` — 多边形闭环路网生成器
+- `simulation/network_generator.py` — 多边形闭环路网源文件生成及外部 netconvert 编译入口
 - `parsing/runner.py` — 阶段二：单 run 解析 + 状态机
 - `parsing/batch.py` — 阶段二：批量解析调度
 - `parsing/` (7 files) — SUMO 输出解析器（detector / ssm / lanechange / edge_performance / edge_emissions / vehroute / stderr）
@@ -23,15 +25,43 @@
 ## CLI 接口
 
 ```bash
-# 批量仿真（--net 指定路网；--model 可选 IDM / ACC / CACC）
-python3 -m scripts.simulation.batch_run --pstep 0.20 --seeds 1 --model IDM --net net/scenario_0/loop.net.xml --outcsv out/results.csv
+# clean clone 先从跟踪的 node/edge 源文件编译四个 SUMO 路网
+python3 -m scripts.simulation.network_generator --build-all
+
+# smoke 配置校验（不启动 SUMO）
+python3 -m scripts.simulation.batch_run --config configs/smoke.json --dry-run
+
+# 批量仿真阶段一：每个 run 写入独立 raw 目录；--net 必须与 --scenario 同用
+python3 -m scripts.simulation.batch_run \
+  --config configs/v0.4.0.json \
+  --scenario scenario_0 \
+  --net net/scenario_0/loop.net.xml \
+  --model IDM \
+  --seeds 1 \
+  --output-root raw \
+  --resume
+
+# 阶段二：解析 raw run
+python3 -m scripts.parsing.batch --input-root raw --resume
+
+# 阶段三：统一写出 run-level CSV
+python3 -m scripts.results.writer \
+  --input-root raw \
+  --output-dir out \
+  --manifest raw/manifest.json
+
+# 多 assignment-seed 聚合
+python3 -m scripts.results.aggregate \
+  --input out/run_level_results.csv \
+  --output out/aggregated_results.csv
 
 # 单次仿真
 python3 -m scripts.simulation.single_run --vehN 30 --pCAV 0.5 --model IDM --net net/scenario_1/loop.net.xml
 
-# 可视化（scenario_1 需通过 --net 自动读取环路总长）
-python3 -m scripts.results.visualization --csv out/results.csv
-python3 -m scripts.results.visualization --csv out/results.csv --net net/scenario_1/loop.net.xml
+# v0.4 聚合结果可视化
+python3 -m scripts.results.visualization \
+  --aggregated out/aggregated_results.csv \
+  --v4
 ```
 
 ## 环境

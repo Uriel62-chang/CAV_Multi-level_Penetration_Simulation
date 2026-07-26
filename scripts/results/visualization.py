@@ -24,7 +24,7 @@ RING_LENGTH_KM = 2.0  # 环路长度 (km)，v0.3.0 兼容
 
 
 # ═══════════════════════════════════════════════════════════════════
-# v0.3.0 兼容：密度-流量基本图 + 通行能力汇总
+# v0.3.0 兼容：密度-流量基本图 + 网格内观测峰值汇总
 # ═══════════════════════════════════════════════════════════════════
 
 
@@ -40,19 +40,19 @@ def load_and_aggregate(csv_path: str, ring_length_km: float = RING_LENGTH_KM):
     return aggregated, cav_ratios
 
 
-def compute_capacities(aggregated: pd.DataFrame, cav_ratios: list):
-    capacities = []
+def compute_observed_peaks(aggregated: pd.DataFrame, cav_ratios: list):
+    observed_peaks = []
     for ratio in cav_ratios:
         subset = aggregated[aggregated["pCAV"] == ratio]
         peak_row = subset["mean_flow(veh/h)"].idxmax()
-        capacities.append(
+        observed_peaks.append(
             {
                 "cav_ratio": ratio,
                 "peak_flow": subset.loc[peak_row, "mean_flow(veh/h)"],
                 "peak_density": subset.loc[peak_row, "density"],
             }
         )
-    return capacities
+    return observed_peaks
 
 
 def plot_density_flow(
@@ -65,8 +65,18 @@ def plot_density_flow(
 ):
     plt.figure(figsize=(10, 5))
     plt.plot(density, flow, marker="o", color="blue", label="Flow", linewidth=2, linestyle="-")
-    plt.plot(peak_density, peak_flow, marker="*", markersize=12, color="red", label="Capacity")
-    plt.title(f"Density-Flow Curve (CAV penetration rate: {int(ratio * 100)}%)", fontsize=20)
+    plt.plot(
+        peak_density,
+        peak_flow,
+        marker="*",
+        markersize=12,
+        color="red",
+        label="Maximum Observed Flow",
+    )
+    plt.title(
+        f"Density-Flow Curve (requested CAV penetration: {int(ratio * 100)}%)",
+        fontsize=20,
+    )
     plt.xlabel("Density (veh/km)", fontsize=15)
     plt.ylabel("Flow (veh/h)", fontsize=15)
     plt.xlim(0, density.max() * 1.1)
@@ -81,45 +91,45 @@ def plot_density_flow(
     plt.close()
 
 
-def plot_capacity_summary(capacities: list, output_dir: str):
+def plot_observed_peak_summary(observed_peaks: list, output_dir: str):
     plt.figure(figsize=(10, 5))
-    cav_percentages = [c["cav_ratio"] * 100 for c in capacities]
-    capacity_values = [c["peak_flow"] for c in capacities]
+    cav_percentages = [item["cav_ratio"] * 100 for item in observed_peaks]
+    observed_peak_values = [item["peak_flow"] for item in observed_peaks]
     plt.plot(
         cav_percentages,
-        capacity_values,
+        observed_peak_values,
         marker="o",
         markersize=8,
-        label="Capacity",
+        label="Maximum Observed Flow",
         color="blue",
         linewidth=2,
         linestyle="-",
     )
-    max_capacity = max(capacity_values)
-    max_index = capacity_values.index(max_capacity)
+    grid_maximum = max(observed_peak_values)
+    max_index = observed_peak_values.index(grid_maximum)
     max_percentage = cav_percentages[max_index]
     plt.plot(
         max_percentage,
-        max_capacity,
+        grid_maximum,
         marker="*",
         markersize=12,
         color="red",
         linestyle="None",
-        label="Max Capacity",
+        label="Grid Maximum",
     )
-    plt.title("CAV Penetration Rate - Capacity Curve", fontsize=20)
-    plt.xlabel("CAV Penetration Rate (%)", fontsize=15)
-    plt.ylabel("Capacity (veh/h)", fontsize=15)
-    plt.ylim(0, max_capacity * 1.1)
-    for x, y in zip(cav_percentages, capacity_values, strict=True):
-        if y == max_capacity:
+    plt.title("Requested CAV Penetration vs Maximum Observed Flow", fontsize=20)
+    plt.xlabel("Requested CAV Penetration Rate (%)", fontsize=15)
+    plt.ylabel("Maximum Observed Flow in Tested Grid (veh/h)", fontsize=15)
+    plt.ylim(0, grid_maximum * 1.1)
+    for x, y in zip(cav_percentages, observed_peak_values, strict=True):
+        if y == grid_maximum:
             plt.text(x, y, f"({x}, {y})", ha="center", va="bottom")
     plt.legend(loc="upper left")
     plt.grid(axis="y")
     os.makedirs(output_dir, exist_ok=True)
-    save_path = os.path.join(output_dir, "Capacity_summary.png")
+    save_path = os.path.join(output_dir, "Observed_peak_flow_summary.png")
     plt.savefig(save_path)
-    print(f"[OK] [CAV渗透率-通行能力]曲线已成功保存至{save_path}")
+    print(f"[OK] [CAV渗透率-网格内最大观测流量]曲线已成功保存至{save_path}")
     plt.close()
 
 
@@ -139,18 +149,18 @@ def run_v03(args) -> None:
     if aggregated is None:
         return
     os.makedirs(args.outDir, exist_ok=True)
-    capacities = compute_capacities(aggregated, cav_ratios)
-    for capacity in capacities:
-        subset = aggregated[aggregated["pCAV"] == capacity["cav_ratio"]]
+    observed_peaks = compute_observed_peaks(aggregated, cav_ratios)
+    for observed_peak in observed_peaks:
+        subset = aggregated[aggregated["pCAV"] == observed_peak["cav_ratio"]]
         plot_density_flow(
-            capacity["cav_ratio"],
+            observed_peak["cav_ratio"],
             subset["density"],
             subset["mean_flow(veh/h)"],
-            capacity["peak_density"],
-            capacity["peak_flow"],
+            observed_peak["peak_density"],
+            observed_peak["peak_flow"],
             args.outDir,
         )
-    plot_capacity_summary(capacities, args.outDir)
+    plot_observed_peak_summary(observed_peaks, args.outDir)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -170,27 +180,37 @@ MODEL_STYLES = {
     "CACC": {"marker": "s", "linestyle": "--", "linewidth": 1.5},
 }
 
+_EXPLICIT_TTC_METRIC = "whole_network_ttc_events_per_1000_non_internal_edge_veh_km_mean"
+
+
+def _ttc_metric_column(df: pd.DataFrame) -> str:
+    """优先使用表达完整空间口径的 post3 列，旧短列仅作兼容 fallback。"""
+    return _EXPLICIT_TTC_METRIC if _EXPLICIT_TTC_METRIC in df.columns else "ttc_per_k_mean"
+
 
 def _ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def chart_capacity_v4(df: pd.DataFrame, out_dir: Path) -> None:
+def chart_observed_peak_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
     """x=pCAV, y=每个 pCAV 下最高 flow，四场景分面"""
-    capacity = df.groupby(["scenario", "model", "pCAV"])["flow_mean"].max().reset_index()
+    penetration_column = "requested_pcav" if "requested_pcav" in df.columns else "pCAV"
+    observed_peaks = (
+        df.groupby(["scenario", "model", penetration_column])["flow_mean"].max().reset_index()
+    )
     fig, axes = plt.subplots(
         2, 2, figsize=(16, 11), sharex=True, sharey=False, constrained_layout=True
     )
     axes = axes.flatten()
     for ax, (sc, label) in zip(axes, SCENARIO_LABELS.items(), strict=True):
-        sub = capacity[capacity["scenario"] == sc]
+        sub = observed_peaks[observed_peaks["scenario"] == sc]
         for model in ["IDM", "CACC"]:
-            d = sub[sub["model"] == model].sort_values("pCAV")
+            d = sub[sub["model"] == model].sort_values(penetration_column)
             if len(d) == 0:
                 continue
             s = MODEL_STYLES[model]
             ax.plot(
-                d["pCAV"] * 100,
+                d[penetration_column] * 100,
                 d["flow_mean"],
                 marker=s["marker"],
                 linestyle=s["linestyle"],
@@ -201,14 +221,14 @@ def chart_capacity_v4(df: pd.DataFrame, out_dir: Path) -> None:
                 alpha=0.85,
             )
         ax.set_title(label, fontsize=12)
-        ax.set_ylabel("Capacity (veh/h)", fontsize=10)
+        ax.set_ylabel("Maximum Observed Flow in Tested Grid (veh/h)", fontsize=10)
         ax.legend(fontsize=9)
         ax.grid(True, alpha=0.3)
         ax.xaxis.set_major_formatter(mticker.FormatStrFormatter("%d%%"))
         ax.tick_params(labelbottom=True)  # 所有面板显示 x 轴刻度
-    axes[2].set_xlabel("CAV Penetration Rate", fontsize=11)
-    axes[3].set_xlabel("CAV Penetration Rate", fontsize=11)
-    fig.suptitle("CAV Penetration Rate vs Capacity (per scenario)", fontsize=14)
+    axes[2].set_xlabel("Requested CAV Penetration Rate", fontsize=11)
+    axes[3].set_xlabel("Requested CAV Penetration Rate", fontsize=11)
+    fig.suptitle("Requested CAV Penetration vs Maximum Observed Flow", fontsize=14)
     path = out_dir / "chart_capacity.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -216,7 +236,8 @@ def chart_capacity_v4(df: pd.DataFrame, out_dir: Path) -> None:
 
 
 def chart_safety_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
-    """x=flow_mean, y=ttc_per_k_mean, s0+s3 双面板"""
+    """x=flow_mean, y=全路网 TTC / 普通-edge 暴露量，s0+s3 双面板"""
+    ttc_metric = _ttc_metric_column(df)
     fig, axes = plt.subplots(1, 2, figsize=(16, 7), constrained_layout=True)
     for ax, sc in zip(axes, ["scenario_0", "scenario_3"], strict=True):
         sub = df[df["scenario"] == sc]
@@ -228,7 +249,7 @@ def chart_safety_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
             sizes = np.clip(d["vehN"] / 2, 10, 120)
             ax.scatter(
                 d["flow_mean"],
-                d["ttc_per_k_mean"],
+                d[ttc_metric],
                 s=sizes,
                 alpha=0.6,
                 edgecolors="white",
@@ -239,10 +260,10 @@ def chart_safety_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
             )
         ax.set_title(SCENARIO_LABELS.get(sc, sc), fontsize=12)
         ax.set_xlabel("Flow (veh/h)", fontsize=10)
-        ax.set_ylabel("TTC Events / 1000 veh-km", fontsize=10)
+        ax.set_ylabel("TTC Events / 1000 Non-internal-edge veh-km", fontsize=10)
         ax.legend(fontsize=9)
         ax.grid(True, alpha=0.3)
-    fig.suptitle("Safety–Flow Trade-off: TTC/1000 veh-km vs Flow", fontsize=14)
+    fig.suptitle("Safety–Flow Trade-off: TTC Events per Non-internal-edge Exposure", fontsize=14)
     path = out_dir / "chart_safety_flow.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -276,11 +297,11 @@ def chart_co2_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
             )
         ax.set_title(label, fontsize=12)
         ax.set_xlabel("Flow (veh/h)", fontsize=10)
-        ax.set_ylabel("CO₂ (g/veh-km)", fontsize=10)
+        ax.set_ylabel("CO₂ on Non-internal Edges (g/veh-km)", fontsize=10)
         ax.set_xlim(x_min, x_max)
         ax.legend(fontsize=9)
         ax.grid(True, alpha=0.3)
-    fig.suptitle("CO₂–Flow Trade-off", fontsize=14)
+    fig.suptitle("Non-internal-edge CO₂–Flow Trade-off", fontsize=14)
     path = out_dir / "chart_co2_flow.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -288,8 +309,9 @@ def chart_co2_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
 
 
 def chart_delay_v4(df: pd.DataFrame, out_dir: Path) -> None:
-    """x=pCAV, y=delay_mean, vehN=120 only，四场景分面"""
+    """x=requested pCAV, y=相对固定参考圈时的有符号差，vehN=120。"""
     sub = df[df["vehN"] == 120]
+    penetration_column = "requested_pcav" if "requested_pcav" in df.columns else "pCAV"
     fig, axes = plt.subplots(
         2, 2, figsize=(16, 11), sharex=True, sharey=False, constrained_layout=True
     )
@@ -297,12 +319,12 @@ def chart_delay_v4(df: pd.DataFrame, out_dir: Path) -> None:
     for ax, (sc, label) in zip(axes, SCENARIO_LABELS.items(), strict=True):
         d = sub[sub["scenario"] == sc]
         for model in ["IDM", "CACC"]:
-            dm = d[d["model"] == model].sort_values("pCAV")
+            dm = d[d["model"] == model].sort_values(penetration_column)
             if len(dm) == 0:
                 continue
             s = MODEL_STYLES[model]
             ax.plot(
-                dm["pCAV"] * 100,
+                dm[penetration_column] * 100,
                 dm["delay_mean"],
                 marker=s["marker"],
                 linestyle=s["linestyle"],
@@ -313,14 +335,17 @@ def chart_delay_v4(df: pd.DataFrame, out_dir: Path) -> None:
                 alpha=0.85,
             )
         ax.set_title(f"{label} (vehN=120)", fontsize=12)
-        ax.set_ylabel("Mean Lap Delay (s)", fontsize=10)
+        ax.set_ylabel("Mean Lap-Time Difference From Reference (s)", fontsize=10)
         ax.legend(fontsize=9)
         ax.grid(True, alpha=0.3)
         ax.xaxis.set_major_formatter(mticker.FormatStrFormatter("%d%%"))
         ax.tick_params(labelbottom=True)  # 所有面板显示 x 轴刻度
-    axes[2].set_xlabel("CAV Penetration Rate", fontsize=11)
-    axes[3].set_xlabel("CAV Penetration Rate", fontsize=11)
-    fig.suptitle("Single-Lap Delay vs CAV Penetration Rate (vehN=120)", fontsize=14)
+    axes[2].set_xlabel("Requested CAV Penetration Rate", fontsize=11)
+    axes[3].set_xlabel("Requested CAV Penetration Rate", fontsize=11)
+    fig.suptitle(
+        "Lap-Time Difference From Fixed Reference vs Requested CAV Penetration (vehN=120)",
+        fontsize=14,
+    )
     path = out_dir / "chart_delay.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -334,7 +359,7 @@ def run_v4(args) -> None:
     df = pd.read_csv(args.aggregated)
     out_dir = Path(args.outDir)
     _ensure_dir(out_dir)
-    chart_capacity_v4(df, out_dir)
+    chart_observed_peak_flow_v4(df, out_dir)
     chart_safety_flow_v4(df, out_dir)
     chart_co2_flow_v4(df, out_dir)
     chart_delay_v4(df, out_dir)

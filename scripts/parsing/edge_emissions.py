@@ -3,11 +3,12 @@
 import xml.etree.ElementTree as ET
 
 
-def parse_edge_emissions(xml_path: str):
+def parse_edge_emissions(xml_path: str, warmup_period: float = 0.0):
     """解析 SUMO edgeData type='emissions' XML。
 
     Args:
         xml_path: edgeData XML 文件路径。
+        warmup_period: 仅累计 begin >= 此时刻的完整 interval。
 
     Returns:
         dict: {
@@ -39,6 +40,12 @@ def parse_edge_emissions(xml_path: str):
     total_fuel_mg = 0.0
 
     for interval in root.findall("interval"):
+        try:
+            interval_begin = float(interval.get("begin", "0"))
+        except (ValueError, TypeError):
+            continue
+        if interval_begin < warmup_period:
+            continue
         for edge in interval.findall("edge"):
             try:
                 total_co2_mg += float(edge.get("CO2_abs", "0"))

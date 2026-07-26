@@ -1,5 +1,73 @@
 # Changelog
 
+## v0.4.0.post3
+
+`v0.4.0.post3` 不重跑 SUMO；它从冻结的 10,080-run raw XML 修正 post2
+遗漏的跨解析器观测窗错配，并重新生成受影响的 run-level、聚合数据、图表与
+报告。实验输入和原始观测保持不变，派生指标以 post3 为准。
+
+### 数据与解释修正
+
+- 将 edgeData performance、emissions 与安全事件统一到 `[600, 3600)`
+  分析窗口，消除安全事件分子与车辆公里分母的时间窗错配。
+- SSM warmup 边界按 `minTTC@time` 与 `maxDRAC@time` 分别判断，不再仅按
+  encounter begin 丢弃跨越边界的整条记录。
+- s3 全 CAV、vehN=120 的 TTC 率修正为 IDM 1,574.0、CACC 3,273.5
+  events/1000 veh-km；CACC/IDM 比值约为 2.08。
+- 同一运行点的 CO₂ 强度修正为 IDM 228.3、CACC 352.0 g/veh-km。
+- 明确圈时“延误”是相对场景参考圈时的有符号差，并记录 P95 使用离散
+  `higher` 分位数。
+
+### 工程修正
+
+- 增加独立 post3 再分析命令与 SHA-256 manifest，不覆盖冻结 raw 或 post2
+  结果。
+- 对实际读取的 30,240 个 raw XML 建立逐文件 SHA-256 清单，并在 manifest
+  中记录稳定清单摘要；重分析后重新执行不变量校验，不再继承 post2 质量标签。
+- 保留历史 CSV 列以兼容既有分析，同时增加 requested/realized pCAV、
+  CAV/HV 数量、普通-edge 暴露量和全路网 TTC/普通-edge 暴露量的显式字段；
+  聚合表增加 flow/assignment run 计数及独立随机重复数（固定为 0）。
+- 明确跨 seed 比率使用各 assignment run 等权算术平均，而非 pooled exposure
+  ratio；标准差不用于置信区间或显著性推断。
+- post3 发布输出 schema 标记为 `v0.4.0.post3.1`；冻结 raw 中记录的 pipeline
+  schema 仍为 `1`，原有指标列和值保持兼容。
+- 配置、批处理与单次运行入口均拒绝无法同时与 detector 和 edgeData 完整
+  interval 边界对齐的 warmup 配置；正式与 smoke 配置原本已对齐，既有数据
+  不受影响。新增跨解析器回归测试纳入完整 pytest 门禁。
+- 聚合器与 v4 图表显式使用 `requested_pcav`；兼容横轴标为 requested CAV
+  penetration，避免把低车辆数下的请求水平误读为不同实际构成。
+- 路网生成器增加 `--build-all`，从 Git 跟踪的四场景 node/edge 源文件调用
+  netconvert 生成被忽略的 `loop.net.xml`；SUMO 1.27.1 生成网络与历史网络
+  除生成注释外语义一致。
+- 修复 detector 独立 CLI 的五返回值解包；空流量窗口不再以速度 0 进入未来
+  速度均值/方差。冻结实验 252,000 个正式 detector 窗口中没有空窗，既有结果
+  不受影响。
+- writer 将结构完整与数据全部有效分开；`complete=true` 现在同时要求无失败
+  run 且所有写入行均为 `data_quality=ok`，`parser_warning` 与
+  `invariant_failed` 都会否决完整性。
+- 增加跨解析器 warmup、SSM 极值时刻、P95 与 writer 完整性测试。
+- 安全图直接读取完整语义的“全路网 TTC / 普通-edge 暴露量”聚合列，旧
+  `ttc_per_k_mean` 仅作兼容 fallback；公开限制中记录 80% SSM 镜像去重规则。
+- 从 post3 聚合 CSV 重算报告的场景 TTC 汇总，修正残留 post2 数字，并明确
+  该列是“各处理组合的 assignment-seed 均值之和”，不是全部 run 事件总数。
+- 场景关系统一称为结构递进/场景化比较，不再宣称隔离单一因素；图表和当前
+  摘要将 `delay` 兼容字段展示为“相对固定参考圈时差”，模型比较仅排除显式
+  tau 取值差异，不排除模型专属隐式默认参数。
+- 修复 `configs/smoke.json` 与 warmup/edgeData 周期对齐门禁的冲突；更新
+  AGENTS.md 为当前三阶段批处理 CLI，并让轻量测试入口醒目标注其不替代完整
+  pytest 门禁。
+- 收紧后续版本边界：v0.4.1 定位为测量链路、实验设计修订和有界 pilot，
+  不默认重跑既有 10,080-run 网格；仅在 pilot 门禁通过且确有研究必要时，
+  以条件性的 v0.4.2 发布新正式实验，且不覆盖 v0.4.0/post3。
+
+### 剩余历史数据边界
+
+- v0.4.0 raw edgeData 使用 `withInternal=false`。SSM 事件与车辆公里的空间
+  范围因此不完全配对；post3 不虚构无法从 raw 恢复的 internal-edge 里程，
+  而是限定归一化安全指标含义并停止使用它做严格跨场景安全率排序。
+- 所谓“容量”统一收敛为测试车辆数网格内的最大观测流量；尤其 s2 的
+  7,128 veh/h 位于 `vehN=120` 上界，不宣称已识别真实容量峰值。
+
 ## v0.4.0.post2
 
 `v0.4.0.post2` 是不改变或重跑 v0.4.0 正式实验、不改变既定实验数值结果的

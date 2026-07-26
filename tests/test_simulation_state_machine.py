@@ -14,7 +14,7 @@ def _spec() -> RunSpec:
         seed=1,
         run_id="state-test",
         simulation_end=10,
-        warmup=1,
+        warmup=0,
         loops=2,
         network_file="net/scenario_0/loop.net.xml",
         config_sha256="c" * 64,

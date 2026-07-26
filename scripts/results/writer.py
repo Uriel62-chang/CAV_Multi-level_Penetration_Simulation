@@ -68,6 +68,21 @@ def _read_sim_status(run_dir: Path) -> str:
 def _build_row(summary: dict, parse_status: str) -> dict:
     """从 summary dict 构建 CSV 行，补 data_quality 标记"""
     row = {col: summary.get(col, float("nan")) for col in RUN_LEVEL_COLUMNS}
+    vehicle_count = int(summary["vehN"])
+    requested_pcav = float(summary["pCAV"])
+    cav_count = round(vehicle_count * requested_pcav)
+    row.update(
+        {
+            "requested_pcav": requested_pcav,
+            "realized_pcav": cav_count / vehicle_count,
+            "cav_count": cav_count,
+            "hv_count": vehicle_count - cav_count,
+            "non_internal_edge_vehicle_km": summary.get("total_vehicle_km", float("nan")),
+            "whole_network_ttc_events_per_1000_non_internal_edge_veh_km": summary.get(
+                "ttc_events_per_1000_veh_km", float("nan")
+            ),
+        }
+    )
 
     # data_quality 判定
     errors = summary.get("_invariant_errors", [])
@@ -108,6 +123,26 @@ def _atomic_write_csv(path: Path, rows: list[dict], columns: list[str]) -> None:
         f.flush()
         os.fsync(f.fileno())
     os.replace(tmp, path)
+
+
+def _completion_flags(failed_count: int, non_ok_count: int) -> dict[str, bool]:
+    structurally_complete = failed_count == 0
+    return {
+        "structurally_complete": structurally_complete,
+        "all_rows_valid": structurally_complete and non_ok_count == 0,
+        "complete": structurally_complete and non_ok_count == 0,
+    }
+
+
+def _quality_counts(rows: list[dict]) -> dict[str, int]:
+    """统计质量标签；任何非 ok 行都必须否决 all_rows_valid/complete。"""
+    counter = Counter(row["data_quality"] for row in rows)
+    return {
+        "quality_ok": counter.get("ok", 0),
+        "quality_invariant_failed": counter.get("invariant_failed", 0),
+        "quality_parser_warning": counter.get("parser_warning", 0),
+        "quality_non_ok": sum(count for label, count in counter.items() if label != "ok"),
+    }
 
 
 def build_run_level_results(
@@ -284,19 +319,23 @@ def build_run_level_results(
     print(f"[WRITE] {len(failed_rows)} failed → {failed_path}")
 
     # ── writer_report.json ──
-    quality_counter = Counter(r["data_quality"] for r in success_rows)
+    quality_counts = _quality_counts(success_rows)
     report = {
         "expected_runs": expected_total,
         "discovered_runs": discovered,
         "csv_rows": len(success_rows),
-        "quality_ok": quality_counter.get("ok", 0),
-        "quality_invalid": quality_counter.get("invariant_failed", 0),
+        **quality_counts,
         "excluded_runs": len(failed_rows),
         "duplicate_run_ids": duplicates,
         "missing_run_ids": expected_total - discovered,
-        "complete": len(failed_rows) == 0,
         "pipeline_version": pipeline_version,
     }
+    report.update(
+        _completion_flags(
+            failed_count=len(failed_rows),
+            non_ok_count=quality_counts["quality_non_ok"],
+        )
+    )
     report_path = output_dir / "writer_report.json"
     atomic_write_json(report_path, report)
     print(f"[WRITE] report → {report_path}")

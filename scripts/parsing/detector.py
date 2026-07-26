@@ -31,14 +31,15 @@ def parse_detector(xml_path: str, warmup_period: float = 600.0):
         flow = float(interval.get("flow", "0"))
         speed = float(interval.get("speed", "0"))
         flow_values.append(flow)
-        speed_values.append(speed)
+        if flow > 0:
+            speed_values.append(speed)
 
     if len(flow_values) == 0:
         return 0.0, 0.0, 0.0, float("nan"), 0
 
     mean_flow = sum(flow_values) / len(flow_values)
     max_flow = max(flow_values)
-    mean_speed = sum(speed_values) / len(speed_values)
+    mean_speed = sum(speed_values) / len(speed_values) if speed_values else 0.0
     speed_variance = _compute_speed_variance(speed_values)
     return mean_flow, max_flow, mean_speed, speed_variance, len(speed_values)
 
@@ -76,12 +77,10 @@ def parse_detector_multi(xml_paths: list, warmup_period: float = 600.0):
         flow_values.append(total_flow)
         if total_flow > 0:
             speed_values.append(lane_data[begin]["weighted_speed"] / total_flow)
-        else:
-            speed_values.append(0.0)
 
     mean_flow = sum(flow_values) / len(flow_values)
     max_flow = max(flow_values)
-    mean_speed = sum(speed_values) / len(speed_values)
+    mean_speed = sum(speed_values) / len(speed_values) if speed_values else 0.0
     speed_variance = _compute_speed_variance(speed_values)
     return mean_flow, max_flow, mean_speed, speed_variance, len(speed_values)
 
@@ -93,8 +92,10 @@ def main():
     parser.add_argument("--warmup", type=float, default=600.0)  # 预热期
     args = parser.parse_args()
 
-    mean_flow, max_flow, mean_speed = parse_detector(args.xml, args.warmup)
-    print(f"{mean_flow:.3f},{max_flow:.3f},{mean_speed:.3f}")
+    mean_flow, max_flow, mean_speed, speed_variance, window_count = parse_detector(
+        args.xml, args.warmup
+    )
+    print(f"{mean_flow:.3f},{max_flow:.3f},{mean_speed:.3f},{speed_variance:.6f},{window_count}")
 
 
 if __name__ == "__main__":

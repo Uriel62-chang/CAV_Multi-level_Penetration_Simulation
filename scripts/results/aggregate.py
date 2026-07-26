@@ -1,8 +1,8 @@
 """Step 14: 多种子聚合 —— run-level → aggregated statistics.
 
-    输入：run_level_results.csv（10,080 行 × 54 列，每行一个 seed）
+    输入：run_level_results.csv（post3 为 10,080 行 × 60 列，每行一个 assignment seed）
     输出：aggregated_results.csv（2,016 行，每行一个 scenario×model×pCAV×vehN，
-          含 5 seeds 的 mean/std/median/min/max/n_valid）
+          含 5 个车辆类型排列 seed 的等权算术 mean/std/median/min/max/count）
 
     python3 -m scripts.results.aggregate \
       --input /home/lyc/simdata/cav-v0.4.0/results/run_level_results.csv \
@@ -26,6 +26,9 @@ from scripts.schema import (
     SAFETY_SSM_COLUMNS,
 )
 
+# 每个 run 先计算自身的比率，以下聚合再对各车辆类型排列 run 等权求算术统计；
+# 它不是把事件数和暴露量分别跨 seed 汇总后计算 pooled ratio。
+
 # ── 需要进行跨种子统计的指标列（排除标识列和 data_quality） ──
 
 METRIC_COLUMNS = (
@@ -43,12 +46,14 @@ METRIC_COLUMNS = (
 _NON_AGGREGATABLE = {"det_xml"}
 METRIC_COLUMNS = tuple(c for c in METRIC_COLUMNS if c not in _NON_AGGREGATABLE)
 
-GROUP_KEYS = ["scenario", "model", "pCAV", "vehN"]
+GROUP_KEYS = ["scenario", "model", "requested_pcav", "vehN"]
 
 
 def aggregate(input_csv: Path, output_csv: Path) -> pd.DataFrame:
     """读取 run-level CSV，按 GROUP_KEYS 聚合，输出统计量。"""
     df = pd.read_csv(input_csv)
+    if "requested_pcav" not in df.columns:
+        df["requested_pcav"] = df["pCAV"]
 
     # 排除 data_quality != ok 的行（仅对 ok 数据做聚合）
     df_ok = df[df["data_quality"] == "ok"].copy()
@@ -119,6 +124,17 @@ def aggregate(input_csv: Path, output_csv: Path) -> pd.DataFrame:
 
     grouped.columns = grouped.columns.map(lambda x: new_columns.get(x, f"{x[0]}_{x[1]}"))
     grouped = grouped.reset_index()
+    grouped.insert(2, "pCAV", grouped["requested_pcav"])
+    requested_pcav = grouped.pop("requested_pcav")
+    grouped.insert(4, "requested_pcav", requested_pcav)
+    grouped.insert(
+        5,
+        "realized_pcav",
+        (grouped["vehN"] * grouped["pCAV"]).round() / grouped["vehN"],
+    )
+    grouped.insert(6, "flow_valid_run_count", grouped["n_valid"])
+    grouped.insert(7, "assignment_seed_run_count", grouped["n_valid"])
+    grouped.insert(8, "independent_random_replication_count", 0)
 
     if not grouped.columns.is_unique:
         duplicates = grouped.columns[grouped.columns.duplicated()].tolist()

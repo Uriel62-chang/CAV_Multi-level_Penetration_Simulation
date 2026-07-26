@@ -71,7 +71,7 @@ def parse_ssm(
             invalid += 1
             continue
 
-        if begin < warmup_period:
+        if end <= warmup_period:
             warmup_filtered += 1
             continue
 
@@ -84,6 +84,9 @@ def parse_ssm(
         if min_ttc_elem is not None:
             try:
                 ttc_val = float(min_ttc_elem.get("value", ""))
+                ttc_time = float(min_ttc_elem.get("time", str(begin)))
+                if ttc_time < warmup_period:
+                    ttc_val = None
             except (ValueError, TypeError):
                 ttc_val = None
 
@@ -93,6 +96,9 @@ def parse_ssm(
         if max_drac_elem is not None:
             try:
                 drac_val = float(max_drac_elem.get("value", ""))
+                drac_time = float(max_drac_elem.get("time", str(begin)))
+                if drac_time < warmup_period:
+                    drac_val = None
             except (ValueError, TypeError):
                 drac_val = None
 

@@ -32,7 +32,7 @@ from scripts.config import (
     DEFAULT_STEP_LENGTH,
     DEFAULT_WARMUP,
 )
-from scripts.experiment_config import load_experiment_config
+from scripts.experiment_config import load_experiment_config, validate_analysis_windows
 from scripts.provenance import collect_provenance, sha256_file
 from scripts.run_spec import (
     RunSpec,
@@ -161,6 +161,14 @@ def validate_specs(
             )
         if min(s.step_length, s.detector_frequency, s.edge_data_frequency, s.loops) <= 0:
             raise RuntimeError(f"Non-positive runtime parameter in {s.run_id}")
+        try:
+            validate_analysis_windows(
+                s.warmup,
+                s.detector_frequency,
+                s.edge_data_frequency,
+            )
+        except ValueError as exc:
+            raise RuntimeError(f"Invalid timing for {s.run_id}: {exc}") from exc
 
 
 def validate_path_safety(output_root: Path, specs: list[RunSpec]) -> None:

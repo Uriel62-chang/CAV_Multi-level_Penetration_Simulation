@@ -28,6 +28,16 @@ def test_minimal_veh_km_calculation():
     assert result["total_time_loss_s"] > 0
 
 
+def test_warmup_filters_complete_intervals():
+    result = parse_edge_performance(
+        os.path.join(FIXTURES, "edge_performance_minimal.xml"),
+        warmup_period=420.0,
+    )
+    expected_km = 10.95 * 11454.87 / 1000.0
+    assert math.isclose(result["total_vehicle_km"], expected_km, rel_tol=1e-6)
+    assert math.isclose(result["total_time_loss_s"], 7583.95, rel_tol=1e-6)
+
+
 def test_empty_file_returns_zero():
     """Empty meandata: valid XML but no data → returns 0.0, not NaN."""
     result = parse_edge_performance(

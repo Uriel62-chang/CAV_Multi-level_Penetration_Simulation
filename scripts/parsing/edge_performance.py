@@ -3,11 +3,12 @@
 import xml.etree.ElementTree as ET
 
 
-def parse_edge_performance(xml_path: str):
+def parse_edge_performance(xml_path: str, warmup_period: float = 0.0):
     """解析 SUMO edgeData type='performance' XML。
 
     Args:
         xml_path: edgeData XML 文件路径。
+        warmup_period: 仅累计 begin >= 此时刻的完整 interval。
 
     Returns:
         dict: {
@@ -33,6 +34,12 @@ def parse_edge_performance(xml_path: str):
     total_time_loss = 0.0
 
     for interval in root.findall("interval"):
+        try:
+            interval_begin = float(interval.get("begin", "0"))
+        except (ValueError, TypeError):
+            continue
+        if interval_begin < warmup_period:
+            continue
         for edge in interval.findall("edge"):
             try:
                 speed = float(edge.get("speed", "0"))

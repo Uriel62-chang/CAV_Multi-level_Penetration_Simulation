@@ -9,7 +9,7 @@
   "seeds": [1],
   "seed_scope": "vehicle_type_assignment",
   "simulation_end": 220,
-  "warmup": 10,
+  "warmup": 20,
   "step_length": 0.1,
   "detector_frequency": 20,
   "edge_data_frequency": 20,

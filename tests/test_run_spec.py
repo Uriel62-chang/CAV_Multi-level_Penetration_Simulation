@@ -2,6 +2,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 from scripts.run_spec import RunSpec, load_run_spec, write_run_spec
 from scripts.simulation.flow_generator import generate_flow
 from scripts.simulation.single_run import build_sumo_command, prepare_run
@@ -18,8 +20,8 @@ def _spec(**overrides) -> RunSpec:
         "simulation_end": 37.0,
         "warmup": 5.0,
         "step_length": 0.1,
-        "detector_frequency": 7,
-        "edge_data_frequency": 11,
+        "detector_frequency": 5,
+        "edge_data_frequency": 5,
         "loops": 2,
         "network_file": "net/scenario_0/loop.net.xml",
     }
@@ -60,9 +62,14 @@ def test_prepare_persists_non_default_frequencies(tmp_path):
     prepared = prepare_run(spec, tmp_path, spec.network_file)
     additional = prepared.additional_path.read_text()
 
-    assert 'freq="7"' in additional
-    assert 'freq="11"' in additional
+    assert additional.count('freq="5"') == 3
     assert load_run_spec(tmp_path) == spec
+
+
+def test_prepare_rejects_detector_window_misalignment(tmp_path):
+    spec = _spec(detector_frequency=7)
+    with pytest.raises(ValueError, match="detector_frequency"):
+        prepare_run(spec, tmp_path, spec.network_file)
 
 
 def test_seed_only_controls_vehicle_type_assignment(tmp_path):

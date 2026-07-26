@@ -3,12 +3,16 @@
 import math
 import os
 
-from scripts.parsing.vehroute import parse_lap_times
+from scripts.parsing.vehroute import _quantile_higher, parse_lap_times
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 
 # scenario_3 has 32 edges per lap
 EDGES_PER_LAP = 32
+
+
+def test_p95_uses_documented_higher_method():
+    assert _quantile_higher(list(range(1, 21)), 0.95) == 20
 
 
 def test_minimal_lap_times():

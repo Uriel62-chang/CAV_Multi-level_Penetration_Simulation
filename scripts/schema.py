@@ -13,6 +13,10 @@ IDENTIFIER_COLUMNS = [
     "scenario",
     "model",
     "pCAV",
+    "requested_pcav",
+    "realized_pcav",
+    "cav_count",
+    "hv_count",
     "vehN",
     "seed",
 ]
@@ -66,6 +70,7 @@ EMISSIONS_COLUMNS = [
 
 EFFICIENCY_COLUMNS = [
     "total_vehicle_km",
+    "non_internal_edge_vehicle_km",
     "total_time_loss_s",
     "completed_lap_count",
     "mean_lap_time_s",
@@ -76,6 +81,7 @@ EFFICIENCY_COLUMNS = [
 
 NORMALIZED_COLUMNS = [
     "ttc_events_per_1000_veh_km",
+    "whole_network_ttc_events_per_1000_non_internal_edge_veh_km",
     "emergency_brakes_per_1000_veh_km",
     "lane_changes_per_1000_veh_km",
     "CO2_g_per_veh_km",
@@ -122,15 +128,29 @@ AUDIT_COLUMNS = [
 # ── summary.json 完整必需字段 = CSV 列（去掉 quality 列）+ 审计字段 ──
 
 SUMMARY_REQUIRED_KEYS = (
-    IDENTIFIER_COLUMNS
+    [
+        column
+        for column in IDENTIFIER_COLUMNS
+        if column
+        not in {
+            "requested_pcav",
+            "realized_pcav",
+            "cav_count",
+            "hv_count",
+        }
+    ]
     + CONFIG_COLUMNS
     + CAPACITY_COLUMNS
     + SAFETY_SSM_COLUMNS
     + SAFETY_EB_COLUMNS
     + LANECHANGE_COLUMNS
     + EMISSIONS_COLUMNS
-    + EFFICIENCY_COLUMNS
-    + NORMALIZED_COLUMNS
+    + [column for column in EFFICIENCY_COLUMNS if column != "non_internal_edge_vehicle_km"]
+    + [
+        column
+        for column in NORMALIZED_COLUMNS
+        if column != "whole_network_ttc_events_per_1000_non_internal_edge_veh_km"
+    ]
     + DELAY_COLUMNS
     + AUDIT_COLUMNS
 )

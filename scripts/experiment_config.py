@@ -292,6 +292,10 @@ class ExperimentConfig:
             self._validate_cav_count_mode()
         if self.fcd_profile is not None and self.fcd_max_leader_distance_m is None:
             raise ValueError("fcd_max_leader_distance_m is required when fcd_profile is set")
+        if self.pipeline_version == PIPELINE_V4_1 and (
+            self.ssm_range_m <= 0 or not math.isfinite(self.ssm_range_m)
+        ):
+            raise ValueError(f"ssm_range_m must be positive and finite, got {self.ssm_range_m}")
 
     def _validate_requested_pcav_mode(self) -> None:
         _require_nonempty_unique("pcav_levels", self.pcav_levels)

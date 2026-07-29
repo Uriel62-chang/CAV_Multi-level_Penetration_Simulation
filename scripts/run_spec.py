@@ -113,6 +113,8 @@ _V4_1_EXTRA_KEYS = {
     "ssm_range_m",
     "ssm_trajectories",
     "with_internal",
+    "fcd_profile",
+    "fcd_max_leader_distance_m",
 }
 
 
@@ -249,10 +251,8 @@ class RunSpec:
             result["ssm_range_m"] = self.ssm_range_m
             result["ssm_trajectories"] = self.ssm_trajectories
             result["with_internal"] = self.with_internal
-            if self.fcd_profile is not None:
-                result["fcd_profile"] = self.fcd_profile
-            if self.fcd_max_leader_distance_m is not None:
-                result["fcd_max_leader_distance_m"] = self.fcd_max_leader_distance_m
+            result["fcd_profile"] = self.fcd_profile
+            result["fcd_max_leader_distance_m"] = self.fcd_max_leader_distance_m
         return result
 
     @classmethod

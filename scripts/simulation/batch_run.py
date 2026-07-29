@@ -94,6 +94,14 @@ def build_run_specs(
     config_sha256: str = "",
     network_sha256: dict[str, str] | None = None,
     experiment_id: str = "",
+    # v0.4.1 capture/FCD
+    ssm_capture_ttc_threshold_s: float = 3.0,
+    ssm_capture_drac_threshold_mps2: float = 3.0,
+    ssm_range_m: float = 50.0,
+    ssm_trajectories: bool = False,
+    fcd_profile: str | None = None,
+    fcd_max_leader_distance_m: float | None = None,
+    with_internal: bool = False,
 ) -> list[RunSpec]:
     """生成全部 RunSpec，根据参数自动选择 requested_pcav 或 cav_count 网格模式。"""
     if sumo_seeds is not None and treatments is not None:
@@ -115,6 +123,13 @@ def build_run_specs(
             config_sha256=config_sha256,
             network_sha256=network_sha256 or {},
             experiment_id=experiment_id,
+            ssm_capture_ttc_threshold_s=ssm_capture_ttc_threshold_s,
+            ssm_capture_drac_threshold_mps2=ssm_capture_drac_threshold_mps2,
+            ssm_range_m=ssm_range_m,
+            ssm_trajectories=ssm_trajectories,
+            fcd_profile=fcd_profile,
+            fcd_max_leader_distance_m=fcd_max_leader_distance_m,
+            with_internal=with_internal,
         )
     if pcav_levels is None or vehicle_levels is None or seeds is None:
         raise ValueError(
@@ -139,6 +154,13 @@ def build_run_specs(
         config_sha256=config_sha256,
         network_sha256=network_sha256 or {},
         experiment_id=experiment_id,
+        ssm_capture_ttc_threshold_s=ssm_capture_ttc_threshold_s,
+        ssm_capture_drac_threshold_mps2=ssm_capture_drac_threshold_mps2,
+        ssm_range_m=ssm_range_m,
+        ssm_trajectories=ssm_trajectories,
+        fcd_profile=fcd_profile,
+        fcd_max_leader_distance_m=fcd_max_leader_distance_m,
+        with_internal=with_internal,
     )
 
 
@@ -166,6 +188,13 @@ def _build_spec_common(
     *,
     cav_count: int | None = None,
     requested_pcav: float | None = None,
+    ssm_capture_ttc_threshold_s: float = 3.0,
+    ssm_capture_drac_threshold_mps2: float = 3.0,
+    ssm_range_m: float = 50.0,
+    ssm_trajectories: bool = False,
+    fcd_profile: str | None = None,
+    fcd_max_leader_distance_m: float | None = None,
+    with_internal: bool = False,
 ) -> RunSpec:
     """创建 RunSpec 的公共工厂。"""
     return RunSpec(
@@ -191,6 +220,13 @@ def _build_spec_common(
         sumo_seed=sumo_seed,
         cav_count=cav_count,
         requested_pcav=requested_pcav,
+        ssm_capture_ttc_threshold_s=ssm_capture_ttc_threshold_s,
+        ssm_capture_drac_threshold_mps2=ssm_capture_drac_threshold_mps2,
+        ssm_range_m=ssm_range_m,
+        ssm_trajectories=ssm_trajectories,
+        fcd_profile=fcd_profile,
+        fcd_max_leader_distance_m=fcd_max_leader_distance_m,
+        with_internal=with_internal,
     )
 
 
@@ -213,6 +249,13 @@ def _build_requested_pcav_specs(
     config_sha256: str,
     network_sha256: dict[str, str],
     experiment_id: str,
+    ssm_capture_ttc_threshold_s: float,
+    ssm_capture_drac_threshold_mps2: float,
+    ssm_range_m: float,
+    ssm_trajectories: bool,
+    fcd_profile: str | None,
+    fcd_max_leader_distance_m: float | None,
+    with_internal: bool,
 ) -> list[RunSpec]:
     """以旧 requested_pcav 模式展开网格。"""
     specs = []
@@ -246,6 +289,13 @@ def _build_requested_pcav_specs(
                                 config_sha256=config_sha256,
                                 network_sha256=network_sha256.get(scenario, ""),
                                 experiment_id=experiment_id,
+                                ssm_capture_ttc_threshold_s=ssm_capture_ttc_threshold_s,
+                                ssm_capture_drac_threshold_mps2=ssm_capture_drac_threshold_mps2,
+                                ssm_range_m=ssm_range_m,
+                                ssm_trajectories=ssm_trajectories,
+                                fcd_profile=fcd_profile,
+                                fcd_max_leader_distance_m=fcd_max_leader_distance_m,
+                                with_internal=with_internal,
                             )
                         )
     return specs
@@ -269,6 +319,13 @@ def _build_cav_count_specs(
     config_sha256: str,
     network_sha256: dict[str, str],
     experiment_id: str,
+    ssm_capture_ttc_threshold_s: float,
+    ssm_capture_drac_threshold_mps2: float,
+    ssm_range_m: float,
+    ssm_trajectories: bool,
+    fcd_profile: str | None,
+    fcd_max_leader_distance_m: float | None,
+    with_internal: bool,
 ) -> list[RunSpec]:
     """以新 cav_count 模式展开网格，含 inactive-dimension 处理。"""
     specs: list[RunSpec] = []
@@ -343,6 +400,13 @@ def _build_cav_count_specs(
                                 config_sha256=config_sha256,
                                 network_sha256=network_sha256.get(scenario, ""),
                                 experiment_id=experiment_id,
+                                ssm_capture_ttc_threshold_s=ssm_capture_ttc_threshold_s,
+                                ssm_capture_drac_threshold_mps2=ssm_capture_drac_threshold_mps2,
+                                ssm_range_m=ssm_range_m,
+                                ssm_trajectories=ssm_trajectories,
+                                fcd_profile=fcd_profile,
+                                fcd_max_leader_distance_m=fcd_max_leader_distance_m,
+                                with_internal=with_internal,
                             )
                             specs.append(spec)
 
@@ -713,12 +777,16 @@ async def run_sumo_process(
                 else:
                     return_code = await process.wait()
             except asyncio.TimeoutError:
-                process.terminate()
+                with suppress(ProcessLookupError):
+                    process.terminate()
                 try:
                     await asyncio.wait_for(process.wait(), timeout=10)
                 except asyncio.TimeoutError:
-                    process.kill()
+                    with suppress(ProcessLookupError):
+                        process.kill()
                     await process.wait()
+                except ProcessLookupError:
+                    pass
 
                 wall_time = time.monotonic() - t0
                 finished_at = datetime.now(timezone.utc).isoformat()
@@ -1185,6 +1253,13 @@ def main():
             network_sha256=network_sha256,
             experiment_id=experiment_id,
             **spec_kwargs,
+            ssm_capture_ttc_threshold_s=resolved_config.ssm_capture_ttc_threshold_s,
+            ssm_capture_drac_threshold_mps2=resolved_config.ssm_capture_drac_threshold_mps2,
+            ssm_range_m=resolved_config.ssm_range_m,
+            ssm_trajectories=resolved_config.ssm_trajectories,
+            fcd_profile=resolved_config.fcd_profile,
+            fcd_max_leader_distance_m=resolved_config.fcd_max_leader_distance_m,
+            with_internal=resolved_config.with_internal,
         )
     except (ValueError, RuntimeError) as e:
         print(f"[ERROR] {e}")
@@ -1233,7 +1308,9 @@ def main():
         "seed_scope": resolved_config.seed_scope,
         "resolved_config": resolved_config.to_dict(),
         "config_sha256": config_sha256,
-        "sumo_seed_mode": "SUMO default; no --seed passed",
+        "sumo_seed_mode": "explicit"
+        if resolved_config.pipeline_version == "v0.4.1"
+        else "SUMO default; no --seed passed",
         "started_at": batch_started_at,
         "finished_at": None,
         "provenance": provenance,
@@ -1299,6 +1376,8 @@ def main():
     manifest["results"] = [
         {
             "run_id": spec.run_id,
+            "assignment_seed": spec.seed,
+            "sumo_seed": spec.sumo_seed,
             "status": returned[spec.run_id].status if spec.run_id in returned else "NOT_STARTED",
             "return_code": returned[spec.run_id].return_code if spec.run_id in returned else None,
             "wall_time_s": returned[spec.run_id].wall_time_s if spec.run_id in returned else 0.0,

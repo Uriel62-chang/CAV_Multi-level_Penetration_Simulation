@@ -493,6 +493,7 @@ def parse_run_outputs(
         "total_PMx_g": ee_result["total_PMx_g"],
         "total_fuel_kg": ee_result["total_fuel_kg"],
         "total_vehicle_km": total_veh_km,
+        "non_internal_edge_vehicle_km": ep_result["non_internal_edge_vehicle_km"],
         "total_time_loss_s": ep_result["total_time_loss_s"],
         "completed_lap_count": vr_result["completed_lap_count"],
         "mean_lap_time_s": vr_result["mean_lap_time_s"],

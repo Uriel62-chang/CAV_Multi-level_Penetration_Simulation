@@ -16,7 +16,61 @@ from pathlib import Path
 
 from scripts.provenance import sha256_file
 from scripts.run_spec import atomic_write_json, load_run_spec
-from scripts.simulation.single_run import parse_run_outputs
+from scripts.simulation.single_run import load_network_meta, parse_run_outputs
+
+
+def load_and_validate_type_map(run_dir, spec):
+    path = Path(run_dir) / "vehicle_type_map.json"
+    if not path.exists():
+        raise FileNotFoundError(f"{path} missing")
+
+    raw = path.read_text(encoding="utf-8")
+    try:
+        type_map = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"vehicle_type_map.json: invalid JSON: {e}") from e
+    if not isinstance(type_map, dict):
+        raise ValueError("vehicle_type_map.json: top-level must be dict")
+
+    vehicle_count = spec.vehicle_count
+    if len(type_map) != vehicle_count:
+        raise ValueError(f"type_map: {len(type_map)} entries, expected {vehicle_count}")
+
+    cav_count = sum(1 for v in type_map.values() if v == "CAV")
+    hv_count = vehicle_count - cav_count
+    spec_cav = spec.cav_count or 0
+    if cav_count != spec_cav:
+        raise ValueError(f"type_map: CAV count {cav_count} != spec.cav_count {spec_cav}")
+    if hv_count != spec.hv_count:
+        raise ValueError(f"type_map: HV count {hv_count} != spec.hv_count {spec.hv_count}")
+
+    for vid, vt in type_map.items():
+        if vt not in ("HV", "CAV"):
+            raise ValueError(f"type_map: vehicle {vid} has unknown type '{vt}'")
+
+    expected_ids = {f"veh{i}" for i in range(vehicle_count)}
+    actual_ids = set(type_map.keys())
+    missing = expected_ids - actual_ids
+    if missing:
+        raise ValueError(f"type_map: missing keys {sorted(missing)}")
+    extra = actual_ids - expected_ids
+    if extra:
+        raise ValueError(f"type_map: unexpected keys {sorted(extra)}")
+
+    return type_map
+
+
+def validate_fcd_leader_distance(spec, network_file):
+    if spec.fcd_profile is None:
+        return
+    net_meta = load_network_meta(network_file)
+    total_length_m = float(net_meta["total_length_m"])
+    dist = spec.fcd_max_leader_distance_m
+    if dist is None or dist < total_length_m:
+        raise ValueError(
+            f"fcd_max_leader_distance_m ({dist}) < loop total_length_m ({total_length_m})"
+        )
+
 
 # ── 必须存在的原始文件 ──
 _REQUIRED_FILES = [

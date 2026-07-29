@@ -67,6 +67,17 @@ def build_run_id(
 
 # ── 数据结构 ──
 
+
+def _optional_str(data: dict, key: str) -> str | None:
+    value = data.get(key)
+    return str(value) if value is not None else None
+
+
+def _optional_float(data: dict, key: str) -> float | None:
+    value = data.get(key)
+    return float(value) if value is not None else None
+
+
 # v0.4.0.post1 to_dict 字段集合（保持稳定以保证哈希兼容）
 _LEGACY_TO_DICT_KEYS = {
     "run_id",
@@ -95,7 +106,14 @@ _LEGACY_TO_DICT_KEYS = {
 }
 
 # v0.4.1 补充字段
-_V4_1_EXTRA_KEYS = {"sumo_seed"}
+_V4_1_EXTRA_KEYS = {
+    "sumo_seed",
+    "ssm_capture_ttc_threshold_s",
+    "ssm_capture_drac_threshold_mps2",
+    "ssm_range_m",
+    "ssm_trajectories",
+    "with_internal",
+}
 
 
 @dataclass(frozen=True)
@@ -135,6 +153,19 @@ class RunSpec:
     # requested_pcav：requested_pcav 模式等于 pcav，cav_count 模式为 None
     requested_pcav: float | None = None
 
+    # 阶段 1 新增：SSM capture profile
+    ssm_capture_ttc_threshold_s: float = 3.0
+    ssm_capture_drac_threshold_mps2: float = 3.0
+    ssm_range_m: float = 50.0
+    ssm_trajectories: bool = False
+
+    # 阶段 1 新增：edgeData
+    with_internal: bool = False
+
+    # 阶段 1 新增：FCD output
+    fcd_profile: str | None = None
+    fcd_max_leader_distance_m: float | None = None
+
     def __post_init__(self) -> None:
         if self.cav_count is None:
             derived = round(self.vehicle_count * self.pcav)
@@ -156,6 +187,24 @@ class RunSpec:
             object.__setattr__(self, "requested_pcav", self.pcav)
         if self.pipeline_version == PIPELINE_V4_1 and self.sumo_seed < 0:
             raise ValueError(f"sumo_seed must be non-negative, got {self.sumo_seed}")
+        # 阶段 1 新增字段校验（v0.4.1 only）
+        if self.pipeline_version == PIPELINE_V4_1:
+            if self.ssm_capture_ttc_threshold_s <= 0 or not self._finite(
+                self.ssm_capture_ttc_threshold_s
+            ):
+                raise ValueError("ssm_capture_ttc_threshold_s must be positive and finite")
+            if self.ssm_capture_drac_threshold_mps2 <= 0 or not self._finite(
+                self.ssm_capture_drac_threshold_mps2
+            ):
+                raise ValueError("ssm_capture_drac_threshold_mps2 must be positive and finite")
+            if self.ssm_range_m <= 0 or not self._finite(self.ssm_range_m):
+                raise ValueError("ssm_range_m must be positive and finite")
+
+    @staticmethod
+    def _finite(val: float) -> bool:
+        import math
+
+        return math.isfinite(val)
 
     @property
     def hv_count(self) -> int:
@@ -195,6 +244,15 @@ class RunSpec:
         }
         if self.pipeline_version == PIPELINE_V4_1:
             result["sumo_seed"] = self.sumo_seed
+            result["ssm_capture_ttc_threshold_s"] = self.ssm_capture_ttc_threshold_s
+            result["ssm_capture_drac_threshold_mps2"] = self.ssm_capture_drac_threshold_mps2
+            result["ssm_range_m"] = self.ssm_range_m
+            result["ssm_trajectories"] = self.ssm_trajectories
+            result["with_internal"] = self.with_internal
+            if self.fcd_profile is not None:
+                result["fcd_profile"] = self.fcd_profile
+            if self.fcd_max_leader_distance_m is not None:
+                result["fcd_max_leader_distance_m"] = self.fcd_max_leader_distance_m
         return result
 
     @classmethod
@@ -259,6 +317,13 @@ class RunSpec:
             sumo_seed=int(data["sumo_seed"]),
             cav_count=cav_count,
             requested_pcav=requested_pcav,
+            ssm_capture_ttc_threshold_s=float(data["ssm_capture_ttc_threshold_s"]),
+            ssm_capture_drac_threshold_mps2=float(data["ssm_capture_drac_threshold_mps2"]),
+            ssm_range_m=float(data["ssm_range_m"]),
+            ssm_trajectories=bool(data["ssm_trajectories"]),
+            with_internal=bool(data["with_internal"]),
+            fcd_profile=_optional_str(data, "fcd_profile"),
+            fcd_max_leader_distance_m=_optional_float(data, "fcd_max_leader_distance_m"),
         )
 
     @classmethod

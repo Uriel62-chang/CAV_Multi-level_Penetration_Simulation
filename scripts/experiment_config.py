@@ -101,7 +101,10 @@ class ExperimentConfig:
     ssm_range: str = "50.0"
     ssm_trajectories: bool = False
 
-    # ── FCD 输出 profile ──
+    # 阶段 1 新增：ssm_range 数值形式
+    ssm_range_m: float = 50.0
+
+    # 阶段 1 新增：FCD output profile
     fcd_profile: str | None = None
     fcd_max_leader_distance_m: float | None = None
 
@@ -160,6 +163,7 @@ class ExperimentConfig:
             ),
             ssm_measures=str(data.get("ssm_measures", "TTC DRAC")),
             ssm_range=str(data.get("ssm_range", "50.0")),
+            ssm_range_m=float(data.get("ssm_range_m", 50.0)),
             ssm_trajectories=bool(data.get("ssm_trajectories", False)),
             fcd_profile=_optional_str(data, "fcd_profile"),
             fcd_max_leader_distance_m=_optional_float(data, "fcd_max_leader_distance_m"),
@@ -187,10 +191,13 @@ class ExperimentConfig:
             "ssm_capture_ttc_threshold_s": self.ssm_capture_ttc_threshold_s,
             "ssm_capture_drac_threshold_mps2": self.ssm_capture_drac_threshold_mps2,
             "ssm_measures": self.ssm_measures,
-            "ssm_range": self.ssm_range,
             "ssm_trajectories": self.ssm_trajectories,
             "with_internal": self.with_internal,
         }
+        if self.pipeline_version == PIPELINE_V4_1:
+            result["ssm_range_m"] = self.ssm_range_m
+        else:
+            result["ssm_range"] = self.ssm_range
         if self.grid_mode == GRID_MODE_REQUESTED_PCAV:
             result["pcav_levels"] = list(self.pcav_levels)
             result["vehicle_counts"] = list(self.vehicle_counts)
@@ -210,10 +217,15 @@ class ExperimentConfig:
 
     def validate(self) -> None:
         # pipeline/schema 版本配对
-        if self.pipeline_version == PIPELINE_V4_1 and self.schema_version != "1":
-            raise ValueError(
-                f"v0.4.1 pipeline requires schema_version=1, got {self.schema_version}"
-            )
+        if self.pipeline_version == PIPELINE_V4_1:
+            if self.schema_version != "2":
+                raise ValueError(
+                    f"v0.4.1 pipeline requires schema_version=2, got {self.schema_version}"
+                )
+            if self.ssm_measures != "TTC DRAC":
+                raise ValueError(
+                    f"stage 1 only supports ssm_measures='TTC DRAC', got {self.ssm_measures!r}"
+                )
         _require_nonempty_unique("scenarios", self.scenarios)
         _require_nonempty_unique("models", self.models)
         if self.warmup < 0 or self.warmup >= self.simulation_end:

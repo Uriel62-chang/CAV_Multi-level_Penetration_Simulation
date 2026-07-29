@@ -79,7 +79,7 @@ python3 -m scripts.results.visualization \
 
 ## 当前版本
 
-**v0.4.1 阶段 1 完成**（2026-07-29）
+**v0.4.1 阶段 2 开发中**（2026-07-29）
 
 ### 阶段 0 交付
 - cav_count 双 seed 网格（新 run_id 格式 `s2_IDM_v120_c060_as01_ss101`）
@@ -101,9 +101,10 @@ python3 -m scripts.results.visualization \
 - PreparedRun.fcd_path
 
 ### 测试基线
-- 104 tests passed（85 legacy + 19 v0.4.1）
+- 142 tests passed（85 legacy + 19 v0.4.1 + 38 stage2）
 - Ruff / mypy / compileall / format 全通过
 - dry-run: v0.4.0 10,080 / pilot 162 / smoke 1
+- aggregate 现已要求 --schema-version 参数
 - 使用项目根目录的 `.venv` 虚拟环境运行所有 Python 命令（`ruff`、`mypy`、`pytest`、`compileall` 等）
   ```bash
   .venv/bin/python3 -m pytest -q

@@ -55,7 +55,18 @@ def is_parse_complete(run_dir: Path, pipeline_version: str) -> bool:
         expected = spec.sha256() if field == "run_spec_sha256" else getattr(spec, field)
         if data.get(field) != expected or sim_status.get(field) != expected:
             return False
-    return data.get("summary_sha256") == sha256_file(summary_path)
+    if data.get("summary_sha256") != sha256_file(summary_path):
+        return False
+    if spec.schema_version == "2":
+        subgroup_sha = data.get("subgroup_summary_sha256")
+        if not subgroup_sha:
+            return False
+        subgroup_path = run_dir / "subgroup_summary.jsonl"
+        if not subgroup_path.is_file() or subgroup_path.stat().st_size == 0:
+            return False
+        if sha256_file(subgroup_path) != subgroup_sha:
+            return False
+    return True
 
 
 def main():

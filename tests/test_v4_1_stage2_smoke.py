@@ -10,9 +10,8 @@ from pathlib import Path
 def test_smoke_v4_1_full_pipeline():
     root = Path(tempfile.mkdtemp(prefix="smoke_v4_1_"))
     try:
-        # Ensure minimal free-flow artifact exists
-        ff_dir = Path("artifacts/free_flow/v0.4.1-pilot-ff-1")
-        ff_dir.mkdir(parents=True, exist_ok=True)
+        # Create free-flow artifact in temp path, patched via net.json
+        ff_dir = Path(tempfile.mkdtemp(prefix="ff_art_"))
         from scripts.provenance import sha256_file
 
         net_sha = sha256_file("net/scenario_0/loop.net.xml")
@@ -36,6 +35,15 @@ def test_smoke_v4_1_full_pipeline():
         from scripts.run_spec import atomic_write_json
 
         atomic_write_json(ff_dir / "free_flow_references.json", ff_artifact)
+
+        import copy
+
+        net_meta_path = Path("net/scenario_0/net.json")
+        orig_meta = json.loads(net_meta_path.read_text())
+        net_meta_patched = copy.deepcopy(orig_meta)
+        net_meta_patched["free_flow_reference_path"] = str(ff_dir / "free_flow_references.json")
+        net_meta_path.rename(net_meta_path.with_suffix(".json.bak"))
+        net_meta_path.write_text(json.dumps(net_meta_patched))
 
         # Stage 1: simulation
         result = subprocess.run(
@@ -150,6 +158,12 @@ def test_smoke_v4_1_full_pipeline():
         assert (agg_dir / "aggregated_results.csv").exists()
 
     finally:
-        import shutil
+        import shutil as _shutil
 
-        shutil.rmtree(root, ignore_errors=True)
+        _shutil.rmtree(root, ignore_errors=True)
+        _shutil.rmtree(ff_dir, ignore_errors=True)
+        bak = Path("net/scenario_0/net.json.bak")
+        if bak.exists():
+            if Path("net/scenario_0/net.json").exists():
+                Path("net/scenario_0/net.json").unlink()
+            bak.rename(Path("net/scenario_0/net.json"))

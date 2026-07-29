@@ -520,12 +520,20 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
                     run_dir / "emissions_CAV.xml",
                 ]
             )
-            det_hv = sorted(run_dir.glob("detector_lane*_HV.xml"))
-            det_cav = sorted(run_dir.glob("detector_lane*_CAV.xml"))
-            if not det_hv or not det_cav or len(det_hv) != len(det_cav):
+            det_all = sorted(
+                p
+                for p in run_dir.glob("detector_lane*.xml")
+                if "_HV" not in p.name and "_CAV" not in p.name
+            )
+            if not det_all:
                 return False
-            required_files.extend(det_hv)
-            required_files.extend(det_cav)
+            for p in det_all:
+                hv_path = p.with_name(p.name.replace(".xml", "_HV.xml"))
+                cav_path = p.with_name(p.name.replace(".xml", "_CAV.xml"))
+                if not hv_path.exists() or hv_path.stat().st_size == 0:
+                    return False
+                if not cav_path.exists() or cav_path.stat().st_size == 0:
+                    return False
     for path in required_files:
         if not path.exists() or path.stat().st_size == 0:
             return False

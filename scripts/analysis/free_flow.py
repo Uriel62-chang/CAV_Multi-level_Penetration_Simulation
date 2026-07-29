@@ -86,7 +86,7 @@ def measure_free_flow(
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     sumo_out = subprocess.run(["sumo", "--version"], capture_output=True, text=True).stdout.strip()
-    sumo_version = sumo_out.splitlines()[0] if sumo_out else "unknown"
+    sumo_version = sumo_out if sumo_out else "unknown"
     artifact = {
         "reference_id": "ff-v0.4.1-pilot-ff-1",
         "free_flow_version": cfg.get("free_flow_version", ""),

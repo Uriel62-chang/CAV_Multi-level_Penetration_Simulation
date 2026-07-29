@@ -353,6 +353,38 @@ def validate_subgroup_invariants(primitives):
     """Validate additivity invariants. Returns list of error strings."""
     errors = []
 
+    # Check HV/CAV parser success (not just all)
+    for group_name, prim_key, parser_name in [
+        ("HV", "edge_perf", "edge_performance"),
+        ("CAV", "edge_perf", "edge_performance"),
+        ("HV", "edge_emis", "edge_emissions"),
+        ("CAV", "edge_emis", "edge_emissions"),
+        ("HV", "lanechange", "lanechange"),
+        ("CAV", "lanechange", "lanechange"),
+        ("HV", "vehroute", "vehroute"),
+        ("CAV", "vehroute", "vehroute"),
+    ]:
+        sub = primitives.__dict__.get(prim_key, {}).get(group_name, {})
+        if sub.get("parse_success") is not True:
+            errors.append(f"subgroup {group_name} {parser_name} parse_success is not True")
+            continue
+        for metric_key in ("total_vehicle_km", "total_CO2_kg", "completed_lap_count"):
+            if metric_key in sub:
+                val = sub[metric_key]
+                import math as _m
+
+                if isinstance(val, float) and _m.isnan(val):
+                    errors.append(
+                        f"subgroup {group_name} {parser_name} {metric_key} is NaN "
+                        "(valid data expected, not parser failure)"
+                    )
+
+    # Check detector subgroup
+    for group_name in ("HV", "CAV"):
+        det_sub = primitives.detector.get(group_name, {})
+        if det_sub.get("parse_success") is not True:
+            errors.append(f"detector subgroup {group_name} parse_success is not True")
+
     def _check_additive(all_dict, hv_dict, cav_dict, key, rel_tol, abs_tol):
         av = all_dict.get(key, 0)
         hv_val = hv_dict.get(key, 0)

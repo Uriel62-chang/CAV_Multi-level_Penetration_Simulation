@@ -78,30 +78,29 @@
 
 ### 已完成
 
-- **已实现**：cav_count 双 seed 网格 + inactive-dimension 规范化；SUMO 命令注入 seed/SSM capture/FCD 输出；withInternal=true additional；writer `non_internal_edge_vehicle_km` 列名修正；进程退出轮询 + SIGINT→CANCELLED；CLI `--assignment-seeds`/`--sumo-seeds` 命名。
-- **已验证**：104 tests passed；pilot 162 唯一 run；legacy 10,080 无回归；smoke SUCCESS + resume SKIPPED；FCD gzip 有效。
-- **已提交**：阶段 0（`acb5bc6`）→ 阶段 1（`05ab6bb`~`99f4af4`），共 13 commits。
+- **阶段 0+1 已实现**：cav_count 双 seed 网格 + inactive-dimension 规范化；SUMO 命令注入 seed/SSM capture/FCD 输出；withInternal=true additional；writer `non_internal_edge_vehicle_km` 列名修正；进程退出轮询 + SIGINT→CANCELLED；CLI `--assignment-seeds`/`--sumo-seeds` 命名。
+- **阶段 2 基本完成**：HV/CAV 子群拆分（detector/edgeData/SSM/vehroute/lanechange/stderr）；FCD physical THW 解析；metrics.py 统一指标计算；runner v4.1 路径；writer schema=2 路由 + subgroup CSV 输出；aggregate schema_ver 参数化；SSM 敏感性 CLI；自由流测量；smoke 端到端。
+- **已验证**：142 tests passed；pilot 162 唯一 run；legacy 10,080 无回归；smoke 全链路 SUCCESS；FCD gzip 有效；subgroup headway 落入长表。
+- **已提交**：阶段 0（`acb5bc6`）→ 阶段 1（`05ab6bb`~`99f4af4`）→ 阶段 2（`460f0e6`~`d0c54a2`），共 23 commits。
 
 ### 当前状态
 
 - **当前分支**：`main`
-- **最近验证通过的功能提交**：`99f4af4`（fix: add await to process.wait() in CancelledError handler）
+- **最近验证通过的功能提交**：`d0c54a2`（fix: stage2 FCD headway output, free-flow artifact chain, SSM provenance, subgroup SHA, mypy）
 - **本文档最后更新**：参见 `git log -1 --oneline -- DEVELOPMENT.md`
 - **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-29
 - **可运行入口**：
   ```bash
-  .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.1/smoke.json --output-root /tmp/smoke --sumo-processes 1
+  .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.1/smoke_v4_1.json --output-root /tmp/smoke --sumo-processes 1
   .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.1/pilot.json --dry-run
   .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.0.json --dry-run
   ```
 
 ### 待处理
 
-- **下一阶段任务**：阶段 2 — HV/CAV 子群、FCD THW 解析、SSM 敏感性、自由流参考、micro-pilot。
-  - **阶段 2 设计文档必须作为受跟踪文件提交**（含函数契约、校验矩阵、验收探针），获批后再写代码。
-  - **A1 子群拆分是贯穿式改造**：建议先设计 `parsing/runner.py` 输出的 summary dict 结构（all/HV/CAV 键布局），再逐个 parser 实现。每个 parser 一个独立 commit。
-- **已知问题**：无阻塞缺陷。
-- **暂缓**：S8 冻结输入、PreparedRun.fcd_path、环路距离校验 → 1.post1；test_simulation_state_machine 缺进程启动后 SIGINT 测试。
+- **下一阶段任务**：micro-pilot 验证（Level 1: 6-12 runs）→ Level 2 bounded factorial pilot。
+- **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 场景的探针数据；subgroup 空子群 parser NaN 与真实缺失数据当前共享 NaN sentinel；free_flow 测量脚本生成的 artifact 需经 SUMO 版本验证后才能用于正式解析。
+- **暂缓**：S8 冻结输入、PreparedRun.fcd_path → 1.post1。
 
 ### 重要约束
 

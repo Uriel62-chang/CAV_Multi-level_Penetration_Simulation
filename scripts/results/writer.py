@@ -445,9 +445,11 @@ def build_run_level_results(
                 subgroup_excluded += 1
                 continue
             try:
+                run_rows = []
                 for line in subgroup_path.read_text(encoding="utf-8").strip().split("\n"):
                     if line.strip():
-                        subgroup_rows.append(json.loads(line))
+                        run_rows.append(json.loads(line))
+                subgroup_rows.extend(run_rows)
             except Exception:
                 subgroup_excluded += 1
 

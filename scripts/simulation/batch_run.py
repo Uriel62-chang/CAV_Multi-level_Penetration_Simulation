@@ -690,12 +690,12 @@ def _missing_required_outputs(run_dir: Path, spec: RunSpec) -> list[str]:
         if not net_meta_path.exists():
             raise FileNotFoundError(f"net.json missing: {net_meta_path}")
         net_meta = _json.loads(net_meta_path.read_text(encoding="utf-8"))
+        if not isinstance(net_meta, dict):
+            raise ValueError(f"net.json root must be object, got {type(net_meta).__name__}")
         raw = net_meta.get("num_lanes")
-        if not isinstance(raw, (int, float)) or isinstance(raw, bool):
-            raise ValueError(f"net.json num_lanes invalid: {raw!r}")
-        num_lanes = int(raw)
-        if num_lanes < 1:
-            raise ValueError(f"net.json num_lanes must be >= 1, got {num_lanes}")
+        if type(raw) is not int or raw < 1:
+            raise ValueError(f"net.json num_lanes must be int >= 1, got {raw!r}")
+        num_lanes = raw
         for lane_idx in range(num_lanes):
             names.append(f"detector_lane{lane_idx}.xml")
             names.append(f"detector_lane{lane_idx}_HV.xml")

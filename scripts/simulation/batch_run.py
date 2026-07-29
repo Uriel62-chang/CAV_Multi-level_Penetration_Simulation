@@ -14,6 +14,7 @@ import argparse
 import asyncio
 import hashlib
 import os
+import resource
 import shutil
 import signal
 import sys
@@ -784,6 +785,7 @@ async def run_sumo_process(
             )
 
         # 启动 SUMO 子进程
+        _rss_before = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
         with (
             prepared.stdout_path.open("wb") as stdout_f,
             prepared.stderr_path.open("wb") as stderr_f,
@@ -909,6 +911,8 @@ async def run_sumo_process(
         _active_processes.pop(spec.run_id, None)
         wall_time = time.monotonic() - t0
         finished_at = datetime.now(timezone.utc).isoformat()
+        _rss_after = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+        _peak_rss_kb = max(0, _rss_after - _rss_before)
         missing_outputs = _missing_required_outputs(run_dir, spec)
         success = return_code == 0 and not missing_outputs
 
@@ -945,6 +949,7 @@ async def run_sumo_process(
             "error_message": error_msg,
             "sumo_command": cmd,
             "stderr_tail": _stderr_tail(prepared.stderr_path),
+            "sumo_peak_rss_kb": _peak_rss_kb,
         }
         # v0.4.1: 记录冻结输入哈希供 resume 校验
         if status == "SUCCESS" and spec.pipeline_version == "v0.4.1":

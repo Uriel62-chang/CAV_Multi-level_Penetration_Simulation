@@ -10,6 +10,7 @@ parse_one_run(run_dir, pipeline_version)
 
 import json
 import math
+import resource
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -221,6 +222,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
     started_at = datetime.now(timezone.utc).isoformat()
     t0 = time.monotonic()
     subgroup_sha = None
+    _rss_before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
     # ── 预检 ──
     skip_reason = _check_preconditions(run_dir, pipeline_version)
@@ -281,6 +283,8 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
 
         wall_time = time.monotonic() - t0
         finished_at = datetime.now(timezone.utc).isoformat()
+        _rss_after = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        _peak_rss_kb = max(0, _rss_after - _rss_before)
 
         if errors:
             summary["_invariant_errors"] = errors
@@ -300,6 +304,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
                 "error_message": "; ".join(errors),
                 "summary_sha256": sha256_file(summary_path),
                 "subgroup_summary_sha256": subgroup_sha,
+                "parse_peak_rss_kb": _peak_rss_kb,
             }
         else:
             summary.pop("_invariant_errors", None)
@@ -319,6 +324,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
                 "error_message": None,
                 "summary_sha256": sha256_file(summary_path),
                 "subgroup_summary_sha256": subgroup_sha,
+                "parse_peak_rss_kb": _peak_rss_kb,
             }
 
         atomic_write_json(status_path, parse_status)

@@ -20,7 +20,7 @@ from pathlib import Path
 
 from scripts.provenance import sha256_file
 from scripts.run_spec import atomic_write_json
-from scripts.schema import RUN_LEVEL_COLUMNS
+from scripts.schema import RUN_LEVEL_COLUMNS, RUN_LEVEL_COLUMNS_V4_1, SUBGROUP_LONG_COLUMNS_V4_1
 
 
 def _recompute_rate(numerator, denominator, fallback=None):
@@ -84,8 +84,14 @@ def _read_sim_status(run_dir: Path) -> str:
         return "UNREADABLE"
 
 
-def _build_row(summary: dict, parse_status: str) -> dict:
-    """从 summary dict 构建 CSV 行，补 data_quality 标记"""
+def _build_row(summary: dict, parse_status: str, schema_ver: str = "1") -> dict:
+    if schema_ver == "2":
+        return _build_row_v4_1(summary, parse_status)
+    else:
+        return _build_row_legacy(summary, parse_status)
+
+
+def _build_row_legacy(summary: dict, parse_status: str) -> dict:
     row = {col: summary.get(col, float("nan")) for col in RUN_LEVEL_COLUMNS}
     vehicle_count = int(summary["vehN"])
     requested_pcav = float(summary["pCAV"])
@@ -108,7 +114,6 @@ def _build_row(summary: dict, parse_status: str) -> dict:
         }
     )
 
-    # data_quality 判定
     errors = summary.get("_invariant_errors", [])
     parser_flags = [
         summary.get(name)
@@ -118,6 +123,37 @@ def _build_row(summary: dict, parse_status: str) -> dict:
             "ep_parse_success",
             "ee_parse_success",
             "vr_parse_success",
+        )
+    ]
+    if parse_status == "SUCCESS" and all(flag is True for flag in parser_flags):
+        row["data_quality"] = "ok"
+        row["data_quality_detail"] = ""
+    elif parse_status == "SUCCESS":
+        row["data_quality"] = "parser_warning"
+        row["data_quality_detail"] = "one or more parser audit flags are not true"
+    elif parse_status == "INVALID_DATA":
+        row["data_quality"] = "invariant_failed"
+        row["data_quality_detail"] = json.dumps(errors, ensure_ascii=False) if errors else ""
+    else:
+        row["data_quality"] = "parser_warning"
+        row["data_quality_detail"] = f"parse_status={parse_status}"
+
+    return row
+
+
+def _build_row_v4_1(summary: dict, parse_status: str) -> dict:
+    row = {col: summary.get(col, float("nan")) for col in RUN_LEVEL_COLUMNS_V4_1}
+
+    errors = summary.get("_invariant_errors", [])
+    parser_flags = [
+        summary.get(name)
+        for name in (
+            "ssm_parse_success",
+            "lc_parse_success",
+            "ep_parse_success",
+            "ee_parse_success",
+            "vr_parse_success",
+            "fcd_parse_success",
         )
     ]
     if parse_status == "SUCCESS" and all(flag is True for flag in parser_flags):
@@ -204,6 +240,7 @@ def build_run_level_results(
         raise ValueError("manifest schema_version missing")
     if not manifest.get("config_sha256"):
         raise ValueError("manifest config_sha256 missing")
+    schema_ver = manifest.get("schema_version", "1")
     manifest_results = manifest.get("results", [])
 
     expected_total = manifest.get("total", len(manifest_results))
@@ -319,23 +356,36 @@ def build_run_level_results(
             continue
 
         # 构建 CSV 行
-        row = _build_row(summary, parse_status)
+        row = _build_row(summary, parse_status, schema_ver)
         success_rows.append(row)
 
     # ── 排序 ──
-    success_rows.sort(
-        key=lambda r: (
-            r.get("scenario", ""),
-            r.get("model", ""),
-            r.get("pCAV", 0),
-            r.get("vehN", 0),
-            r.get("seed", 0),
+    if schema_ver == "2":
+        success_rows.sort(
+            key=lambda r: (
+                r.get("scenario", ""),
+                r.get("model", ""),
+                r.get("cav_count", 0),
+                r.get("vehN", 0),
+                r.get("assignment_seed", 0),
+                r.get("sumo_seed", 0),
+            )
         )
-    )
+    else:
+        success_rows.sort(
+            key=lambda r: (
+                r.get("scenario", ""),
+                r.get("model", ""),
+                r.get("pCAV", 0),
+                r.get("vehN", 0),
+                r.get("seed", 0),
+            )
+        )
 
     # ── 写入 run_level_results.csv ──
     csv_path = output_dir / results_filename
-    _atomic_write_csv(csv_path, success_rows, RUN_LEVEL_COLUMNS)
+    columns = RUN_LEVEL_COLUMNS_V4_1 if schema_ver == "2" else RUN_LEVEL_COLUMNS
+    _atomic_write_csv(csv_path, success_rows, columns)
     print(f"[WRITE] {len(success_rows)} rows → {csv_path}")
 
     # ── 写入 failed_runs.csv ──
@@ -353,12 +403,68 @@ def build_run_level_results(
     _atomic_write_csv(failed_path, failed_rows, failed_cols)
     print(f"[WRITE] {len(failed_rows)} failed → {failed_path}")
 
+    # ── subgroup CSV ──
+    subgroup_csv_rows = 0
+    subgroup_excluded = 0
+    if schema_ver == "2":
+        subgroup_rows = []
+        for entry in manifest_results:
+            run_id = entry["run_id"]
+            run_dir = input_root / run_id
+            parse_status = _read_parse_status(run_dir)
+            if parse_status != "SUCCESS":
+                subgroup_excluded += 1
+                continue
+            summary_path = run_dir / "summary.json"
+            if summary_path.exists():
+                try:
+                    sd = json.loads(summary_path.read_text(encoding="utf-8"))
+                except Exception:
+                    subgroup_excluded += 1
+                    continue
+                if sd.get("_invariant_errors"):
+                    subgroup_excluded += 1
+                    continue
+
+            subgroup_path = run_dir / "subgroup_summary.jsonl"
+            if not subgroup_path.exists():
+                subgroup_excluded += 1
+                continue
+            try:
+                pp = json.loads((run_dir / "parse_status.json").read_text(encoding="utf-8"))
+                expected_sha = pp.get("subgroup_summary_sha256")
+            except Exception:
+                subgroup_excluded += 1
+                continue
+            if expected_sha and sha256_file(subgroup_path) != expected_sha:
+                subgroup_excluded += 1
+                continue
+            try:
+                for line in subgroup_path.read_text(encoding="utf-8").strip().split("\n"):
+                    if line.strip():
+                        subgroup_rows.append(json.loads(line))
+            except Exception:
+                subgroup_excluded += 1
+
+        subgroup_csv_path = output_dir / "run_level_subgroup_results.csv"
+        if subgroup_rows:
+            _atomic_write_csv(subgroup_csv_path, subgroup_rows, SUBGROUP_LONG_COLUMNS_V4_1)
+        else:
+            with subgroup_csv_path.open("w", newline="", encoding="utf-8") as f:
+                w = csv.DictWriter(f, fieldnames=SUBGROUP_LONG_COLUMNS_V4_1, extrasaction="ignore")
+                w.writeheader()
+        print(f"[WRITE] {len(subgroup_rows)} subgroup rows → {subgroup_csv_path}")
+
+        subgroup_csv_rows = len(subgroup_rows)
+
     # ── writer_report.json ──
     quality_counts = _quality_counts(success_rows)
     report = {
         "expected_runs": expected_total,
         "discovered_runs": discovered,
         "csv_rows": len(success_rows),
+        "subgroup_csv_rows": subgroup_csv_rows,
+        "subgroup_excluded_runs": subgroup_excluded,
         **quality_counts,
         "excluded_runs": len(failed_rows),
         "duplicate_run_ids": duplicates,

@@ -46,13 +46,18 @@ METRIC_COLUMNS = (
 _NON_AGGREGATABLE = {"det_xml"}
 METRIC_COLUMNS = tuple(c for c in METRIC_COLUMNS if c not in _NON_AGGREGATABLE)
 
-GROUP_KEYS = ["scenario", "model", "requested_pcav", "vehN"]
+GROUP_KEYS_LEGACY = ["scenario", "model", "requested_pcav", "vehN"]
+GROUP_KEYS_V4_1 = ["scenario", "model", "vehN", "cav_count"]
 
 
-def aggregate(input_csv: Path, output_csv: Path) -> pd.DataFrame:
-    """读取 run-level CSV，按 GROUP_KEYS 聚合，输出统计量。"""
+def aggregate(input_csv: Path, output_csv: Path, schema_ver: str = "1") -> pd.DataFrame:
+    if schema_ver not in ("1", "2"):
+        raise ValueError(f"schema_ver must be '1' or '2', got {schema_ver!r}")
+
+    group_keys = GROUP_KEYS_V4_1 if schema_ver == "2" else GROUP_KEYS_LEGACY
+
     df = pd.read_csv(input_csv)
-    if "requested_pcav" not in df.columns:
+    if schema_ver == "1" and "requested_pcav" not in df.columns:
         df["requested_pcav"] = df["pCAV"]
 
     # 排除 data_quality != ok 的行（仅对 ok 数据做聚合）
@@ -65,7 +70,7 @@ def aggregate(input_csv: Path, output_csv: Path) -> pd.DataFrame:
         if col in df_ok.columns
     }
 
-    grouped = df_ok.groupby(list(GROUP_KEYS), dropna=False).agg(agg_funcs)
+    grouped = df_ok.groupby(list(group_keys), dropna=False).agg(agg_funcs)
 
     # 展平 MultiIndex 列名：mean_flow_veh_h → flow_mean, flow_std, ...
     short_names = {
@@ -151,10 +156,36 @@ def aggregate(input_csv: Path, output_csv: Path) -> pd.DataFrame:
     return grouped
 
 
+def aggregate_subgroup(input_csv: Path, output_csv: Path) -> pd.DataFrame:
+    df = pd.read_csv(input_csv)
+    group_keys = [
+        "scenario", "model", "vehN", "cav_count",
+        "metric_family", "group_dimension", "group_value", "metric_name",
+    ]
+    grouped = df.groupby(group_keys, dropna=False).agg(
+        mean=("metric_value", "mean"),
+        std=("metric_value", "std"),
+        median=("metric_value", "median"),
+        min=("metric_value", "min"),
+        max=("metric_value", "max"),
+        count=("metric_value", "count"),
+    ).reset_index()
+    std_cols = [c for c in grouped.columns if c == "std"]
+    for c in std_cols:
+        grouped[c] = grouped[c].fillna(0.0)
+    grouped.to_csv(output_csv, index=False, encoding="utf-8")
+    print(f"[WRITE] {len(grouped)} aggregated subgroup rows → {output_csv}")
+    return grouped
+
+
 def main():
     parser = argparse.ArgumentParser(description="v0.4.0 多种子聚合")
     parser.add_argument("--input", required=True, help="run_level_results.csv 路径")
     parser.add_argument("--output", required=True, help="输出 aggregated_results.csv 路径")
+    parser.add_argument(
+        "--schema-version", required=False, default="1",
+        help="schema version for column routing (1 or 2)"
+    )
     args = parser.parse_args()
 
     input_csv = Path(args.input)
@@ -162,11 +193,11 @@ def main():
         print(f"[ERROR] {input_csv} not found")
         sys.exit(1)
 
-    df = aggregate(input_csv, Path(args.output))
+    df = aggregate(input_csv, Path(args.output), args.schema_version)
 
     # 汇总
     groups = len(df)
-    metrics = sum(1 for c in df.columns if c not in GROUP_KEYS and c != "n_valid") // 5
+    metrics = sum(1 for c in df.columns if c not in GROUP_KEYS_LEGACY and c != "n_valid") // 5
     print(f"[DONE] {groups} groups × {metrics} metrics × 5 statistics (mean/std/median/min/max)")
     print(f"       input: {input_csv}")
     print(f"       output: {args.output}")

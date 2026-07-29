@@ -278,6 +278,7 @@ def parse_ssm_subgroup(
 
         ttc_val = None
         ttc_type_code = None
+        ttc_time = 0.0
         min_ttc_elem = conflict.find("minTTC")
         if min_ttc_elem is not None:
             try:
@@ -293,6 +294,7 @@ def parse_ssm_subgroup(
 
         drac_val = None
         drac_type_code = None
+        drac_time = 0.0
         max_drac_elem = conflict.find("maxDRAC")
         if max_drac_elem is not None:
             try:
@@ -314,8 +316,14 @@ def parse_ssm_subgroup(
                 "end": end,
                 "min_ttc": ttc_val,
                 "min_ttc_type_code": ttc_type_code,
+                "min_ttc_time": ttc_time,
                 "max_drac": drac_val,
                 "max_drac_type_code": drac_type_code,
+                "max_drac_time": drac_time,
+                "min_ttc_source_ego": ego,
+                "min_ttc_source_foe": foe,
+                "max_drac_source_ego": ego,
+                "max_drac_source_foe": foe,
             }
         )
 
@@ -365,11 +373,17 @@ def parse_ssm_subgroup(
                 ):
                     r_fwd["min_ttc"] = r_rev["min_ttc"]
                     r_fwd["min_ttc_type_code"] = r_rev["min_ttc_type_code"]
+                    r_fwd["min_ttc_time"] = r_rev.get("min_ttc_time", 0)
+                    r_fwd["min_ttc_source_ego"] = r_rev["ego"]
+                    r_fwd["min_ttc_source_foe"] = r_rev["foe"]
                 if r_rev["max_drac"] is not None and (
                     r_fwd["max_drac"] is None or r_rev["max_drac"] > r_fwd["max_drac"]
                 ):
                     r_fwd["max_drac"] = r_rev["max_drac"]
                     r_fwd["max_drac_type_code"] = r_rev["max_drac_type_code"]
+                    r_fwd["max_drac_time"] = r_rev.get("max_drac_time", 0)
+                    r_fwd["max_drac_source_ego"] = r_rev["ego"]
+                    r_fwd["max_drac_source_foe"] = r_rev["foe"]
 
     ttc_events = 0
     drac_events = 0

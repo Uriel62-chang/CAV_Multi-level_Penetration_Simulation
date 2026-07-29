@@ -12,10 +12,21 @@ def test_smoke_v4_1_full_pipeline():
     try:
         # Stage 1: simulation
         result = subprocess.run(
-            [sys.executable, "-m", "scripts.simulation.batch_run",
-             "--config", "configs/v0.4.1/smoke_v4_1.json",
-             "--output-root", str(root), "--sumo-processes", "1"],
-            capture_output=True, text=True, timeout=120, cwd=".",
+            [
+                sys.executable,
+                "-m",
+                "scripts.simulation.batch_run",
+                "--config",
+                "configs/v0.4.1/smoke_v4_1.json",
+                "--output-root",
+                str(root),
+                "--sumo-processes",
+                "1",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=".",
         )
         assert result.returncode == 0, f"sim failed: {result.stderr[-500:]}"
         assert "SUCCESS" in result.stdout
@@ -31,9 +42,11 @@ def test_smoke_v4_1_full_pipeline():
 
         # Stage 2: parsing
         result = subprocess.run(
-            [sys.executable, "-m", "scripts.parsing.batch",
-             "--input-root", str(root), "--resume"],
-            capture_output=True, text=True, timeout=60, cwd=".",
+            [sys.executable, "-m", "scripts.parsing.batch", "--input-root", str(root), "--resume"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=".",
         )
         assert result.returncode == 0, f"parse failed: {result.stderr[-500:]}"
 
@@ -49,10 +62,21 @@ def test_smoke_v4_1_full_pipeline():
         out_dir = root / "results"
         out_dir.mkdir(exist_ok=True)
         result = subprocess.run(
-            [sys.executable, "-m", "scripts.results.writer",
-             "--input-root", str(root), "--output-dir", str(out_dir),
-             "--manifest", str(root / "manifest.json")],
-            capture_output=True, text=True, timeout=60, cwd=".",
+            [
+                sys.executable,
+                "-m",
+                "scripts.results.writer",
+                "--input-root",
+                str(root),
+                "--output-dir",
+                str(out_dir),
+                "--manifest",
+                str(root / "manifest.json"),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=".",
         )
         assert result.returncode == 0, f"writer failed: {result.stderr[-500:]}"
         assert (out_dir / "run_level_results.csv").exists()
@@ -71,4 +95,5 @@ def test_smoke_v4_1_full_pipeline():
 
     finally:
         import shutil
+
         shutil.rmtree(root, ignore_errors=True)

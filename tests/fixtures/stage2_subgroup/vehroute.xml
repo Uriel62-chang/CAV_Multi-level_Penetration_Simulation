@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2026-07-29T13:10:09.089938+08:00 by Eclipse SUMO sumo 1.27.1
+<sumoConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/sumoConfiguration.xsd">
+
+    <input>
+        <net-file value="net/scenario_0/loop.net.xml"/>
+        <route-files value="/tmp/v4_1_probes_multi3/probe_multi_s0/routes.rou.xml"/>
+        <additional-files value="/tmp/v4_1_probes_multi3/probe_multi_s0/additional.add.xml"/>
+    </input>
+
+    <output>
+        <vehroute-output value="/tmp/v4_1_probes_multi3/probe_multi_s0/vehroute.xml"/>
+        <vehroute-output.exit-times value="true"/>
+        <vehroute-output.write-unfinished value="true"/>
+        <lanechange-output value="/tmp/v4_1_probes_multi3/probe_multi_s0/lanechange.xml"/>
+    </output>
+
+    <time>
+        <begin value="0"/>
+        <end value="360"/>
+        <step-length value="0.1"/>
+    </time>
+
+    <report>
+        <no-step-log value="true"/>
+    </report>
+
+    <ssm_device>
+        <device.ssm.probability value="1.0"/>
+        <device.ssm.measures value="TTC DRAC"/>
+        <device.ssm.thresholds value="5.0 3.0"/>
+        <device.ssm.trajectories value="false"/>
+        <device.ssm.range value="50.0"/>
+        <device.ssm.file value="/tmp/v4_1_probes_multi3/probe_multi_s0/ssm.xml"/>
+    </ssm_device>
+
+    <random_number>
+        <seed value="101"/>
+    </random_number>
+
+</sumoConfiguration>
+-->
+
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
+    <vehicle id="veh0" type="HV" depart="0.00" departPos="0.00" departSpeed="33.33" speedFactor="1.0885">
+        <route edges="e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3" exitTimes="18.50 47.10 75.30 102.70 131.00 159.10 187.20 215.60 243.40 270.50 299.10 327.40 357.00 -1 -1 -1"/>
+    </vehicle>
+
+    <vehicle id="veh1" type="HV" depart="0.00" departPos="200.00" departSpeed="33.33" speedFactor="1.0091">
+        <route edges="e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3" exitTimes="12.10 40.30 67.50 96.20 123.50 152.00 179.40 206.60 235.30 264.00 292.40 320.50 350.40 -1 -1 -1"/>
+    </vehicle>
+
+    <vehicle id="veh2" type="HV" depart="0.00" departPos="400.00" departSpeed="33.0329" speedFactor="1.1943">
+        <route edges="e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3" exitTimes="4.30 28.50 56.30 83.10 110.50 138.60 166.70 194.80 223.30 252.50 281.40 311.30 341.10 -1 -1 -1"/>
+    </vehicle>
+
+    <vehicle id="veh3" type="HV" depart="0.00" departPos="100.00" departSpeed="33.33" speedFactor="1.0822">
+        <route edges="e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0" exitTimes="15.50 44.30 72.60 102.00 130.80 160.00 189.20 218.80 247.90 277.40 307.60 337.30 -1 -1 -1 -1"/>
+    </vehicle>
+
+    <vehicle id="veh4" type="HV" depart="0.00" departPos="300.00" departSpeed="27.5306" speedFactor="0.8260">
+        <route edges="e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0" exitTimes="9.80 38.90 67.80 97.00 126.40 156.00 184.60 214.60 243.30 273.40 303.50 332.70 -1 -1 -1 -1"/>
+    </vehicle>
+
+    <vehicle id="veh5" type="CAV" depart="0.00" departPos="0.00" departSpeed="33.33" speedFactor="1.0000">
+        <route edges="e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1" exitTimes="19.20 43.90 68.60 93.30 118.00 142.70 167.40 192.10 216.80 241.50 266.20 290.90 315.60 340.30 -1 -1"/>
+    </vehicle>
+
+    <vehicle id="veh6" type="CAV" depart="0.00" departPos="200.00" departSpeed="33.33" speedFactor="1.0000">
+        <route edges="e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1" exitTimes="12.90 37.70 62.40 87.10 111.80 136.50 161.20 185.90 210.60 235.30 260.00 284.70 309.40 335.70 -1 -1"/>
+    </vehicle>
+
+    <vehicle id="veh7" type="CAV" depart="0.00" departPos="400.00" departSpeed="32.451" speedFactor="1.0000">
+        <route edges="e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1" exitTimes="4.50 27.10 51.90 76.60 101.30 126.00 150.70 175.40 200.10 224.80 250.10 276.70 305.30 333.60 -1 -1"/>
+    </vehicle>
+
+    <vehicle id="veh8" type="CAV" depart="0.00" departPos="100.00" departSpeed="33.33" speedFactor="1.0000">
+        <route edges="e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2" exitTimes="16.10 40.80 65.50 90.20 114.90 139.60 164.40 191.40 219.90 247.60 274.60 303.30 331.60 -1 -1 -1"/>
+    </vehicle>
+
+    <vehicle id="veh9" type="CAV" depart="0.00" departPos="300.00" departSpeed="33.33" speedFactor="1.0000">
+        <route edges="e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2" exitTimes="9.60 34.40 59.10 83.80 108.50 133.60 161.30 189.40 217.90 245.60 272.60 301.30 329.60 359.10 -1 -1"/>
+    </vehicle>
+
+</routes>

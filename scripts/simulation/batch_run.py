@@ -684,6 +684,16 @@ def _missing_required_outputs(run_dir: Path, spec: RunSpec) -> list[str]:
                 "emissions_CAV.xml",
             ]
         )
+        from scripts.simulation.single_run import load_network_meta
+
+        try:
+            net_meta = load_network_meta(spec.network_file)
+            num_lanes = max(net_meta.get("num_lanes", 1), 1)
+            for lane_idx in range(num_lanes):
+                names.append(f"detector_lane{lane_idx}_HV.xml")
+                names.append(f"detector_lane{lane_idx}_CAV.xml")
+        except Exception:
+            pass
     return [
         name
         for name in names
@@ -1341,6 +1351,13 @@ def main():
     except RuntimeError as e:
         print(f"[ERROR] {e}")
         sys.exit(1)
+
+    for spec in specs:
+        if spec.schema_version == "2" and spec.fcd_profile is not None:
+            from scripts.parsing.runner import validate_fcd_leader_distance
+
+            network_file = network_files.get(spec.scenario, spec.network_file)
+            validate_fcd_leader_distance(spec, network_file)
 
     output_root = Path(args.output_root)
     try:

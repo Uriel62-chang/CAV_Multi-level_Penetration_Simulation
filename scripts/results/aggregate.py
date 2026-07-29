@@ -129,9 +129,13 @@ def aggregate(input_csv: Path, output_csv: Path, schema_ver: str = "1") -> pd.Da
 
     grouped.columns = grouped.columns.map(lambda x: new_columns.get(x, f"{x[0]}_{x[1]}"))
     grouped = grouped.reset_index()
-    grouped.insert(2, "pCAV", grouped["requested_pcav"])
-    requested_pcav = grouped.pop("requested_pcav")
-    grouped.insert(4, "requested_pcav", requested_pcav)
+    if schema_ver == "2":
+        grouped.insert(2, "pCAV", grouped["cav_count"] / grouped["vehN"])
+        grouped.insert(4, "requested_pcav", float("nan"))
+    else:
+        grouped.insert(2, "pCAV", grouped["requested_pcav"])
+        requested_pcav_col = grouped.pop("requested_pcav")
+        grouped.insert(4, "requested_pcav", requested_pcav_col)
     grouped.insert(
         5,
         "realized_pcav",
@@ -159,17 +163,27 @@ def aggregate(input_csv: Path, output_csv: Path, schema_ver: str = "1") -> pd.Da
 def aggregate_subgroup(input_csv: Path, output_csv: Path) -> pd.DataFrame:
     df = pd.read_csv(input_csv)
     group_keys = [
-        "scenario", "model", "vehN", "cav_count",
-        "metric_family", "group_dimension", "group_value", "metric_name",
+        "scenario",
+        "model",
+        "vehN",
+        "cav_count",
+        "metric_family",
+        "group_dimension",
+        "group_value",
+        "metric_name",
     ]
-    grouped = df.groupby(group_keys, dropna=False).agg(
-        mean=("metric_value", "mean"),
-        std=("metric_value", "std"),
-        median=("metric_value", "median"),
-        min=("metric_value", "min"),
-        max=("metric_value", "max"),
-        count=("metric_value", "count"),
-    ).reset_index()
+    grouped = (
+        df.groupby(group_keys, dropna=False)
+        .agg(
+            mean=("metric_value", "mean"),
+            std=("metric_value", "std"),
+            median=("metric_value", "median"),
+            min=("metric_value", "min"),
+            max=("metric_value", "max"),
+            count=("metric_value", "count"),
+        )
+        .reset_index()
+    )
     std_cols = [c for c in grouped.columns if c == "std"]
     for c in std_cols:
         grouped[c] = grouped[c].fillna(0.0)
@@ -183,8 +197,7 @@ def main():
     parser.add_argument("--input", required=True, help="run_level_results.csv 路径")
     parser.add_argument("--output", required=True, help="输出 aggregated_results.csv 路径")
     parser.add_argument(
-        "--schema-version", required=False, default="1",
-        help="schema version for column routing (1 or 2)"
+        "--schema-version", required=True, help="schema version for column routing (1 or 2)"
     )
     args = parser.parse_args()
 

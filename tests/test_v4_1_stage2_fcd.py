@@ -1,12 +1,14 @@
 """v0.4.1 stage2 FCD parser tests"""
 
 import json
+import os
 import tempfile
 from pathlib import Path
 
 from scripts.parsing.fcd import parse_fcd
 
-_BASE = Path("/tmp/v4_1_probes/s0_IDM_v010_c005_as01_ss101")
+_FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
+_BASE = Path(_FIXTURES)
 _TYPE_MAP = json.loads((_BASE / "vehicle_type_map.json").read_text())
 
 

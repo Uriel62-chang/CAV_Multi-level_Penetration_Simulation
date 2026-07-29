@@ -520,6 +520,16 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
                     run_dir / "emissions_CAV.xml",
                 ]
             )
+            from scripts.simulation.single_run import load_network_meta
+
+            try:
+                net_meta = load_network_meta(spec.network_file)
+                num_lanes = max(net_meta.get("num_lanes", 1), 1)
+                for lane_idx in range(num_lanes):
+                    required_files.append(run_dir / f"detector_lane{lane_idx}_HV.xml")
+                    required_files.append(run_dir / f"detector_lane{lane_idx}_CAV.xml")
+            except Exception:
+                pass
     for path in required_files:
         if not path.exists() or path.stat().st_size == 0:
             return False

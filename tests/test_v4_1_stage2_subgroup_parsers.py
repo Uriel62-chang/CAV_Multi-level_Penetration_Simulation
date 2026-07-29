@@ -2,13 +2,15 @@
 
 import json
 import math
+import os
 from pathlib import Path
 
 from scripts.parsing.lanechange import parse_lanechange, parse_lanechange_subgroup
 from scripts.parsing.stderr import parse_emergency_braking, parse_emergency_braking_subgroup
 from scripts.parsing.vehroute import parse_lap_times, parse_lap_times_subgroup
 
-_BASE = Path("/tmp/v4_1_probes_multi3/probe_multi_s0")
+_FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures", "stage2_subgroup")
+_BASE = Path(_FIXTURES)
 _TYPE_MAP = json.loads((_BASE / "vehicle_type_map.json").read_text())
 
 

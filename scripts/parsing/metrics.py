@@ -147,7 +147,9 @@ def compute_core_summary(primitives, spec, free_flow_refs):
         "ep_parse_success": ep.get("parse_success", False),
         "ee_parse_success": ee.get("parse_success", False),
         "vr_parse_success": vr.get("parse_success", False),
-        "fcd_parse_success": True,  # FCD not enabled in basic path
+        "fcd_parse_success": primitives.fcd.get("all", {}).get("parse_success", True)
+        if primitives.fcd
+        else True,
     }
 
 
@@ -260,7 +262,8 @@ def compute_subgroup_records(primitives, spec, free_flow_refs):
     # Emissions
     for vt in ("HV", "CAV"):
         ee = primitives.edge_emis.get(vt, {})
-        veh_km = ee.get("total_vehicle_km", float("nan"))
+        ep = primitives.edge_perf.get(vt, {})
+        veh_km = ep.get("total_vehicle_km", float("nan"))
         for key in ("total_CO2_kg", "total_NOx_g", "total_PMx_g", "total_fuel_kg"):
             _add("vehicle_type", vt, "emissions", key, ee.get(key, float("nan")))
         _add(
@@ -321,6 +324,12 @@ def compute_subgroup_records(primitives, spec, free_flow_refs):
         delay = ml_sub - ref if not _math.isnan(ml_sub) and not _math.isnan(ref) else float("nan")
         _add("vehicle_type", vt, "delay", "mean_lap_delay_s", delay)
 
+        p95_sub = vr.get("p95_lap_time_s", float("nan"))
+        delay_p95 = (
+            p95_sub - ref if not _math.isnan(p95_sub) and not _math.isnan(ref) else float("nan")
+        )
+        _add("vehicle_type", vt, "delay", "p95_lap_delay_s", delay_p95)
+
     return records
 
 
@@ -329,10 +338,23 @@ def validate_subgroup_invariants(primitives):
     errors = []
 
     def _check_additive(all_dict, hv_dict, cav_dict, key, rel_tol, abs_tol):
-        av = all_dict.get(key, 0) or 0
-        hv = hv_dict.get(key, 0) or 0
-        cv = cav_dict.get(key, 0) or 0
-        sv = hv + cv
+        av = all_dict.get(key, 0)
+        hv_val = hv_dict.get(key, 0)
+        cv_val = cav_dict.get(key, 0)
+        import math as _m
+
+        if av is None or hv_val is None or cv_val is None:
+            return
+        av = av or 0
+        hv_val = hv_val or 0
+        cv_val = cv_val or 0
+        if isinstance(av, float) and _m.isnan(av):
+            return
+        if isinstance(hv_val, float) and _m.isnan(hv_val):
+            return
+        if isinstance(cv_val, float) and _m.isnan(cv_val):
+            return
+        sv = hv_val + cv_val
         if av == 0 and sv == 0:
             return
         if abs(sv - av) <= abs_tol:
@@ -352,7 +374,7 @@ def validate_subgroup_invariants(primitives):
     ee_hv = primitives.edge_emis.get("HV", {})
     ee_cav = primitives.edge_emis.get("CAV", {})
     for key in ("total_CO2_kg", "total_NOx_g", "total_PMx_g", "total_fuel_kg"):
-        _check_additive(ee_all, ee_hv, ee_cav, key, 5e-5, 1e-3)
+        _check_additive(ee_all, ee_hv, ee_cav, key, 1e-5, 1e-9)
 
     # Exact counts
     for src_name, src_key in [

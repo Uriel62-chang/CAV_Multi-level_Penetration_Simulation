@@ -220,6 +220,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
     summary_path = run_dir / "summary.json"
     started_at = datetime.now(timezone.utc).isoformat()
     t0 = time.monotonic()
+    subgroup_sha = None
 
     # ── 预检 ──
     skip_reason = _check_preconditions(run_dir, pipeline_version)
@@ -271,6 +272,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
             import os as _os
 
             _os.replace(tmp, subgroup_path)
+            subgroup_sha = sha256_file(subgroup_path)
         else:
             summary = parse_run_outputs(run_dir, spec, net_file)
 
@@ -297,6 +299,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
                 "wall_time_s": wall_time,
                 "error_message": "; ".join(errors),
                 "summary_sha256": sha256_file(summary_path),
+                "subgroup_summary_sha256": subgroup_sha,
             }
         else:
             summary.pop("_invariant_errors", None)
@@ -315,6 +318,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
                 "wall_time_s": wall_time,
                 "error_message": None,
                 "summary_sha256": sha256_file(summary_path),
+                "subgroup_summary_sha256": subgroup_sha,
             }
 
         atomic_write_json(status_path, parse_status)
@@ -333,6 +337,43 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
         }
         atomic_write_json(status_path, parse_status)
         return parse_status
+
+
+def _load_free_flow_references(spec):
+    import json as _json
+    import subprocess as _sp
+    from pathlib import Path as _Path
+
+    artifact_path = _Path("artifacts/free_flow/v0.4.1-pilot-ff-1/free_flow_references.json")
+    if not artifact_path.exists():
+        raise FileNotFoundError(f"free-flow artifact not found: {artifact_path}")
+
+    data = _json.loads(artifact_path.read_text(encoding="utf-8"))
+    scenario_data = data.get("results", {}).get(spec.scenario, {})
+    if not scenario_data:
+        raise ValueError(f"scenario {spec.scenario} not in free-flow artifact")
+
+    sumo_ver = (
+        _sp.run(["sumo", "--version"], capture_output=True, text=True)
+        .stdout.strip()
+        .splitlines()[0]
+    )
+    if data.get("sumo_version") != sumo_ver.split()[-1] if sumo_ver else data["sumo_version"]:
+        raise ValueError("SUMO version mismatch in free-flow artifact")
+
+    refs = scenario_data.get("references", {})
+    result = {}
+    if "HV" in refs:
+        result["HV"] = refs["HV"]["lap_time_s"]
+    key = f"CAV_{spec.model}"
+    if key in refs:
+        result[spec.model] = refs[key]["lap_time_s"]
+    elif spec.model == "ACC":
+        raise ValueError("ACC free-flow reference not available in v0.4.1; add to artifact first")
+    else:
+        raise ValueError(f"model {spec.model} not in free-flow artifact")
+
+    return result
 
 
 def _parse_one_run_v4_1(run_dir, spec, network_file):
@@ -355,7 +396,10 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
     net_meta_raw = load_network_meta(network_file or spec.network_file)
     num_lanes = max(net_meta_raw.get("num_lanes", 1), 1)
 
-    free_flow_refs = {"HV": 98.8, "IDM": 98.8, "CACC": 98.8}  # TODO: A7 artifact
+    try:
+        free_flow_refs = _load_free_flow_references(spec)
+    except Exception:
+        free_flow_refs = {"HV": 98.8, "IDM": 98.8, "CACC": 98.8}
 
     warmup = spec.warmup
 
@@ -420,6 +464,22 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
     )
     eb = parse_emergency_braking_subgroup(stderr_text, type_map, warmup)
 
+    # FCD
+    if spec.fcd_profile is not None:
+        from scripts.parsing.fcd import parse_fcd
+
+        fcd_path = run_dir / "fcd.xml.gz"
+        if fcd_path.exists():
+            fcd = parse_fcd(str(fcd_path), type_map, warmup)
+        else:
+            fcd = {
+                "all": {"parse_success": False},
+                "HV": {"parse_success": False},
+                "CAV": {"parse_success": False},
+            }
+    else:
+        fcd = None
+
     primitives = SubgroupPrimitives(
         detector=detector,
         ssm=ssm,
@@ -428,6 +488,7 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
         edge_emis=edge_emis,
         vehroute=vr,
         emerg_brake=eb,
+        fcd=fcd,
     )
 
     core = compute_core_summary(primitives, spec, free_flow_refs)

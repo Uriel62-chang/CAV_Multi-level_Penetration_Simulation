@@ -35,6 +35,7 @@ from scripts.config import (
 from scripts.experiment_config import load_experiment_config, validate_analysis_windows
 from scripts.provenance import collect_provenance, sha256_file
 from scripts.run_spec import (
+    PIPELINE_V4_1,
     RunSpec,
     SimulationResult,
     atomic_write_json,
@@ -67,11 +68,16 @@ def generate_pcav_levels(step: float = 0.05) -> list:
 def build_run_specs(
     scenarios: list,
     models: list,
-    pcav_levels: list,
-    vehicle_levels: list,
-    seeds: list,
     pipeline_version: str = "v0.4.0.post1",
     *,
+    # requested_pcav 模式参数（旧）
+    pcav_levels: list | None = None,
+    vehicle_levels: list | None = None,
+    seeds: list | None = None,
+    # cav_count 模式参数（新）
+    treatments: list | None = None,
+    sumo_seeds: list | None = None,
+    # 公共参数
     simulation_end: float = DEFAULT_SIM_END,
     warmup: float = DEFAULT_WARMUP,
     step_length: float = DEFAULT_STEP_LENGTH,
@@ -85,7 +91,126 @@ def build_run_specs(
     network_sha256: dict[str, str] | None = None,
     experiment_id: str = "",
 ) -> list[RunSpec]:
-    """生成全部 RunSpec，run_id 确定性派生"""
+    """生成全部 RunSpec，根据参数自动选择 requested_pcav 或 cav_count 网格模式。"""
+    if sumo_seeds is not None and treatments is not None:
+        return _build_cav_count_specs(
+            scenarios=scenarios,
+            models=models,
+            treatments=treatments,
+            sumo_seeds=sumo_seeds,
+            simulation_end=simulation_end,
+            warmup=warmup,
+            step_length=step_length,
+            detector_frequency=detector_frequency,
+            edge_data_frequency=edge_data_frequency,
+            loops=loops,
+            network_files=network_files or {},
+            seed_scope=seed_scope,
+            pipeline_version=pipeline_version,
+            schema_version=schema_version,
+            config_sha256=config_sha256,
+            network_sha256=network_sha256 or {},
+            experiment_id=experiment_id,
+        )
+    if pcav_levels is None or vehicle_levels is None or seeds is None:
+        raise ValueError(
+            "either (pcav_levels, vehicle_levels, seeds) or (treatments, sumo_seeds) required"
+        )
+    return _build_requested_pcav_specs(
+        scenarios=scenarios,
+        models=models,
+        pcav_levels=pcav_levels,
+        vehicle_levels=vehicle_levels,
+        seeds=seeds,
+        simulation_end=simulation_end,
+        warmup=warmup,
+        step_length=step_length,
+        detector_frequency=detector_frequency,
+        edge_data_frequency=edge_data_frequency,
+        loops=loops,
+        network_files=network_files or {},
+        seed_scope=seed_scope,
+        pipeline_version=pipeline_version,
+        schema_version=schema_version,
+        config_sha256=config_sha256,
+        network_sha256=network_sha256 or {},
+        experiment_id=experiment_id,
+    )
+
+
+def _build_spec_common(
+    scenario: str,
+    model: str,
+    run_id: str,
+    pcav: float,
+    vehicle_count: int,
+    assignment_seed: int,
+    sumo_seed: int,
+    simulation_end: float,
+    warmup: float,
+    step_length: float,
+    detector_frequency: int,
+    edge_data_frequency: int,
+    loops: int,
+    network_file: str,
+    seed_scope: str,
+    pipeline_version: str,
+    schema_version: str,
+    config_sha256: str,
+    network_sha256: str,
+    experiment_id: str,
+    *,
+    cav_count: int | None = None,
+    requested_pcav: float | None = None,
+) -> RunSpec:
+    """创建 RunSpec 的公共工厂。"""
+    return RunSpec(
+        scenario=scenario,
+        model=model,
+        pcav=pcav,
+        vehicle_count=vehicle_count,
+        seed=assignment_seed,
+        run_id=run_id,
+        simulation_end=simulation_end,
+        warmup=warmup,
+        step_length=step_length,
+        detector_frequency=detector_frequency,
+        edge_data_frequency=edge_data_frequency,
+        loops=loops,
+        network_file=network_file,
+        seed_scope=seed_scope,
+        pipeline_version=pipeline_version,
+        schema_version=schema_version,
+        config_sha256=config_sha256,
+        network_sha256=network_sha256,
+        experiment_id=experiment_id,
+        sumo_seed=sumo_seed,
+        cav_count=cav_count,
+        requested_pcav=requested_pcav,
+    )
+
+
+def _build_requested_pcav_specs(
+    scenarios: list,
+    models: list,
+    pcav_levels: list,
+    vehicle_levels: list,
+    seeds: list,
+    simulation_end: float,
+    warmup: float,
+    step_length: float,
+    detector_frequency: int,
+    edge_data_frequency: int,
+    loops: int,
+    network_files: dict[str, str],
+    seed_scope: str,
+    pipeline_version: str,
+    schema_version: str,
+    config_sha256: str,
+    network_sha256: dict[str, str],
+    experiment_id: str,
+) -> list[RunSpec]:
+    """以旧 requested_pcav 模式展开网格。"""
     specs = []
     for scenario in scenarios:
         for model in models:
@@ -94,34 +219,188 @@ def build_run_specs(
                     for seed in seeds:
                         run_id = build_run_id(scenario, model, pcav, vn, seed)
                         specs.append(
-                            RunSpec(
+                            _build_spec_common(
                                 scenario=scenario,
                                 model=model,
+                                run_id=run_id,
                                 pcav=pcav,
                                 vehicle_count=vn,
-                                seed=seed,
-                                run_id=run_id,
+                                assignment_seed=seed,
+                                sumo_seed=0,
                                 simulation_end=simulation_end,
                                 warmup=warmup,
                                 step_length=step_length,
                                 detector_frequency=detector_frequency,
                                 edge_data_frequency=edge_data_frequency,
                                 loops=loops,
-                                network_file=(network_files or {}).get(
+                                network_file=network_files.get(
                                     scenario, f"net/{scenario}/loop.net.xml"
                                 ),
                                 seed_scope=seed_scope,
                                 pipeline_version=pipeline_version,
                                 schema_version=schema_version,
                                 config_sha256=config_sha256,
-                                network_sha256=(network_sha256 or {}).get(scenario, ""),
+                                network_sha256=network_sha256.get(scenario, ""),
                                 experiment_id=experiment_id,
                             )
                         )
     return specs
 
 
+def _build_cav_count_specs(
+    scenarios: list,
+    models: list,
+    treatments: list,
+    sumo_seeds: list,
+    simulation_end: float,
+    warmup: float,
+    step_length: float,
+    detector_frequency: int,
+    edge_data_frequency: int,
+    loops: int,
+    network_files: dict[str, str],
+    seed_scope: str,
+    pipeline_version: str,
+    schema_version: str,
+    config_sha256: str,
+    network_sha256: dict[str, str],
+    experiment_id: str,
+) -> list[RunSpec]:
+    """以新 cav_count 模式展开网格，含 inactive-dimension 处理。"""
+    specs: list[RunSpec] = []
+
+    cartesian_total = 0
+
+    for scenario in scenarios:
+        for treatment in treatments:
+            vn = int(treatment["vehicle_count"])
+            cav_counts = [int(c) for c in treatment["cav_counts"]]
+            for cav_count in cav_counts:
+                for s_seed in sumo_seeds:
+                    # model 维度：cav_count=0 时无 CAV，model 固定为 None
+                    effective_models = [None] if cav_count == 0 else models
+
+                    for model in effective_models:
+                        # assignment_seed 维度处理
+                        aseeds_raw = treatment.get("assignment_seeds", [])
+                        if not aseeds_raw:
+                            aseeds = _default_assignment_seeds(cav_count, vn)
+                        else:
+                            aseeds = [int(a) for a in aseeds_raw]
+                        # inactive 维度：无 CAV 或全 CAV 时 assignment_seed 不可区分
+                        if cav_count == 0 or cav_count == vn:
+                            aseeds = aseeds[:1]
+
+                        for aseed in aseeds:
+                            cartesian_total += 1
+
+                            # inactive-dimension：无 CAV 或全 CAV 时 assignment_seed 不可区分
+                            effective_aseed = aseed
+                            if cav_count == 0 or cav_count == vn:
+                                effective_aseed = None
+
+                            # run_id 用 HVONLY，RunSpec.model 用固定占位值（cav=0 时不使用 CAV 模型）
+                            run_id_token = "HVONLY" if cav_count == 0 else (model or "UNKN")
+                            spec_model = "IDM" if cav_count == 0 else model
+
+                            run_id = build_run_id(
+                                scenario,
+                                run_id_token,
+                                vehicle_count=vn,
+                                cav_count=cav_count,
+                                assignment_seed=effective_aseed,
+                                sumo_seed=s_seed,
+                            )
+
+                            spec = _build_spec_common(
+                                scenario=scenario,
+                                model=spec_model,
+                                run_id=run_id,
+                                pcav=cav_count / vn,
+                                vehicle_count=vn,
+                                assignment_seed=effective_aseed
+                                if effective_aseed is not None
+                                else 0,
+                                sumo_seed=s_seed,
+                                cav_count=cav_count,
+                                requested_pcav=None,
+                                simulation_end=simulation_end,
+                                warmup=warmup,
+                                step_length=step_length,
+                                detector_frequency=detector_frequency,
+                                edge_data_frequency=edge_data_frequency,
+                                loops=loops,
+                                network_file=network_files.get(
+                                    scenario, f"net/{scenario}/loop.net.xml"
+                                ),
+                                seed_scope=seed_scope,
+                                pipeline_version=pipeline_version,
+                                schema_version=schema_version,
+                                config_sha256=config_sha256,
+                                network_sha256=network_sha256.get(scenario, ""),
+                                experiment_id=experiment_id,
+                            )
+                            specs.append(spec)
+
+    # 重复 run_id 检测：拒绝，不静默删除
+    seen: dict[str, int] = {}
+    for spec in specs:
+        seen[spec.run_id] = seen.get(spec.run_id, 0) + 1
+    dupes = {rid: cnt for rid, cnt in seen.items() if cnt > 1}
+    if dupes:
+        raise RuntimeError(
+            f"Duplicate run_id in cav_count grid: {dupes}. "
+            "Check treatment assignment_seeds for unintended overlaps."
+        )
+
+    planned_count = len(specs)
+    print(f"[GRID] Cartesian: {cartesian_total}, planned: {planned_count}")
+
+    return specs
+
+
+def _default_assignment_seeds(cav_count: int, vehicle_count: int) -> list[int]:
+    """cav_count 模式下无显式 assignment_seeds 时的默认值。"""
+    if cav_count == 0 or cav_count == vehicle_count:
+        return [1]  # 不可区分，仅需一个
+    return [1, 2, 3]
+
+
 def validate_specs(
+    specs: list[RunSpec],
+    scenarios: list,
+    models: list,
+    *,
+    pcav_levels: list | None = None,
+    vehicle_levels: list | None = None,
+    seeds: list | None = None,
+    treatments: list | None = None,
+    sumo_seeds: list | None = None,
+) -> None:
+    """全局校验：数量、唯一性、参数合法性。根据提供参数自动选择模式。"""
+    # run_id 唯一性
+    seen: dict[str, int] = {}
+    for s in specs:
+        seen[s.run_id] = seen.get(s.run_id, 0) + 1
+    dupes = {k: v for k, v in seen.items() if v > 1}
+    if dupes:
+        raise RuntimeError(f"Duplicate run_id: {dupes}")
+
+    if sumo_seeds is not None and treatments is not None:
+        _validate_cav_count_specs(specs, scenarios, models, treatments, sumo_seeds)
+    elif pcav_levels is not None and vehicle_levels is not None and seeds is not None:
+        # 数量校验（requested_pcav 模式）
+        expected = (
+            len(scenarios) * len(models) * len(pcav_levels) * len(vehicle_levels) * len(seeds)
+        )
+        if len(specs) != expected:
+            raise RuntimeError(f"Unexpected run count: {len(specs)}, expected {expected}")
+        _validate_requested_pcav_specs(specs, scenarios, models, pcav_levels, vehicle_levels, seeds)
+    else:
+        raise RuntimeError("validation requires either requested_pcav or cav_count parameters")
+
+
+def _validate_requested_pcav_specs(
     specs: list[RunSpec],
     scenarios: list,
     models: list,
@@ -129,24 +408,9 @@ def validate_specs(
     vehicle_levels: list,
     seeds: list,
 ) -> None:
-    """全局校验：数量、唯一性、参数合法性"""
-    # 数量
-    expected = len(scenarios) * len(models) * len(pcav_levels) * len(vehicle_levels) * len(seeds)
-    if len(specs) != expected:
-        raise RuntimeError(f"Unexpected run count: {len(specs)}, expected {expected}")
-
-    # run_id 唯一性
-    seen = {}
+    """requested_pcav 模式完整校验（含 model/pCAV/vehN/seed）。"""
+    _validate_common(specs, scenarios)
     for s in specs:
-        seen[s.run_id] = seen.get(s.run_id, 0) + 1
-    dupes = {k: v for k, v in seen.items() if v > 1}
-    if dupes:
-        raise RuntimeError(f"Duplicate run_id: {dupes}")
-
-    # 参数合法性
-    for s in specs:
-        if s.scenario not in scenarios:
-            raise RuntimeError(f"Invalid scenario: {s.scenario}")
         if s.model not in models:
             raise RuntimeError(f"Invalid model: {s.model}")
         if not (0 <= s.pcav <= 1):
@@ -155,6 +419,13 @@ def validate_specs(
             raise RuntimeError(f"Invalid vehN: {s.vehicle_count}")
         if s.seed not in seeds:
             raise RuntimeError(f"Invalid seed: {s.seed}")
+
+
+def _validate_common(specs: list[RunSpec], scenarios: list) -> None:
+    """公共参数校验（scenario + 时序 + 频率）。"""
+    for s in specs:
+        if s.scenario not in scenarios:
+            raise RuntimeError(f"Invalid scenario: {s.scenario}")
         if s.warmup < 0 or s.warmup >= s.simulation_end:
             raise RuntimeError(
                 f"Invalid timing for {s.run_id}: warmup must be less than simulation_end"
@@ -169,6 +440,108 @@ def validate_specs(
             )
         except ValueError as exc:
             raise RuntimeError(f"Invalid timing for {s.run_id}: {exc}") from exc
+
+
+def _validate_cav_count_specs(
+    specs: list[RunSpec],
+    scenarios: list,
+    models: list,
+    treatments: list,
+    sumo_seeds: list,
+) -> None:
+    """cav_count 模式校验：expected count、model/seed 规范化、treatment membership、run_id 重推导。"""
+    if not specs:
+        raise RuntimeError("cav_count grid produced zero specs")
+    _validate_common(specs, scenarios)
+
+    # 计算预期总数并构建期望组合集
+    expected_count = 0
+    # {(scenario, vehN, cav_count): (allowed_models, allowed_seeds)}
+    expected_combos: dict[tuple[str, int, int], tuple[set[str], set[int]]] = {}
+    for _scenario in scenarios:
+        for t in treatments:
+            vn = int(t["vehicle_count"])
+            cav_counts = [int(c) for c in t["cav_counts"]]
+            for cc in cav_counts:
+                n_models = 1 if cc == 0 else len(models)
+                aseeds = t.get("assignment_seeds", _default_assignment_seeds(cc, vn))
+                n_aseeds = 1 if (cc == 0 or cc == vn) else len(aseeds)
+                expected_count += n_models * n_aseeds * len(sumo_seeds)
+                for scenario in scenarios:
+                    key = (scenario, vn, cc)
+                    allowed_models = set(models)
+                    allowed_seeds = set(int(a) for a in aseeds)
+                    if key not in expected_combos:
+                        expected_combos[key] = (allowed_models, allowed_seeds)
+                    else:
+                        expected_combos[key][1].update(allowed_seeds)
+    if len(specs) != expected_count:
+        raise RuntimeError(f"Expected {expected_count} specs for cav_count grid, got {len(specs)}")
+
+    # 构建 treatment 查找表
+    treatment_set: dict[str, dict[int, set[int]]] = {}
+    for scenario in scenarios:
+        treatment_set[scenario] = {}
+    for t in treatments:
+        vn = int(t["vehicle_count"])
+        cavs = set(int(c) for c in t["cav_counts"])
+        for scenario in scenarios:
+            treatment_set[scenario][vn] = cavs
+
+    for s in specs:
+        if s.sumo_seed not in sumo_seeds:
+            raise RuntimeError(f"Invalid sumo_seed: {s.sumo_seed}")
+        if s.seed_scope != "vehicle_type_assignment":
+            raise RuntimeError(f"Invalid seed_scope: {s.seed_scope}")
+        if s.pipeline_version != PIPELINE_V4_1:
+            raise RuntimeError(
+                f"Expected pipeline_version={PIPELINE_V4_1}, got {s.pipeline_version}"
+            )
+
+        s_vn = s.vehicle_count
+        s_cc = s.cav_count or 0
+
+        # model 校验：cav=0 使用固定占位 "IDM"，其他使用配置模型
+        if s_cc == 0:
+            if s.model != "IDM":
+                raise RuntimeError(f"cav_count=0 requires model=IDM, got {s.model}")
+        elif s.model not in models:
+            raise RuntimeError(f"Invalid model: {s.model}")
+
+        # assignment seed 校验
+        if 0 < s_cc < s_vn:
+            combo = expected_combos.get((s.scenario, s_vn, s_cc))
+            if combo and s.seed not in combo[1]:
+                raise RuntimeError(
+                    f"seed {s.seed} not allowed for (scenario={s.scenario}, "
+                    f"vehN={s_vn}, cav={s_cc}); allowed: {combo[1]}"
+                )
+        elif s_cc == 0 or s_cc == s_vn:
+            # 端点：assignment_seed 不可区分，必须为 sentinel 值 0
+            if s.seed != 0:
+                raise RuntimeError(f"endpoint (cav={s_cc}) seed must be 0 (inactive), got {s.seed}")
+
+        # treatment membership
+        scenario_table = treatment_set.get(s.scenario, {})
+        if s_vn not in scenario_table:
+            raise RuntimeError(f"vehicle_count={s_vn} not in treatments for {s.scenario}")
+        if s_cc not in scenario_table[s_vn]:
+            raise RuntimeError(
+                f"cav_count={s_cc} not in treatments for vehN={s_vn} in {s.scenario}"
+            )
+
+        # run_id 重推导
+        effective_model = s.model if s_cc > 0 else "HVONLY"
+        expected_rid = build_run_id(
+            s.scenario,
+            effective_model,
+            vehicle_count=s_vn,
+            cav_count=s_cc,
+            assignment_seed=s.seed if 0 < s_cc < s_vn else None,
+            sumo_seed=s.sumo_seed,
+        )
+        if s.run_id != expected_rid:
+            raise RuntimeError(f"run_id mismatch: stored={s.run_id}, rederived={expected_rid}")
 
 
 def validate_path_safety(output_root: Path, specs: list[RunSpec]) -> None:
@@ -286,6 +659,8 @@ async def run_sumo_process(
                     "config_sha256": spec.config_sha256,
                     "network_sha256": spec.network_sha256,
                     "experiment_id": spec.experiment_id,
+                    "sumo_seed": spec.sumo_seed,
+                    "assignment_seed": spec.seed,
                     "started_at": started_at,
                     "finished_at": finished_at,
                     "wall_time_s": 0.0,
@@ -338,6 +713,7 @@ async def run_sumo_process(
 
                 wall_time = time.monotonic() - t0
                 finished_at = datetime.now(timezone.utc).isoformat()
+                _active_processes.pop(spec.run_id, None)
                 status_data = {
                     "run_id": spec.run_id,
                     "stage": "SIMULATION",
@@ -349,6 +725,8 @@ async def run_sumo_process(
                     "config_sha256": spec.config_sha256,
                     "network_sha256": spec.network_sha256,
                     "experiment_id": spec.experiment_id,
+                    "sumo_seed": spec.sumo_seed,
+                    "assignment_seed": spec.seed,
                     "started_at": started_at,
                     "finished_at": finished_at,
                     "wall_time_s": wall_time,
@@ -399,6 +777,8 @@ async def run_sumo_process(
             "config_sha256": spec.config_sha256,
             "network_sha256": spec.network_sha256,
             "experiment_id": spec.experiment_id,
+            "sumo_seed": spec.sumo_seed,
+            "assignment_seed": spec.seed,
             "started_at": started_at,
             "finished_at": finished_at,
             "wall_time_s": wall_time,
@@ -406,6 +786,12 @@ async def run_sumo_process(
             "sumo_command": cmd,
             "stderr_tail": _stderr_tail(prepared.stderr_path),
         }
+        # v0.4.1: 记录冻结输入哈希供 resume 校验
+        if status == "SUCCESS" and spec.pipeline_version == "v0.4.1":
+            status_data["route_file_sha256"] = sha256_file(str(prepared.route_path))
+            type_map_path = prepared.vehicle_type_map_path or (run_dir / "vehicle_type_map.json")
+            if type_map_path.exists():
+                status_data["vehicle_type_map_sha256"] = sha256_file(str(type_map_path))
         atomic_write_json(prepared.status_path, status_data)
 
         return SimulationResult(
@@ -437,6 +823,8 @@ async def run_sumo_process(
                 "config_sha256": spec.config_sha256,
                 "network_sha256": spec.network_sha256,
                 "experiment_id": spec.experiment_id,
+                "sumo_seed": spec.sumo_seed,
+                "assignment_seed": spec.seed,
                 "started_at": started_at,
                 "finished_at": finished_at,
                 "wall_time_s": wall_time,
@@ -603,7 +991,7 @@ async def run_batch(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="v0.4.0.post1 批量并行仿真")
+    parser = argparse.ArgumentParser(description="批量并行仿真")
     parser.add_argument(
         "--config",
         default="configs/v0.4.0.json",
@@ -630,8 +1018,11 @@ def main():
         "--model", choices=CAV_MODELS, default=None, help="显式覆盖配置，仅运行一个 CAV 模型"
     )
     parser.add_argument("--net", default=None, help="显式覆盖单场景路网；需与 --scenario 一起使用")
+    parser.add_argument("--scenario", default=None, help="显式覆盖配置，仅运行一个场景")
     parser.add_argument(
-        "--scenario", choices=SCENARIOS, default=None, help="显式覆盖配置，仅运行一个场景"
+        "--sumo-seeds",
+        default=None,
+        help="显式覆盖 sumo 随机种子列表（cav_count 模式），逗号分隔",
     )
     args = parser.parse_args()
 
@@ -641,21 +1032,12 @@ def main():
     except ValueError as exc:
         parser.error(str(exc))
 
-    veh_levels = list(config.vehicle_counts)
-    if args.vehN_list is not None:
-        veh_levels = [int(x.strip()) for x in args.vehN_list.split(",") if x.strip()]
-
-    seeds = list(config.seeds)
-    if args.seeds is not None:
-        seeds = [int(x.strip()) for x in args.seeds.split(",") if x.strip()]
-
-    try:
-        pcav_levels = (
-            generate_pcav_levels(args.pstep) if args.pstep is not None else list(config.pcav_levels)
-        )
-    except ValueError as exc:
-        parser.error(str(exc))
     scenarios = [args.scenario] if args.scenario else list(config.scenarios)
+    # 校验 --scenario 是否在配置的场景列表中
+    if args.scenario and args.scenario not in config.scenarios:
+        parser.error(
+            f"scenario {args.scenario!r} not in config scenarios: {list(config.scenarios)}"
+        )
     models = [args.model] if args.model else list(config.models)
     network_files = dict(config.network_files)
     if args.net:
@@ -663,15 +1045,89 @@ def main():
             parser.error("--net requires --scenario")
         network_files[args.scenario] = args.net
 
-    resolved_config = replace(
-        config,
-        scenarios=tuple(scenarios),
-        models=tuple(models),
-        pcav_levels=tuple(pcav_levels),
-        vehicle_counts=tuple(veh_levels),
-        seeds=tuple(seeds),
-        network_files={scenario: network_files[scenario] for scenario in scenarios},
-    )
+    # 按 grid_mode 构造 resolved_config
+    common_overrides = {
+        "scenarios": tuple(scenarios),
+        "models": tuple(models),
+        "network_files": {s: network_files[s] for s in scenarios},
+    }
+
+    if config.grid_mode == "cav_count":
+        # cav_count 模式：CLI 覆盖 treatments/sumo_seeds 可选
+        treatments = list(config.treatments)
+        if args.vehN_list is not None:
+            try:
+                veh_levels = [int(x.strip()) for x in args.vehN_list.split(",") if x.strip()]
+            except ValueError:
+                parser.error(f"invalid --vehN-list value: {args.vehN_list}")
+            treatments = [
+                {"vehicle_count": vn, "cav_counts": [0, vn // 2, vn]} for vn in veh_levels
+            ]
+        sumo_seeds = list(config.sumo_seeds)
+        if args.sumo_seeds is not None:
+            try:
+                sumo_seeds = [int(x.strip()) for x in args.sumo_seeds.split(",") if x.strip()]
+            except ValueError:
+                parser.error(f"invalid --sumo-seeds value: {args.sumo_seeds}")
+        # 注入全局 assignment_seeds 到 treatments（CLI 覆盖优先）
+        aseeds = list(config.seeds)
+        if args.seeds is not None:
+            try:
+                aseeds = [int(x.strip()) for x in args.seeds.split(",") if x.strip()]
+            except ValueError:
+                parser.error(f"invalid --seeds value: {args.seeds}")
+        for t in treatments:
+            if "assignment_seeds" not in t and aseeds:
+                t["assignment_seeds"] = aseeds
+
+        resolved_config = replace(
+            config, treatments=tuple(treatments), sumo_seeds=tuple(sumo_seeds), **common_overrides
+        )
+        spec_kwargs = {
+            "treatments": list(resolved_config.treatments),
+            "sumo_seeds": list(resolved_config.sumo_seeds),
+            "pcav_levels": None,
+            "vehicle_levels": None,
+            "seeds": None,
+        }
+    else:
+        # requested_pcav 模式（兼容旧行为）
+        veh_levels = list(config.vehicle_counts)
+        if args.vehN_list is not None:
+            try:
+                veh_levels = [int(x.strip()) for x in args.vehN_list.split(",") if x.strip()]
+            except ValueError:
+                parser.error(f"invalid --vehN-list value: {args.vehN_list}")
+        seeds = list(config.seeds)
+        if args.seeds is not None:
+            try:
+                seeds = [int(x.strip()) for x in args.seeds.split(",") if x.strip()]
+            except ValueError:
+                parser.error(f"invalid --seeds value: {args.seeds}")
+        try:
+            pcav_levels = (
+                generate_pcav_levels(args.pstep)
+                if args.pstep is not None
+                else list(config.pcav_levels)
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+
+        resolved_config = replace(
+            config,
+            pcav_levels=tuple(pcav_levels),
+            vehicle_counts=tuple(veh_levels),
+            seeds=tuple(seeds),
+            **common_overrides,
+        )
+        spec_kwargs = {
+            "pcav_levels": list(resolved_config.pcav_levels),
+            "vehicle_levels": list(resolved_config.vehicle_counts),
+            "seeds": list(resolved_config.seeds),
+            "treatments": None,
+            "sumo_seeds": None,
+        }
+
     try:
         resolved_config.validate()
     except ValueError as exc:
@@ -690,30 +1146,40 @@ def main():
     experiment_id = f"{resolved_config.config_version}-{config_sha256[:12]}-{input_sha256[:12]}"
 
     # ── 生成 & 校验任务 ──
-    specs = build_run_specs(
-        scenarios,
-        models,
-        pcav_levels,
-        veh_levels,
-        seeds,
-        resolved_config.pipeline_version,
-        simulation_end=resolved_config.simulation_end,
-        warmup=resolved_config.warmup,
-        step_length=resolved_config.step_length,
-        detector_frequency=resolved_config.detector_frequency,
-        edge_data_frequency=resolved_config.edge_data_frequency,
-        loops=resolved_config.loops,
-        network_files=network_files,
-        seed_scope=resolved_config.seed_scope,
-        schema_version=resolved_config.schema_version,
-        config_sha256=config_sha256,
-        network_sha256=network_sha256,
-        experiment_id=experiment_id,
-    )
+    try:
+        specs = build_run_specs(
+            scenarios,
+            models,
+            resolved_config.pipeline_version,
+            simulation_end=resolved_config.simulation_end,
+            warmup=resolved_config.warmup,
+            step_length=resolved_config.step_length,
+            detector_frequency=resolved_config.detector_frequency,
+            edge_data_frequency=resolved_config.edge_data_frequency,
+            loops=resolved_config.loops,
+            network_files=network_files,
+            seed_scope=resolved_config.seed_scope,
+            schema_version=resolved_config.schema_version,
+            config_sha256=config_sha256,
+            network_sha256=network_sha256,
+            experiment_id=experiment_id,
+            **spec_kwargs,
+        )
+    except (ValueError, RuntimeError) as e:
+        print(f"[ERROR] {e}")
+        sys.exit(1)
     print(f"[VALIDATE] {len(specs)} tasks generated")
 
+    # v0.4.1 pipeline 在阶段 1 完成前仅允许 dry-run
+    if not args.dry_run and resolved_config.pipeline_version == "v0.4.1":
+        print(
+            "[ERROR] v0.4.1 pipeline is not yet ready for full simulation. "
+            "Use --dry-run to validate the grid, or wait for Stage 1."
+        )
+        sys.exit(1)
+
     try:
-        validate_specs(specs, scenarios, models, pcav_levels, veh_levels, seeds)
+        validate_specs(specs, scenarios, models, **spec_kwargs)
         print("[VALIDATE] run_id uniqueness: OK")
     except RuntimeError as e:
         print(f"[ERROR] {e}")

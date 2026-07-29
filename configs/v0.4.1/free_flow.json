@@ -1,0 +1,13 @@
+{
+  "free_flow_version": "v0.4.1-pilot-ff-1",
+  "design": "measure single-vehicle free-flow lap time per scenario and vehicle type; report common reference when IDM/CACC results coincide",
+  "scenarios": ["scenario_0", "scenario_2"],
+  "vehicle_types": ["HV", "CAV"],
+  "models": ["IDM", "CACC"],
+  "vehicle_count": 1,
+  "loops": 60,
+  "analysis": {
+    "exclude_first_lap": true,
+    "stable_lap_method": "median of laps 2..N"
+  }
+}

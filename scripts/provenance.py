@@ -69,6 +69,7 @@ def collect_provenance(
         "git_dirty": _git_dirty(),
         "python_version": platform.python_version(),
         "python_executable": sys.executable,
+        "python_packages": _installed_package_versions(),
         "operating_system": platform.platform(),
         "architecture": platform.machine(),
         "sumo_version": _command_output([sumo_command, "--version"]),
@@ -79,3 +80,17 @@ def collect_provenance(
         "working_directory": os.getcwd(),
         "inputs": inputs,
     }
+
+
+def _installed_package_versions() -> dict[str, str]:
+    """返回运行时关键 Python 依赖的版本快照。"""
+    import importlib.metadata
+
+    packages = ["pandas", "numpy", "matplotlib"]
+    versions: dict[str, str] = {}
+    for name in packages:
+        try:
+            versions[name] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            versions[name] = "not installed"
+    return versions

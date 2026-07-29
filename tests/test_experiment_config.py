@@ -14,10 +14,10 @@ def test_default_config_is_stable_and_generates_10080_runs():
     specs = build_run_specs(
         list(config.scenarios),
         list(config.models),
-        list(config.pcav_levels),
-        list(config.vehicle_counts),
-        list(config.seeds),
         config.pipeline_version,
+        pcav_levels=list(config.pcav_levels),
+        vehicle_levels=list(config.vehicle_counts),
+        seeds=list(config.seeds),
         simulation_end=config.simulation_end,
         warmup=config.warmup,
         step_length=config.step_length,
@@ -32,9 +32,9 @@ def test_default_config_is_stable_and_generates_10080_runs():
         specs,
         list(config.scenarios),
         list(config.models),
-        list(config.pcav_levels),
-        list(config.vehicle_counts),
-        list(config.seeds),
+        pcav_levels=list(config.pcav_levels),
+        vehicle_levels=list(config.vehicle_counts),
+        seeds=list(config.seeds),
     )
     assert len(specs) == 10_080
     assert len({spec.run_id for spec in specs}) == 10_080
@@ -86,10 +86,10 @@ def test_batch_validation_rejects_detector_window_misalignment():
     specs = build_run_specs(
         list(config.scenarios),
         list(config.models),
-        list(config.pcav_levels),
-        list(config.vehicle_counts),
-        list(config.seeds),
         config.pipeline_version,
+        pcav_levels=list(config.pcav_levels),
+        vehicle_levels=list(config.vehicle_counts),
+        seeds=list(config.seeds),
         simulation_end=config.simulation_end,
         warmup=config.warmup,
         step_length=config.step_length,
@@ -106,7 +106,7 @@ def test_batch_validation_rejects_detector_window_misalignment():
             specs,
             list(config.scenarios),
             list(config.models),
-            list(config.pcav_levels),
-            list(config.vehicle_counts),
-            list(config.seeds),
+            pcav_levels=list(config.pcav_levels),
+            vehicle_levels=list(config.vehicle_counts),
+            seeds=list(config.seeds),
         )

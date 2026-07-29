@@ -1,12 +1,48 @@
-"""v0.4.0 统一数据 Schema — 阶段二/三共用，避免字段清单漂移。
+"""统一数据 Schema — 阶段二/三共用，避免字段清单漂移。
 
 RUN_LEVEL_COLUMNS: 正式 CSV 列定义（阶段三 writer 使用）
-SUMMARY_SCHEMA:     summary.json 必需字段（阶段二 parser 校验使用）
+SUMMARY_REQUIRED_KEYS: summary.json 必需字段（阶段二 parser 校验使用）
+
+从 v0.4.1 起 schema_version=2，新增双 seed 标识列与 subgroup 长表。
+旧 schema_version=1 列定义保留以支持只读加载。
 """
 
 from __future__ import annotations
 
-# ── 正式 run-level CSV 列定义（阶段三 writer 按此顺序输出） ──
+# ═══════════════════════════════════════════════════════════════
+# v0.4.1 schema_version=2 列定义
+# ═══════════════════════════════════════════════════════════════
+
+IDENTIFIER_COLUMNS_V4_1 = [
+    "run_id",
+    "scenario",
+    "model",
+    "requested_pcav",
+    "realized_pcav",
+    "cav_count",
+    "hv_count",
+    "vehN",
+    "assignment_seed",
+    "sumo_seed",
+]
+
+CONFIG_COLUMNS_V4_1 = [
+    "step_length_s",
+    "warmup_period_s",
+    "simulation_end_s",
+    "detector_frequency_s",
+    "edge_data_frequency_s",
+    "ssm_capture_ttc_threshold_s",
+    "ssm_capture_drac_threshold_mps2",
+    "with_internal",
+]
+
+# v0.4.1 core run-level CSV 列
+RUN_LEVEL_COLUMNS_V4_1 = list(IDENTIFIER_COLUMNS_V4_1) + list(CONFIG_COLUMNS_V4_1)
+
+# ═══════════════════════════════════════════════════════════════
+# v0.4.0 schema_version=1 列定义（只读兼容，不修改）
+# ═══════════════════════════════════════════════════════════════
 
 IDENTIFIER_COLUMNS = [
     "run_id",
@@ -154,3 +190,14 @@ SUMMARY_REQUIRED_KEYS = (
     + DELAY_COLUMNS
     + AUDIT_COLUMNS
 )
+
+# ── v0.4.1 subgroup 长表列定义（预留，阶段 2 实现） ──
+
+SUBGROUP_LONG_COLUMNS = [
+    "run_id",
+    "metric_family",
+    "group_dimension",  # vehicle_type | pair_type | role_type
+    "group_value",  # HV | CAV | HV-HV | HV-CAV | CAV-CAV | follower_HV->leader_CAV
+    "metric_name",
+    "metric_value",
+]

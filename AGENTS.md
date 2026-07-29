@@ -68,6 +68,14 @@ python3 -m scripts.results.visualization \
 
 - 依赖 SUMO (`sumo`, `sumo-gui`, `netconvert`)
 - Python 依赖：`pandas`, `matplotlib`
+- 使用项目根目录的 `.venv` 虚拟环境运行所有 Python 命令（`ruff`、`mypy`、`pytest`、`compileall` 等）
+  ```bash
+  .venv/bin/python3 -m pytest -q
+  .venv/bin/python3 -m ruff check .
+  .venv/bin/python3 -m mypy scripts/run_spec.py scripts/experiment_config.py scripts/provenance.py
+  .venv/bin/python3 -m compileall -q scripts tests
+  .venv/bin/python3 -m ruff format --check .
+  ```
 
 ## 辅助文档
 

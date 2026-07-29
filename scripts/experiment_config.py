@@ -4,14 +4,61 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from scripts.config import CAV_ACTION_STEP_LENGTH, CAV_MODELS
+from scripts.config import (
+    CAV_ACTION_STEP_LENGTH,
+    CAV_MODELS,
+    SSM_DRAC_THRESHOLD_MPS2,
+    SSM_TTC_THRESHOLD_S,
+)
 
+PIPELINE_V4_1 = "v0.4.1"
 SEED_SCOPE = "vehicle_type_assignment"
+GRID_MODE_REQUESTED_PCAV = "requested_pcav"
+GRID_MODE_CAV_COUNT = "cav_count"
+GRID_MODES = (GRID_MODE_REQUESTED_PCAV, GRID_MODE_CAV_COUNT)
+
+_COMMON_REQUIRED = {
+    "config_version",
+    "pipeline_version",
+    "schema_version",
+    "scenarios",
+    "models",
+    "seed_scope",
+    "simulation_end",
+    "warmup",
+    "step_length",
+    "detector_frequency",
+    "edge_data_frequency",
+    "loops",
+    "network_files",
+}
+
+_PCAV_MODE_EXTRA = {"pcav_levels", "vehicle_counts", "seeds"}
+_CAV_COUNT_MODE_EXTRA = {"treatments", "sumo_seeds"}
+
+_ALL_KNOWN_FIELDS = (
+    _COMMON_REQUIRED
+    | _PCAV_MODE_EXTRA
+    | _CAV_COUNT_MODE_EXTRA
+    | {
+        "grid_mode",
+        "assignment_seeds",
+        "ssm_capture_ttc_threshold_s",
+        "ssm_capture_drac_threshold_mps2",
+        "ssm_measures",
+        "ssm_range",
+        "ssm_trajectories",
+        "fcd_profile",
+        "fcd_max_leader_distance_m",
+        "with_internal",
+    }
+)
 
 
 def canonical_json(data: Any) -> str:
@@ -26,9 +73,6 @@ class ExperimentConfig:
     schema_version: str
     scenarios: tuple[str, ...]
     models: tuple[str, ...]
-    pcav_levels: tuple[float, ...]
-    vehicle_counts: tuple[int, ...]
-    seeds: tuple[int, ...]
     seed_scope: str
     simulation_end: float
     warmup: float
@@ -38,41 +82,62 @@ class ExperimentConfig:
     loops: int
     network_files: dict[str, str]
 
+    # ── 网格模式 ──
+    grid_mode: str = GRID_MODE_REQUESTED_PCAV
+
+    # requested_pcav 模式字段
+    pcav_levels: tuple[float, ...] = ()
+    vehicle_counts: tuple[int, ...] = ()
+    seeds: tuple[int, ...] = ()
+
+    # cav_count 模式字段
+    treatments: tuple[dict[str, Any], ...] = ()
+    sumo_seeds: tuple[int, ...] = ()
+
+    # ── SSM capture 配置 ──
+    ssm_capture_ttc_threshold_s: float = SSM_TTC_THRESHOLD_S
+    ssm_capture_drac_threshold_mps2: float = SSM_DRAC_THRESHOLD_MPS2
+    ssm_measures: str = "TTC DRAC"
+    ssm_range: str = "50.0"
+    ssm_trajectories: bool = False
+
+    # ── FCD 输出 profile ──
+    fcd_profile: str | None = None
+    fcd_max_leader_distance_m: float | None = None
+
+    # ── edgeData internal edge ──
+    with_internal: bool = False
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ExperimentConfig:
-        required = {
-            "config_version",
-            "pipeline_version",
-            "schema_version",
-            "scenarios",
-            "models",
-            "pcav_levels",
-            "vehicle_counts",
-            "seeds",
-            "seed_scope",
-            "simulation_end",
-            "warmup",
-            "step_length",
-            "detector_frequency",
-            "edge_data_frequency",
-            "loops",
-            "network_files",
-        }
-        missing = sorted(required - data.keys())
-        unknown = sorted(data.keys() - required)
-        if missing:
-            raise ValueError(f"experiment config missing fields: {', '.join(missing)}")
-        if unknown:
-            raise ValueError(f"experiment config unknown fields: {', '.join(unknown)}")
+        _check_common_missing(data)
+        _warn_or_reject_unknown(data)
+
+        grid_mode = str(data.get("grid_mode", GRID_MODE_REQUESTED_PCAV))
+        if grid_mode not in GRID_MODES:
+            raise ValueError(f"grid_mode must be one of {GRID_MODES}, got {grid_mode!r}")
+
+        if grid_mode == GRID_MODE_REQUESTED_PCAV:
+            _check_required(data, _PCAV_MODE_EXTRA)
+            pcav = tuple(float(Decimal(str(x))) for x in data["pcav_levels"])
+            vct = tuple(int(x) for x in data["vehicle_counts"])
+            seeds = tuple(int(x) for x in data["seeds"])
+            treatments: tuple[dict[str, Any], ...] = ()
+            sumo_seeds: tuple[int, ...] = ()
+        else:
+            _check_required(data, _CAV_COUNT_MODE_EXTRA)
+            treatments = tuple(dict(t) for t in data["treatments"])
+            sumo_seeds = tuple(int(x) for x in data["sumo_seeds"])
+            pcav = ()
+            vct = ()
+            seeds = tuple(int(x) for x in data.get("assignment_seeds", data.get("seeds", ())))
+
         config = cls(
             config_version=str(data["config_version"]),
             pipeline_version=str(data["pipeline_version"]),
             schema_version=str(data["schema_version"]),
             scenarios=tuple(str(x) for x in data["scenarios"]),
             models=tuple(str(x) for x in data["models"]),
-            pcav_levels=tuple(float(Decimal(str(x))) for x in data["pcav_levels"]),
-            vehicle_counts=tuple(int(x) for x in data["vehicle_counts"]),
-            seeds=tuple(int(x) for x in data["seeds"]),
             seed_scope=str(data["seed_scope"]),
             simulation_end=float(data["simulation_end"]),
             warmup=float(data["warmup"]),
@@ -80,21 +145,36 @@ class ExperimentConfig:
             detector_frequency=int(data["detector_frequency"]),
             edge_data_frequency=int(data["edge_data_frequency"]),
             loops=int(data["loops"]),
-            network_files={str(key): str(value) for key, value in data["network_files"].items()},
+            network_files={str(k): str(v) for k, v in data["network_files"].items()},
+            grid_mode=grid_mode,
+            pcav_levels=pcav,
+            vehicle_counts=vct,
+            seeds=seeds,
+            treatments=treatments,
+            sumo_seeds=sumo_seeds,
+            ssm_capture_ttc_threshold_s=float(
+                data.get("ssm_capture_ttc_threshold_s", SSM_TTC_THRESHOLD_S)
+            ),
+            ssm_capture_drac_threshold_mps2=float(
+                data.get("ssm_capture_drac_threshold_mps2", SSM_DRAC_THRESHOLD_MPS2)
+            ),
+            ssm_measures=str(data.get("ssm_measures", "TTC DRAC")),
+            ssm_range=str(data.get("ssm_range", "50.0")),
+            ssm_trajectories=bool(data.get("ssm_trajectories", False)),
+            fcd_profile=_optional_str(data, "fcd_profile"),
+            fcd_max_leader_distance_m=_optional_float(data, "fcd_max_leader_distance_m"),
+            with_internal=bool(data.get("with_internal", False)),
         )
         config.validate()
         return config
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "config_version": self.config_version,
             "pipeline_version": self.pipeline_version,
             "schema_version": self.schema_version,
             "scenarios": list(self.scenarios),
             "models": list(self.models),
-            "pcav_levels": list(self.pcav_levels),
-            "vehicle_counts": list(self.vehicle_counts),
-            "seeds": list(self.seeds),
             "seed_scope": self.seed_scope,
             "simulation_end": self.simulation_end,
             "warmup": self.warmup,
@@ -103,14 +183,104 @@ class ExperimentConfig:
             "edge_data_frequency": self.edge_data_frequency,
             "loops": self.loops,
             "network_files": dict(self.network_files),
+            "grid_mode": self.grid_mode,
+            "ssm_capture_ttc_threshold_s": self.ssm_capture_ttc_threshold_s,
+            "ssm_capture_drac_threshold_mps2": self.ssm_capture_drac_threshold_mps2,
+            "ssm_measures": self.ssm_measures,
+            "ssm_range": self.ssm_range,
+            "ssm_trajectories": self.ssm_trajectories,
+            "with_internal": self.with_internal,
         }
+        if self.grid_mode == GRID_MODE_REQUESTED_PCAV:
+            result["pcav_levels"] = list(self.pcav_levels)
+            result["vehicle_counts"] = list(self.vehicle_counts)
+            result["seeds"] = list(self.seeds)
+        else:
+            result["treatments"] = list(self.treatments)
+            result["assignment_seeds"] = list(self.seeds)
+            result["sumo_seeds"] = list(self.sumo_seeds)
+        if self.fcd_profile is not None:
+            result["fcd_profile"] = self.fcd_profile
+        if self.fcd_max_leader_distance_m is not None:
+            result["fcd_max_leader_distance_m"] = self.fcd_max_leader_distance_m
+        return result
 
     def sha256(self) -> str:
         return hashlib.sha256(canonical_json(self.to_dict()).encode("utf-8")).hexdigest()
 
     def validate(self) -> None:
+        # pipeline/schema 版本配对
+        if self.pipeline_version == PIPELINE_V4_1 and self.schema_version != "1":
+            raise ValueError(
+                f"v0.4.1 pipeline requires schema_version=1, got {self.schema_version}"
+            )
         _require_nonempty_unique("scenarios", self.scenarios)
         _require_nonempty_unique("models", self.models)
+        if self.warmup < 0 or self.warmup >= self.simulation_end:
+            raise ValueError("warmup must satisfy 0 <= warmup < simulation_end")
+        for name in ("step_length", "detector_frequency", "edge_data_frequency", "loops"):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive")
+        # NaN/Infinity 拒绝
+        for name in (
+            "simulation_end",
+            "warmup",
+            "step_length",
+            "ssm_capture_ttc_threshold_s",
+            "ssm_capture_drac_threshold_mps2",
+        ):
+            if not math.isfinite(getattr(self, name)):
+                raise ValueError(f"{name} must be finite, got {getattr(self, name)}")
+        if self.fcd_max_leader_distance_m is not None and not math.isfinite(
+            self.fcd_max_leader_distance_m
+        ):
+            raise ValueError(
+                f"fcd_max_leader_distance_m must be finite, got {self.fcd_max_leader_distance_m}"
+            )
+        # pipeline 白名单
+        allowed_pipelines = {"v0.4.0.post1", "v0.4.1"}
+        if self.pipeline_version not in allowed_pipelines:
+            raise ValueError(
+                f"unsupported pipeline_version: {self.pipeline_version!r}, "
+                f"allowed: {sorted(allowed_pipelines)}"
+            )
+        unsupported = sorted(set(self.models) - set(CAV_MODELS))
+        if unsupported:
+            raise ValueError(f"unsupported models: {', '.join(unsupported)}")
+        if set(self.network_files) != set(self.scenarios):
+            raise ValueError("network_files keys must exactly match scenarios")
+        if self.seed_scope != SEED_SCOPE:
+            raise ValueError(f"seed_scope must be {SEED_SCOPE!r}, got {self.seed_scope!r}")
+        if self.ssm_capture_ttc_threshold_s <= 0:
+            raise ValueError(
+                f"ssm_capture_ttc_threshold_s must be positive, got {self.ssm_capture_ttc_threshold_s}"
+            )
+        if self.ssm_capture_drac_threshold_mps2 <= 0:
+            raise ValueError(
+                f"ssm_capture_drac_threshold_mps2 must be positive, got {self.ssm_capture_drac_threshold_mps2}"
+            )
+        if self.fcd_profile is not None and self.fcd_profile not in ("1s", "0.1s"):
+            raise ValueError(f"fcd_profile must be '1s' or '0.1s', got {self.fcd_profile!r}")
+        if (
+            self.fcd_profile is not None
+            and self.fcd_max_leader_distance_m is not None
+            and self.fcd_max_leader_distance_m <= 0
+        ):
+            raise ValueError("fcd_max_leader_distance_m must be positive")
+        ratio = Decimal(str(CAV_ACTION_STEP_LENGTH)) / Decimal(str(self.step_length))
+        if ratio != ratio.to_integral_value():
+            raise ValueError(
+                f"step_length must evenly divide CAV actionStepLength ({CAV_ACTION_STEP_LENGTH})"
+            )
+        validate_analysis_windows(self.warmup, self.detector_frequency, self.edge_data_frequency)
+        if self.grid_mode == GRID_MODE_REQUESTED_PCAV:
+            self._validate_requested_pcav_mode()
+        else:
+            self._validate_cav_count_mode()
+        if self.fcd_profile is not None and self.fcd_max_leader_distance_m is None:
+            raise ValueError("fcd_max_leader_distance_m is required when fcd_profile is set")
+
+    def _validate_requested_pcav_mode(self) -> None:
         _require_nonempty_unique("pcav_levels", self.pcav_levels)
         _require_nonempty_unique("vehicle_counts", self.vehicle_counts)
         _require_nonempty_unique("seeds", self.seeds)
@@ -118,28 +288,66 @@ class ExperimentConfig:
             raise ValueError("pcav_levels values must satisfy 0 <= pCAV <= 1")
         if any(value <= 0 for value in self.vehicle_counts):
             raise ValueError("vehicle_counts values must be positive")
-        if self.warmup < 0 or self.warmup >= self.simulation_end:
-            raise ValueError("warmup must satisfy 0 <= warmup < simulation_end")
-        for name in ("step_length", "detector_frequency", "edge_data_frequency", "loops"):
-            if getattr(self, name) <= 0:
-                raise ValueError(f"{name} must be positive")
-        if self.seed_scope != SEED_SCOPE:
-            raise ValueError(f"seed_scope must be {SEED_SCOPE!r}")
-        unsupported = sorted(set(self.models) - set(CAV_MODELS))
-        if unsupported:
-            raise ValueError(f"unsupported models: {', '.join(unsupported)}")
-        if set(self.network_files) != set(self.scenarios):
-            raise ValueError("network_files keys must exactly match scenarios")
-        ratio = Decimal(str(CAV_ACTION_STEP_LENGTH)) / Decimal(str(self.step_length))
-        if ratio != ratio.to_integral_value():
-            raise ValueError(
-                f"step_length must evenly divide CAV actionStepLength ({CAV_ACTION_STEP_LENGTH})"
-            )
-        validate_analysis_windows(
-            self.warmup,
-            self.detector_frequency,
-            self.edge_data_frequency,
+
+    def _validate_cav_count_mode(self) -> None:
+        if not self.treatments:
+            raise ValueError("treatments must not be empty in cav_count mode")
+        _require_nonempty_unique("sumo_seeds", self.sumo_seeds)
+        if self.seeds and len(self.seeds) != len(set(self.seeds)):
+            raise ValueError("duplicate assignment_seeds at config level")
+        seen_vn = set()
+        for t in self.treatments:
+            vn = int(t.get("vehicle_count", 0))
+            if vn <= 0:
+                raise ValueError(f"treatment vehicle_count must be positive, got {vn}")
+            if vn in seen_vn:
+                raise ValueError(f"duplicate vehicle_count in treatments: {vn}")
+            seen_vn.add(vn)
+            cavs = t.get("cav_counts", [])
+            if not cavs:
+                raise ValueError(f"cav_counts must not be empty for vehicle_count={vn}")
+            seen_c = set()
+            for c in cavs:
+                c = int(c)
+                if c < 0 or c > vn:
+                    raise ValueError(f"cav_count {c} out of range [0, {vn}] for vehicle_count={vn}")
+                if c in seen_c:
+                    raise ValueError(f"duplicate cav_count {c} for vehicle_count={vn}")
+                seen_c.add(c)
+            # 校验 treatment 级 assignment_seeds 无重复
+            aseeds = t.get("assignment_seeds", [])
+            if aseeds and len(aseeds) != len(set(aseeds)):
+                raise ValueError(f"duplicate assignment_seeds in treatment vehN={vn}")
+
+
+def _check_common_missing(data: dict[str, Any]) -> None:
+    missing = sorted(_COMMON_REQUIRED - data.keys())
+    if missing:
+        raise ValueError(f"experiment config missing fields: {', '.join(missing)}")
+
+
+def _check_required(data: dict[str, Any], required: set[str]) -> None:
+    missing = sorted(required - data.keys())
+    if missing:
+        raise ValueError(
+            f"experiment config missing fields for {data.get('grid_mode', 'legacy')!r} mode: {', '.join(missing)}"
         )
+
+
+def _warn_or_reject_unknown(data: dict[str, Any]) -> None:
+    unknown = sorted(data.keys() - _ALL_KNOWN_FIELDS)
+    if unknown:
+        raise ValueError(f"experiment config unknown fields: {', '.join(unknown)}")
+
+
+def _optional_str(data: dict[str, Any], key: str) -> str | None:
+    value = data.get(key)
+    return str(value) if value is not None else None
+
+
+def _optional_float(data: dict[str, Any], key: str) -> float | None:
+    value = data.get(key)
+    return float(value) if value is not None else None
 
 
 def _require_nonempty_unique(name: str, values: tuple[Any, ...]) -> None:
@@ -174,5 +382,5 @@ def load_experiment_config(path: str | Path) -> ExperimentConfig:
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"experiment config unreadable: {config_path}: {exc}") from exc
     if not isinstance(data, dict):
-        raise TypeError("experiment config root must be an object")
+        raise ValueError("experiment config root must be an object")
     return ExperimentConfig.from_dict(data)

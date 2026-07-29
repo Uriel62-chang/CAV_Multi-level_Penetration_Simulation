@@ -1,0 +1,34 @@
+{
+  "config_version": "v0.4.1-pilot-1",
+  "pipeline_version": "v0.4.1",
+  "schema_version": "1",
+  "grid_mode": "cav_count",
+  "scenarios": ["scenario_0", "scenario_2"],
+  "models": ["IDM", "CACC"],
+  "treatments": [
+    {"vehicle_count": 30,  "cav_counts": [0, 15, 30]},
+    {"vehicle_count": 60,  "cav_counts": [0, 30, 60]},
+    {"vehicle_count": 120, "cav_counts": [0, 60, 120]}
+  ],
+  "assignment_seeds": [1, 2, 3],
+  "sumo_seeds": [101, 102, 103],
+  "seed_scope": "vehicle_type_assignment",
+  "simulation_end": 3600,
+  "warmup": 600,
+  "step_length": 0.1,
+  "detector_frequency": 120,
+  "edge_data_frequency": 300,
+  "loops": 300,
+  "ssm_capture_ttc_threshold_s": 5.0,
+  "ssm_capture_drac_threshold_mps2": 3.0,
+  "ssm_measures": "TTC DRAC",
+  "ssm_range": "50.0",
+  "ssm_trajectories": false,
+  "fcd_profile": "1s",
+  "fcd_max_leader_distance_m": 4000,
+  "with_internal": true,
+  "network_files": {
+    "scenario_0": "net/scenario_0/loop.net.xml",
+    "scenario_2": "net/scenario_2/loop.net.xml"
+  }
+}

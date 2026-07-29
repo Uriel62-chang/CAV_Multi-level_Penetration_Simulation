@@ -178,14 +178,17 @@ def generate_flow(
     num_lanes: int = 1,
     edge_ids: list[str] | None = None,
     bottleneck_edge_ids: list[str] | None = None,
-):
-    """生成混合车流 SUMO route 文件 (.rou.xml)
+) -> dict[str, str]:
+    """生成混合车流 SUMO route 文件 (.rou.xml)，并返回 vehicle_id → vehicle_type 映射。
 
     步骤：等距分布车辆 → 随机打乱 CAV/HV 顺序 → 写入 vType + vehicle + route。
     多车道场景（scenario_2）自动注入 LC2013 换道参数和 departLane 属性。
+
+    Returns:
+        dict[str, str]: ``{vehicle_id: vehicle_type}`` 映射，键如 ``"veh0"``，值 ``"CAV"`` 或 ``"HV"``。
     """
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-    random.seed(seed)
+    rng = random.Random(seed)  # 局部 RNG，不影响模块级状态
 
     if scenario not in _PLACEMENT_REGISTRY:
         raise ValueError(f"未知场景，缺少车辆偏移实现: {scenario}")
@@ -215,7 +218,7 @@ def generate_flow(
     # CAV数量
     cav_count = round(vehicle_count * cav_ratio)
     vehicle_types = ["CAV"] * cav_count + ["HV"] * (vehicle_count - cav_count)
-    random.shuffle(vehicle_types)
+    rng.shuffle(vehicle_types)
 
     # 定义车流属性
     lines = []
@@ -229,8 +232,9 @@ def generate_flow(
         f'speedDev="{HV_SPEED_DEV}" carFollowModel="Krauss" tau="{HV_TAU}" '
         f'sigma="{HV_SIGMA}" actionStepLength="{HV_ACTION_STEP_LENGTH}"{lc2013}/>'
     )
-    # CAV
-    lines.append(_build_cav_vtype(model, lc2013))
+    # CAV：有 CAV 时才写 vType（cav_count=0 时跳过，避免依赖模型选择）
+    if cav_count > 0:
+        lines.append(_build_cav_vtype(model, lc2013))
 
     # 写入每辆车
     for i in range(vehicle_count):
@@ -256,7 +260,11 @@ def generate_flow(
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
+    # 构建 vehicle_id → vehicle_type 映射
+    type_map = {f"veh{i}": vehicle_types[i] for i in range(vehicle_count)}
+
     print(f"车辆参数已写入：{output_path}")
+    return type_map
 
 
 def main():

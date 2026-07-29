@@ -55,10 +55,10 @@ def test_default_grid_matches_baseline():
     specs = build_run_specs(
         list(config.scenarios),
         list(config.models),
-        list(config.pcav_levels),
-        list(config.vehicle_counts),
-        list(config.seeds),
         config.pipeline_version,
+        pcav_levels=list(config.pcav_levels),
+        vehicle_levels=list(config.vehicle_counts),
+        seeds=list(config.seeds),
         simulation_end=config.simulation_end,
         warmup=config.warmup,
         step_length=config.step_length,

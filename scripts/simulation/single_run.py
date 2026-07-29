@@ -139,7 +139,7 @@ def prepare_run(
     status_path = run_dir / "simulation_status.json"
 
     # ── 生成车流 ──
-    generate_flow(
+    vehicle_type_map = generate_flow(
         spec.vehicle_count,
         spec.pcav,
         spec.loops,
@@ -153,6 +153,10 @@ def prepare_run(
         edge_ids=edge_ids,
         bottleneck_edge_ids=net_meta.get("bottleneck_edge_ids"),
     )
+
+    # ── 写入车辆类型映射 ──
+    type_map_path = run_dir / "vehicle_type_map.json"
+    atomic_write_json(type_map_path, vehicle_type_map)
 
     # ── 生成附加文件（检测器 + edgeData 合并） ──
     _write_additional_xml(
@@ -181,6 +185,7 @@ def prepare_run(
         stdout_path=stdout_path,
         stderr_path=stderr_path,
         status_path=status_path,
+        vehicle_type_map_path=type_map_path,
     )
 
 

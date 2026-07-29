@@ -1,0 +1,21 @@
+{
+  "acceptance_version": "v0.4.1-pilot-accept-1",
+  "machine": {
+    "min_disk_gb": 50,
+    "min_ram_gb": 16,
+    "max_fcd_gb_per_run": 0.5
+  },
+  "wall_time_budget": {
+    "micro_pilot_max_minutes": 120,
+    "factorial_pilot_max_hours": 48,
+    "single_run_timeout_s": 900
+  },
+  "numeric": {
+    "additive_relative_tolerance": 1e-06,
+    "additive_absolute_tolerance": 1e-09
+  },
+  "stop_conditions": {
+    "max_failures": 20,
+    "max_consecutive_failures": 5
+  }
+}

@@ -526,7 +526,8 @@ python3 -m scripts.results.writer \
 # Aggregate across seeds (mean / std / median / min / max)
 python3 -m scripts.results.aggregate \
   --input /path/to/results/run_level_results.csv \
-  --output /path/to/results/aggregated_results.csv
+  --output /path/to/results/aggregated_results.csv \
+  --schema-version 1
 
 # Generate the four trade-off figures
 python3 -m scripts.results.visualization \

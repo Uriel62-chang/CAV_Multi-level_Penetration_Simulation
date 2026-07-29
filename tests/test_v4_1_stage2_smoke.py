@@ -39,10 +39,9 @@ def test_smoke_v4_1_full_pipeline():
         import copy
 
         net_meta_path = Path("net/scenario_0/net.json")
-        orig_meta = json.loads(net_meta_path.read_text())
-        net_meta_patched = copy.deepcopy(orig_meta)
+        orig_content = net_meta_path.read_bytes()
+        net_meta_patched = copy.deepcopy(json.loads(orig_content.decode()))
         net_meta_patched["free_flow_reference_path"] = str(ff_dir / "free_flow_references.json")
-        net_meta_path.rename(net_meta_path.with_suffix(".json.bak"))
         net_meta_path.write_text(json.dumps(net_meta_patched))
 
         # Stage 1: simulation
@@ -167,8 +166,4 @@ def test_smoke_v4_1_full_pipeline():
 
         _shutil.rmtree(root, ignore_errors=True)
         _shutil.rmtree(ff_dir, ignore_errors=True)
-        bak = Path("net/scenario_0/net.json.bak")
-        if bak.exists():
-            if Path("net/scenario_0/net.json").exists():
-                Path("net/scenario_0/net.json").unlink()
-            bak.rename(Path("net/scenario_0/net.json"))
+        Path("net/scenario_0/net.json").write_bytes(orig_content)

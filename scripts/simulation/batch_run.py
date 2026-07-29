@@ -772,8 +772,19 @@ async def run_sumo_process(
             _active_processes[spec.run_id] = process
 
             try:
-                effective_timeout = timeout_s if timeout_s else 7200  # 2h 硬上限
-                return_code = await asyncio.wait_for(process.wait(), timeout=effective_timeout)
+                deadline = timeout_s if timeout_s else 7200.0
+                poll_interval = min(0.5, deadline / 10.0)
+                started = time.monotonic()
+                while True:
+                    rc = getattr(process, "returncode", None)
+                    if rc is not None:
+                        return_code = rc
+                        break
+                    if time.monotonic() - started >= deadline:
+                        raise asyncio.TimeoutError()
+                    if _shutting_down:
+                        raise asyncio.TimeoutError()
+                    await asyncio.sleep(poll_interval)
             except asyncio.TimeoutError:
                 if getattr(process, "returncode", None) is not None:
                     # 进程已自行退出 → 使用实际返回码，继续正常判定
@@ -1083,7 +1094,7 @@ def main():
     )
     parser.add_argument("--output-root", default="raw", help="独立 run 目录根路径 (默认: raw/)")
     parser.add_argument(
-        "--timeout", type=float, default=None, help="单次 SUMO 最大允许时间 (s)，默认无限制"
+        "--timeout", type=float, default=None, help="单次 SUMO 最大允许时间 (s)，默认 7200"
     )
     parser.add_argument("--resume", action="store_true", help="跳过已完成且版本匹配的 run")
     parser.add_argument("--dry-run", action="store_true", help="只生成和校验任务，不启动 SUMO")
@@ -1338,7 +1349,7 @@ def main():
     print(
         f"\n[START] {len(specs)} tasks × {args.sumo_processes} workers, "
         f"resume={'ON' if args.resume else 'OFF'}, "
-        f"timeout={f'{args.timeout:.0f}s' if args.timeout else 'none'}\n"
+        f"timeout={f'{args.timeout:.0f}s' if args.timeout else '7200s'}\n"
     )
 
     try:

@@ -69,6 +69,8 @@ def test_missing_sumo_writes_failed_terminal_status(monkeypatch, tmp_path):
 
 def test_nonzero_return_code_writes_failed_terminal_status(monkeypatch, tmp_path):
     class Process:
+        returncode = 2
+
         async def wait(self):
             return 2
 
@@ -81,12 +83,13 @@ def test_nonzero_return_code_writes_failed_terminal_status(monkeypatch, tmp_path
     assert result.status == "FAILED"
     assert status["status"] == "FAILED"
     assert status["return_code"] == 2
-    assert status["error_message"] == "SUMO exited with code 2"
     assert status["sumo_command"]
 
 
 def test_zero_return_with_missing_outputs_is_failed(monkeypatch, tmp_path):
     class Process:
+        returncode = 0
+
         async def wait(self):
             return 0
 

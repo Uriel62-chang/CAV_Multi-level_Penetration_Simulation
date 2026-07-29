@@ -185,12 +185,14 @@ def _atomic_write_csv(path: Path, rows: list[dict], columns: list[str]) -> None:
     os.replace(tmp, path)
 
 
-def _completion_flags(failed_count: int, non_ok_count: int) -> dict[str, bool]:
+def _completion_flags(
+    failed_count: int, non_ok_count: int, subgroup_excluded: int = 0
+) -> dict[str, bool]:
     structurally_complete = failed_count == 0
     return {
         "structurally_complete": structurally_complete,
-        "all_rows_valid": structurally_complete and non_ok_count == 0,
-        "complete": structurally_complete and non_ok_count == 0,
+        "all_rows_valid": structurally_complete and non_ok_count == 0 and subgroup_excluded == 0,
+        "complete": structurally_complete and non_ok_count == 0 and subgroup_excluded == 0,
     }
 
 
@@ -439,6 +441,9 @@ def build_run_level_results(
             if expected_sha and sha256_file(subgroup_path) != expected_sha:
                 subgroup_excluded += 1
                 continue
+            if schema_ver == "2" and not expected_sha:
+                subgroup_excluded += 1
+                continue
             try:
                 for line in subgroup_path.read_text(encoding="utf-8").strip().split("\n"):
                     if line.strip():
@@ -475,6 +480,7 @@ def build_run_level_results(
         _completion_flags(
             failed_count=len(failed_rows),
             non_ok_count=quality_counts["quality_non_ok"],
+            subgroup_excluded=subgroup_excluded,
         )
     )
     report_path = output_dir / "writer_report.json"

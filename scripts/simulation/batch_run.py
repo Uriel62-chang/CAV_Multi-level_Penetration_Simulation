@@ -684,16 +684,12 @@ def _missing_required_outputs(run_dir: Path, spec: RunSpec) -> list[str]:
                 "emissions_CAV.xml",
             ]
         )
-        from scripts.simulation.single_run import load_network_meta
-
-        try:
-            net_meta = load_network_meta(spec.network_file)
-            num_lanes = max(net_meta.get("num_lanes", 1), 1)
-            for lane_idx in range(num_lanes):
-                names.append(f"detector_lane{lane_idx}_HV.xml")
-                names.append(f"detector_lane{lane_idx}_CAV.xml")
-        except Exception:
-            pass
+        det_hv = sorted(run_dir.glob("detector_lane*_HV.xml"))
+        det_cav = sorted(run_dir.glob("detector_lane*_CAV.xml"))
+        for p in det_hv:
+            names.append(p.name)
+        for p in det_cav:
+            names.append(p.name)
     return [
         name
         for name in names

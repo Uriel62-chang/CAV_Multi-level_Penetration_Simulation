@@ -37,7 +37,7 @@ def test_aggregate_emits_unique_metric_count_columns(tmp_path: Path):
         ]
     ).to_csv(input_path, index=False)
 
-    result = aggregate(input_path, output_path)
+    result = aggregate(input_path, output_path, "1")
 
     assert result.columns.is_unique
     assert result.loc[0, "n_valid"] == 2

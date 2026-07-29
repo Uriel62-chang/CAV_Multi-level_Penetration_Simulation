@@ -50,7 +50,7 @@ GROUP_KEYS_LEGACY = ["scenario", "model", "requested_pcav", "vehN"]
 GROUP_KEYS_V4_1 = ["scenario", "model", "vehN", "cav_count"]
 
 
-def aggregate(input_csv: Path, output_csv: Path, schema_ver: str = "1") -> pd.DataFrame:
+def aggregate(input_csv: Path, output_csv: Path, schema_ver: str) -> pd.DataFrame:
     if schema_ver not in ("1", "2"):
         raise ValueError(f"schema_ver must be '1' or '2', got {schema_ver!r}")
 

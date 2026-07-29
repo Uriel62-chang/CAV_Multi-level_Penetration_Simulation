@@ -341,10 +341,16 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
 
 def _load_free_flow_references(spec):
     import json as _json
-    import subprocess as _sp
     from pathlib import Path as _Path
 
-    artifact_path = _Path("artifacts/free_flow/v0.4.1-pilot-ff-1/free_flow_references.json")
+    from scripts.provenance import sha256_file as _sha256_file
+
+    net_meta = load_network_meta(spec.network_file)
+    artifact_rel = net_meta.get("free_flow_reference_path")
+    if artifact_rel:
+        artifact_path = _Path(artifact_rel)
+    else:
+        artifact_path = _Path("artifacts/free_flow/v0.4.1-pilot-ff-1/free_flow_references.json")
     if not artifact_path.exists():
         raise FileNotFoundError(f"free-flow artifact not found: {artifact_path}")
 
@@ -353,13 +359,22 @@ def _load_free_flow_references(spec):
     if not scenario_data:
         raise ValueError(f"scenario {spec.scenario} not in free-flow artifact")
 
-    sumo_ver = (
-        _sp.run(["sumo", "--version"], capture_output=True, text=True)
-        .stdout.strip()
-        .splitlines()[0]
-    )
-    if data.get("sumo_version") != sumo_ver.split()[-1] if sumo_ver else data["sumo_version"]:
-        raise ValueError("SUMO version mismatch in free-flow artifact")
+    artifact_net_sha = scenario_data.get("net_sha256", "")
+    current_net_sha = _sha256_file(spec.network_file)
+    if artifact_net_sha != current_net_sha:
+        raise ValueError(
+            f"free-flow artifact net_sha256 ({artifact_net_sha[:12]}...) "
+            f"!= network ({current_net_sha[:12]}...)"
+        )
+
+    import subprocess as _sp
+
+    sumo_out = _sp.run(["sumo", "--version"], capture_output=True, text=True).stdout.strip()
+    artifact_sumo = data.get("sumo_version", "")
+    if artifact_sumo != sumo_out:
+        raise ValueError(
+            f"free-flow artifact sumo_version ({artifact_sumo!r}) != current ({sumo_out!r})"
+        )
 
     refs = scenario_data.get("references", {})
     result = {}
@@ -396,10 +411,7 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
     net_meta_raw = load_network_meta(network_file or spec.network_file)
     num_lanes = max(net_meta_raw.get("num_lanes", 1), 1)
 
-    try:
-        free_flow_refs = _load_free_flow_references(spec)
-    except Exception:
-        free_flow_refs = {"HV": 98.8, "IDM": 98.8, "CACC": 98.8}
+    free_flow_refs = _load_free_flow_references(spec)
 
     warmup = spec.warmup
 

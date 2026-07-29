@@ -424,8 +424,10 @@ def parse_ssm_subgroup(
         if not has_ttc and not has_drac:
             continue
 
-        ego_type = type_map.get(rec["ego"], "UNKNOWN")
-        foe_type = type_map.get(rec["foe"], "UNKNOWN")
+        pair_ego = rec.get("min_ttc_source_ego") or rec["ego"]
+        pair_foe = rec.get("min_ttc_source_foe") or rec["foe"]
+        ego_type = type_map.get(pair_ego, "UNKNOWN")
+        foe_type = type_map.get(pair_foe, "UNKNOWN")
 
         pair_key = tuple(sorted([ego_type, foe_type], key=lambda t: type_order.get(t, 2)))
         pair_type = f"pair_{pair_key[0]}_{pair_key[1]}"
@@ -436,14 +438,24 @@ def parse_ssm_subgroup(
             result[pair_type]["drac_event_count"] += 1
 
         if has_ttc:
-            ttc_role = _classify_role(rec.get("min_ttc_type_code"), ego_type, foe_type)
+            ttc_src_ego = rec.get("min_ttc_source_ego") or rec["ego"]
+            ttc_src_foe = rec.get("min_ttc_source_foe") or rec["foe"]
+            ttc_src_etype = type_map.get(ttc_src_ego, "UNKNOWN")
+            ttc_src_ftype = type_map.get(ttc_src_foe, "UNKNOWN")
+            ttc_role = _classify_role(rec.get("min_ttc_type_code"), ttc_src_etype, ttc_src_ftype)
             if ttc_role and ttc_role in result:
                 result[ttc_role]["ttc_event_count"] += 1
             else:
                 result["unclassified"]["ttc_event_count"] += 1
 
         if has_drac:
-            drac_role = _classify_role(rec.get("max_drac_type_code"), ego_type, foe_type)
+            drac_src_ego = rec.get("max_drac_source_ego") or rec["ego"]
+            drac_src_foe = rec.get("max_drac_source_foe") or rec["foe"]
+            drac_src_etype = type_map.get(drac_src_ego, "UNKNOWN")
+            drac_src_ftype = type_map.get(drac_src_foe, "UNKNOWN")
+            drac_role = _classify_role(
+                rec.get("max_drac_type_code"), drac_src_etype, drac_src_ftype
+            )
             if drac_role and drac_role in result:
                 result[drac_role]["drac_event_count"] += 1
             else:

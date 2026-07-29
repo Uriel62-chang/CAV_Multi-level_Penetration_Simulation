@@ -24,3 +24,4 @@ requirements-lock-v0.4-dev.txt
 /results/run_level_results.csv
 /results/failed_runs.csv
 /results/writer_report.json
+artifacts/free_flow/

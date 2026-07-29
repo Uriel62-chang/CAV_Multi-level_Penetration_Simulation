@@ -10,6 +10,33 @@ from pathlib import Path
 def test_smoke_v4_1_full_pipeline():
     root = Path(tempfile.mkdtemp(prefix="smoke_v4_1_"))
     try:
+        # Ensure minimal free-flow artifact exists
+        ff_dir = Path("artifacts/free_flow/v0.4.1-pilot-ff-1")
+        ff_dir.mkdir(parents=True, exist_ok=True)
+        from scripts.provenance import sha256_file
+
+        net_sha = sha256_file("net/scenario_0/loop.net.xml")
+        ff_artifact = {
+            "reference_id": "ff-smoke",
+            "free_flow_version": "v0.4.1-pilot-ff-1",
+            "sumo_version": subprocess.run(
+                ["sumo", "--version"], capture_output=True, text=True
+            ).stdout.strip(),
+            "results": {
+                "scenario_0": {
+                    "net_sha256": net_sha,
+                    "references": {
+                        "HV": {"lap_time_s": 98.8, "source_run_id": "ff_smoke"},
+                        "CAV_IDM": {"lap_time_s": 98.8, "source_run_id": "ff_smoke"},
+                        "CAV_CACC": {"lap_time_s": 98.8, "source_run_id": "ff_smoke"},
+                    },
+                }
+            },
+        }
+        from scripts.run_spec import atomic_write_json
+
+        atomic_write_json(ff_dir / "free_flow_references.json", ff_artifact)
+
         # Stage 1: simulation
         result = subprocess.run(
             [
@@ -92,6 +119,35 @@ def test_smoke_v4_1_full_pipeline():
             with failed.open() as f:
                 failed_lines = f.read().strip().split("\n")
                 assert len(failed_lines) <= 1  # header only, no failed
+
+        # Verify subgroup CSV contains headway metrics
+        subgroup = out_dir / "run_level_subgroup_results.csv"
+        if subgroup.exists():
+            subgroup_text = subgroup.read_text()
+            assert "headway" in subgroup_text, "subgroup CSV missing headway metric_family"
+
+        # Stage 4: aggregate
+        agg_dir = root / "aggregated"
+        agg_dir.mkdir(exist_ok=True)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "scripts.results.aggregate",
+                "--input",
+                str(out_dir / "run_level_results.csv"),
+                "--output",
+                str(agg_dir / "aggregated_results.csv"),
+                "--schema-version",
+                "2",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=".",
+        )
+        assert result.returncode == 0, f"aggregate failed: {result.stderr[-500:]}"
+        assert (agg_dir / "aggregated_results.csv").exists()
 
     finally:
         import shutil

@@ -156,4 +156,10 @@ def _run_free_flow(run_id, spec, network_file, net_meta, cfg):
 
 
 if __name__ == "__main__":
-    measure_free_flow()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Measure free-flow reference lap times")
+    parser.add_argument("--config", default="configs/v0.4.1/free_flow.json")
+    parser.add_argument("--output-dir", default="artifacts/free_flow/v0.4.1-pilot-ff-1")
+    args = parser.parse_args()
+    measure_free_flow(config_path=args.config, output_dir=args.output_dir)

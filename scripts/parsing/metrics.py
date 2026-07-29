@@ -330,6 +330,22 @@ def compute_subgroup_records(primitives, spec, free_flow_refs):
         )
         _add("vehicle_type", vt, "delay", "p95_lap_delay_s", delay_p95)
 
+    # FCD headway
+    if primitives.fcd is not None:
+        for vt in ("HV", "CAV"):
+            fcd_vt = primitives.fcd.get(vt, {})
+            for key in (
+                "mean_thw_s",
+                "median_thw_s",
+                "p05_thw_s",
+                "thw_lt_1s_ratio",
+                "valid_thw_sample_count",
+                "low_speed_excluded_count",
+                "no_leader_count",
+                "self_leader_count",
+            ):
+                _add("vehicle_type", vt, "headway", key, fcd_vt.get(key, float("nan")))
+
     return records
 
 
@@ -345,15 +361,15 @@ def validate_subgroup_invariants(primitives):
 
         if av is None or hv_val is None or cv_val is None:
             return
-        av = av or 0
-        hv_val = hv_val or 0
-        cv_val = cv_val or 0
         if isinstance(av, float) and _m.isnan(av):
             return
         if isinstance(hv_val, float) and _m.isnan(hv_val):
             return
         if isinstance(cv_val, float) and _m.isnan(cv_val):
             return
+        av = float(av)
+        hv_val = float(hv_val)
+        cv_val = float(cv_val)
         sv = hv_val + cv_val
         if av == 0 and sv == 0:
             return

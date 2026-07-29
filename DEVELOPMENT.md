@@ -64,9 +64,9 @@
 
 ### D-005：S8 冻结输入推迟到 1.post1
 
-- **状态**：Deferred
+- **状态**：Deferred（部分完成：环路距离校验已在阶段 2 实现）
 - **决策提交**：`59c1b17`
-- **适用范围**：frozen_inputs、canonical_json_bytes、atomic_write_bytes、--acceptance CLI、preparedRun.fcd_path、环路距离校验
+- **适用范围**：frozen_inputs、canonical_json_bytes、atomic_write_bytes、--acceptance CLI、PreparedRun.fcd_path
 - **重新评估触发条件**：阶段 1.post1 开始
 - **背景**：冻结输入是实现 provenance 可追溯性的独立功能，不影响 raw 生成核心路径。
 - **决定**：推迟到阶段 1.post1。阶段 1 解除门禁条件改为 S1–S7, S9, S10。

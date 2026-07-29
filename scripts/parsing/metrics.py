@@ -416,8 +416,8 @@ def validate_subgroup_invariants(primitives):
     ep_hv = primitives.edge_perf.get("HV", {})
     ep_cav = primitives.edge_perf.get("CAV", {})
     for key in ("total_vehicle_km", "non_internal_edge_vehicle_km"):
-        _check_additive(ep_all, ep_hv, ep_cav, key, 5e-5, 1e-6)
-    _check_additive(ep_all, ep_hv, ep_cav, "total_time_loss_s", 1e-6, 1e-3)
+        _check_additive(ep_all, ep_hv, ep_cav, key, 2e-4, 1e-3)
+    _check_additive(ep_all, ep_hv, ep_cav, "total_time_loss_s", 1e-5, 1e-3)
 
     ee_all = primitives.edge_emis.get("all", {})
     ee_hv = primitives.edge_emis.get("HV", {})

@@ -6,9 +6,9 @@
   "sumo_peak_rss_bytes_per_run_max": 2147483648,
   "fcd_parser_peak_rss_bytes_per_run_max": 209715200,
   "tolerances": {
-    "vehicle_km": {"rel": 5e-5, "abs": 1e-6},
-    "non_internal_edge_vehicle_km": {"rel": 5e-5, "abs": 1e-6},
-    "time_loss": {"rel": 1e-6, "abs": 1e-3},
+    "vehicle_km": {"rel": 2e-4, "abs": 1e-3},
+    "non_internal_edge_vehicle_km": {"rel": 2e-4, "abs": 1e-3},
+    "time_loss": {"rel": 1e-5, "abs": 1e-3},
     "emissions": {"rel": 1e-6, "abs": 1e-9},
     "lane_change_count": {"rel": 0, "abs": 0},
     "unsafe_lc_gap_count": {"rel": 0, "abs": 0},

@@ -233,14 +233,24 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
             try:
                 with open("/proc/self/status") as _sf:
                     for _line in _sf:
-                        if _line.startswith("VmHWM:"):
+                        if _line.startswith("VmRSS:"):
                             _val = int(_line.split()[1])
                             if _val > _max_rss_kb:
                                 _max_rss_kb = _val
                             break
             except (OSError, ValueError, IndexError):
                 pass
-            _rss_stop.wait(0.05)
+            _rss_stop.wait(0.01)
+
+    # Capture initial baseline before starting thread
+    try:
+        with open("/proc/self/status") as _sf:
+            for _line in _sf:
+                if _line.startswith("VmRSS:"):
+                    _max_rss_kb = int(_line.split()[1])
+                    break
+    except (OSError, ValueError, IndexError):
+        pass
 
     _rss_sampler = threading.Thread(target=_rss_sample, daemon=True)
     _rss_sampler.start()

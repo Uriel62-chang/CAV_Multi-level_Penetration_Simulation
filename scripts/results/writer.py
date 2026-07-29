@@ -12,6 +12,7 @@
 import argparse
 import csv
 import json
+import math
 import os
 import sys
 from collections import Counter
@@ -20,6 +21,24 @@ from pathlib import Path
 from scripts.provenance import sha256_file
 from scripts.run_spec import atomic_write_json
 from scripts.schema import RUN_LEVEL_COLUMNS
+
+
+def _recompute_rate(numerator, denominator, fallback=None):
+    """由原始分子/分母重算比率；二者不可用时回退到旧预计算值。"""
+    try:
+        n = float(numerator) if numerator is not None else float("nan")
+        d = float(denominator) if denominator is not None else float("nan")
+    except (ValueError, TypeError):
+        n = float("nan")
+        d = float("nan")
+    if math.isnan(n) or math.isnan(d) or d <= 0:
+        if fallback is not None:
+            try:
+                return float(fallback)
+            except (ValueError, TypeError):
+                pass
+        return float("nan")
+    return n / d * 1000
 
 
 def _read_summary(
@@ -81,8 +100,10 @@ def _build_row(summary: dict, parse_status: str) -> dict:
                 "non_internal_edge_vehicle_km",
                 summary.get("total_vehicle_km", float("nan")),
             ),
-            "whole_network_ttc_events_per_1000_non_internal_edge_veh_km": summary.get(
-                "ttc_events_per_1000_veh_km", float("nan")
+            "whole_network_ttc_events_per_1000_non_internal_edge_veh_km": _recompute_rate(
+                summary.get("ttc_conflict_event_count"),
+                summary.get("non_internal_edge_vehicle_km"),
+                summary.get("ttc_events_per_1000_veh_km"),
             ),
         }
     )

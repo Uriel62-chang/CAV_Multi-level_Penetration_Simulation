@@ -12,6 +12,7 @@ def test_v4_1_round_trip_cav_count_mode():
         seed=1,
         run_id="s0_IDM_v010_c005_as01_ss101",
         pipeline_version=PIPELINE_V4_1,
+        schema_version="2",
         sumo_seed=101,
         cav_count=5,
         requested_pcav=None,

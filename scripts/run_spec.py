@@ -201,6 +201,15 @@ class RunSpec:
                 raise ValueError("ssm_capture_drac_threshold_mps2 must be positive and finite")
             if self.ssm_range_m <= 0 or not self._finite(self.ssm_range_m):
                 raise ValueError("ssm_range_m must be positive and finite")
+            if self.fcd_profile is not None and self.fcd_profile not in ("1s", "0.1s"):
+                raise ValueError(f"fcd_profile must be '1s' or '0.1s', got {self.fcd_profile!r}")
+            if self.fcd_profile is not None:
+                if self.fcd_max_leader_distance_m is None:
+                    raise ValueError("fcd_max_leader_distance_m required when fcd_profile is set")
+                if self.fcd_max_leader_distance_m <= 0 or not self._finite(
+                    self.fcd_max_leader_distance_m
+                ):
+                    raise ValueError("fcd_max_leader_distance_m must be positive and finite")
 
     @staticmethod
     def _finite(val: float) -> bool:

@@ -777,16 +777,20 @@ async def run_sumo_process(
                 else:
                     return_code = await process.wait()
             except asyncio.TimeoutError:
-                with suppress(ProcessLookupError):
-                    process.terminate()
-                try:
-                    await asyncio.wait_for(process.wait(), timeout=10)
-                except asyncio.TimeoutError:
+                # 若进程已自行退出（returncode 非 None），按正常结束处理
+                if getattr(process, "returncode", None) is not None:
+                    return_code = process.returncode
+                else:
                     with suppress(ProcessLookupError):
-                        process.kill()
-                    await process.wait()
-                except ProcessLookupError:
-                    pass
+                        process.terminate()
+                    try:
+                        await asyncio.wait_for(process.wait(), timeout=10)
+                    except asyncio.TimeoutError:
+                        with suppress(ProcessLookupError):
+                            process.kill()
+                        await process.wait()
+                    except ProcessLookupError:
+                        pass
 
                 wall_time = time.monotonic() - t0
                 finished_at = datetime.now(timezone.utc).isoformat()
@@ -1266,7 +1270,7 @@ def main():
         sys.exit(1)
     print(f"[VALIDATE] {len(specs)} tasks generated")
 
-    # v0.4.1 pipeline: non-dry-run gate removed (Stage 1 complete)
+    # v0.4.1 pipeline: gate removed for stages 1-4; S8 (frozen inputs) deferred
 
     try:
         validate_specs(specs, scenarios, models, **spec_kwargs)

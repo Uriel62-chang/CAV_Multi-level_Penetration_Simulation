@@ -103,6 +103,7 @@ def test_missing_required_outputs_requires_fcd_when_enabled(tmp_path):
         cav_count=5,
         requested_pcav=None,
         fcd_profile="1s",
+        fcd_max_leader_distance_m=4000,
     )
     rd = tmp_path / "fcd_run"
     rd.mkdir()
@@ -125,6 +126,7 @@ def test_resume_rejects_missing_fcd(tmp_path):
         cav_count=5,
         requested_pcav=None,
         fcd_profile="1s",
+        fcd_max_leader_distance_m=4000,
     )
     rd = tmp_path / "fcd_run"
     rd.mkdir()

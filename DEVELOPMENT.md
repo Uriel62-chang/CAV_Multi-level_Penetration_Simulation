@@ -108,14 +108,14 @@
 
 ### D-009：schema=2 detector 预期输出由 net.json.num_lanes 决定并 fail-closed
 
-- **状态**：Active；`7f996e7` 尚有严格类型校验缺口，未通过 Reviewer 终验
-- **决策提交**：`faac364`；当前实现提交：`7f996e7`
+- **状态**：Active
+- **决策提交**：`faac364`；实现提交：`80ac97b`；测试提交：`9ae9ae8`、`53d8e11`
 - **适用范围**：`_missing_required_outputs()`、`is_simulation_complete()`、schema=2 simulation/resume
 - **重新评估触发条件**：PreparedRun 固化 expected-output 清单，或网络元数据 schema 变更时
-- **背景**：从实际存在的 detector 文件反推预期集合无法发现“全部缺失”或双车道缺 lane1。
-- **决定**：从 RunSpec.network_file 同目录的受验证 `net.json` 读取正整数 `num_lanes`，无条件要求 `0..num_lanes-1` 每个 lane 的 all/HV/CAV 三件套；元数据缺失、损坏、结构错误或 num_lanes 非正整数时不得回退单车道。
+- **背景**：从实际存在的 detector 文件反推预期集合无法发现"全部缺失"或双车道缺 lane1。
+- **决定**：从 RunSpec.network_file 同目录的受验证 `net.json` 读取正整数 `num_lanes`，无条件要求 `0..num_lanes-1` 每个 lane 的 all/HV/CAV 三件套；元数据缺失、损坏、结构错误或 num_lanes 非正整数时 fail-closed（`_missing_required_outputs` 抛 ValueError，`is_simulation_complete` 返回 False）。
 - **原因**：required-output 和 resume 必须 fail-closed，不能用缺失输出来推断实验结构。
-- **当前代价**：run 完整性校验依赖 net.json 可用；两个调用点目前有少量重复读取逻辑。
+- **当前代价**：两个调用点有少量重复读取逻辑。
 
 ---
 
@@ -124,15 +124,14 @@
 ### 已完成
 
 - **阶段 0+1 已实现**：cav_count 双 seed 网格 + inactive-dimension 规范化；SUMO 命令注入 seed/SSM capture/FCD 输出；withInternal=true additional；writer `non_internal_edge_vehicle_km` 列名修正；进程退出轮询 + SIGINT→CANCELLED；CLI `--assignment-seeds`/`--sumo-seeds` 命名。
-- **阶段 2 实现基本完成、终验未通过**：HV/CAV 子群拆分（detector/edgeData/SSM/vehroute/lanechange/stderr）；FCD physical THW 与 headway 长表；SSM pair/role provenance；schema=2 runner/writer/aggregate；subgroup JSONL + SHA；自由流 artifact hard-reject 链；SSM sensitivity CLI；free-flow 测量；sim→parse→write→aggregate smoke。
-- **已验证**：142 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；真实 smoke 得到 16 条 headway 记录；cav_count=0 合法空子群 parse SUCCESS；free-flow producer→loader round-trip 成功；subgroup 缺失/篡改时 resume 和 writer 均拒绝。
-- **已提交**：阶段 2 从设计基线 `460f0e6` 到最近功能提交 `7f996e7`，共 21 commits。
+- **阶段 2 完成**（2026-07-29，已批准）：HV/CAV 子群拆分（detector/edgeData/SSM/vehroute/lanechange/stderr）；FCD physical THW 与 headway 长表；SSM pair/role provenance（D-006）；schema=2 runner/writer/aggregate；subgroup JSONL + SHA；自由流 artifact hard-reject 链（D-008）；SSM sensitivity CLI；free-flow 测量；FCD numpy 内存方案（D-007）；net.json num_lanes fail-closed 校验（D-009）；sim→parse→write→aggregate smoke。
+- **已验证**：149 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过。
+- **已提交**：阶段 2 从设计基线 `460f0e6` 到最终批准 `49d1ac2`，共 29 commits。
 
 ### 当前状态
 
 - **当前分支**：`main`
-- **最近门禁通过的功能提交**：`7f996e7`（net.json num_lanes fail-closed）；自动门禁通过，但 Reviewer 尚未批准阶段 2。
-- **Reviewer 终验状态**：BLOCKED — `is_simulation_complete()` 对合法 JSON 的错误结构/数值未稳定返回 False。
+- **最近提交**：`49d1ac2`（docs: stage2 complete）
 - **本文档最后更新**：参见 `git log -1 --oneline -- DEVELOPMENT.md`
 - **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-29
 - **可运行入口**：
@@ -147,12 +146,8 @@
 
 ### 待处理
 
-- **立即处理的唯一 Reviewer blocker**：统一严格读取 `net.json.num_lanes`。JSON root 必须为 object，且 `type(num_lanes) is int and num_lanes >= 1`；`_missing_required_outputs()` 对错误抛 FileNotFoundError/ValueError，`is_simulation_complete()` 对同类错误返回 False。
-  - 当前 `7f996e7` 的复现：`net.json=[]` → resume 抛 AttributeError；`num_lanes=NaN` → resume 抛 ValueError；`num_lanes=1.5` → 被 `int()` 截断并错误接受。
-  - 修复后必须增加三个负向测试，并复跑 schema=2 单车道/双车道 simulation + resume 探针。
-- **Reviewer 复核顺序**：先检查 `git diff 7f996e7..HEAD`；再验证上述三项均 fail-closed；随后运行 142+ tests、Ruff/mypy/format/compileall、10,080/162 dry-run。不得因现有门禁全绿而跳过定向探针。
-- **终验通过后的下一阶段任务**：micro-pilot Level 1（6–12 runs）→ Level 2 bounded factorial pilot。
-- **known gaps（非当前 blocker）**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针；测试总数仍为 142，近期多项边界修复主要依赖 smoke/人工探针。
+- **下一阶段任务**：micro-pilot Level 1（6-12 runs）→ Level 2 bounded factorial pilot。
+- **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针数据；测试总数 149（设计要求 48 项 stage2 测试，当前新增 38 项，以上轮审批确认的 38 项实际新增为准）。
 - **暂缓**：S8 冻结输入、PreparedRun.fcd_path → 1.post1。
 
 ### 重要约束

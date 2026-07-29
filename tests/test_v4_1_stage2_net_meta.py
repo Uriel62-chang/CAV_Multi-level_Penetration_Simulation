@@ -63,7 +63,9 @@ def _setup_run_dir(tmp_path, spec, net_json_content):
     ]:
         (rd / f).write_text("<root/>")
     (rd / "vehicle_type_map.json").write_text(
-        json.dumps({f"veh{i}": ("CAV" if i < spec.cav_count else "HV") for i in range(spec.vehicle_count)})
+        json.dumps(
+            {f"veh{i}": ("CAV" if i < spec.cav_count else "HV") for i in range(spec.vehicle_count)}
+        )
     )
     status = {
         "run_id": spec.run_id,
@@ -84,41 +86,52 @@ def _setup_run_dir(tmp_path, spec, net_json_content):
     return rd, spec
 
 
+_SUBGROUP_FILES = (
+    "performance_HV.xml",
+    "performance_CAV.xml",
+    "emissions_HV.xml",
+    "emissions_CAV.xml",
+)
+_DETECTOR_FILES = (
+    "detector_lane0.xml",
+    "detector_lane0_HV.xml",
+    "detector_lane0_CAV.xml",
+)
+
+
+def _write_all_files(rd):
+    for fname in _SUBGROUP_FILES + _DETECTOR_FILES:
+        (rd / fname).write_text("<root/>")
+
+
+def _write_subgroup_only(rd):
+    for fname in _SUBGROUP_FILES:
+        (rd / fname).write_text("<root/>")
+
+
 class TestNetMetaResume:
     def test_net_json_list_root(self, tmp_path):
         spec = _make_spec()
         rd, spec = _setup_run_dir(tmp_path, spec, "[]")
-        for fname in ("performance_HV.xml", "performance_CAV.xml", "emissions_HV.xml", "emissions_CAV.xml"):
-            (rd / fname).write_text("<root/>")
+        _write_all_files(rd)
         assert is_simulation_complete(spec, rd, PIPELINE_V4_1) is False
 
     def test_net_json_nan_num_lanes(self, tmp_path):
         spec = _make_spec()
         rd, spec = _setup_run_dir(tmp_path, spec, {"num_lanes": float("nan")})
-        for fname in ("performance_HV.xml", "performance_CAV.xml", "emissions_HV.xml", "emissions_CAV.xml"):
-            (rd / fname).write_text("<root/>")
+        _write_all_files(rd)
         assert is_simulation_complete(spec, rd, PIPELINE_V4_1) is False
 
     def test_net_json_float_num_lanes(self, tmp_path):
         spec = _make_spec()
         rd, spec = _setup_run_dir(tmp_path, spec, {"num_lanes": 1.5})
-        for fname in ("performance_HV.xml", "performance_CAV.xml", "emissions_HV.xml", "emissions_CAV.xml"):
-            (rd / fname).write_text("<root/>")
+        _write_all_files(rd)
         assert is_simulation_complete(spec, rd, PIPELINE_V4_1) is False
 
     def test_net_json_valid_num_lanes(self, tmp_path):
         spec = _make_spec()
         rd, spec = _setup_run_dir(tmp_path, spec, {"num_lanes": 1, "edge_ids": ["e0"]})
-        for fname in (
-            "performance_HV.xml",
-            "performance_CAV.xml",
-            "emissions_HV.xml",
-            "emissions_CAV.xml",
-            "detector_lane0.xml",
-            "detector_lane0_HV.xml",
-            "detector_lane0_CAV.xml",
-        ):
-            (rd / fname).write_text("<root/>")
+        _write_all_files(rd)
         assert is_simulation_complete(spec, rd, PIPELINE_V4_1) is True
 
 

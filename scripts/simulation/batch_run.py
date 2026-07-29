@@ -777,55 +777,57 @@ async def run_sumo_process(
                 else:
                     return_code = await process.wait()
             except asyncio.TimeoutError:
-                # 若进程已自行退出（returncode 非 None），按正常结束处理
                 if getattr(process, "returncode", None) is not None:
+                    # 进程已自行退出 → 使用实际返回码，继续正常判定
                     return_code = process.returncode
                 else:
+                    # 进程未退出 → 强制终止，记为 TIMEOUT
                     with suppress(ProcessLookupError):
                         process.terminate()
                     try:
-                        await asyncio.wait_for(process.wait(), timeout=10)
+                        return_code = await asyncio.wait_for(process.wait(), timeout=10)
                     except asyncio.TimeoutError:
                         with suppress(ProcessLookupError):
                             process.kill()
-                        await process.wait()
+                        return_code = await process.wait()
                     except ProcessLookupError:
                         pass
 
-                wall_time = time.monotonic() - t0
-                finished_at = datetime.now(timezone.utc).isoformat()
-                _active_processes.pop(spec.run_id, None)
-                status_data = {
-                    "run_id": spec.run_id,
-                    "stage": "SIMULATION",
-                    "status": "TIMEOUT",
-                    "return_code": None,
-                    "pipeline_version": pipeline_version,
-                    "run_spec_sha256": run_spec_sha256,
-                    "schema_version": spec.schema_version,
-                    "config_sha256": spec.config_sha256,
-                    "network_sha256": spec.network_sha256,
-                    "experiment_id": spec.experiment_id,
-                    "sumo_seed": spec.sumo_seed,
-                    "assignment_seed": spec.seed,
-                    "started_at": started_at,
-                    "finished_at": finished_at,
-                    "wall_time_s": wall_time,
-                    "error_message": f"Timeout after {timeout_s}s",
-                    "sumo_command": cmd,
-                    "stderr_tail": _stderr_tail(prepared.stderr_path),
-                }
-                atomic_write_json(prepared.status_path, status_data)
-                return SimulationResult(
-                    run_id=spec.run_id,
-                    status="TIMEOUT",
-                    return_code=None,
-                    run_dir=str(run_dir),
-                    started_at=started_at,
-                    finished_at=finished_at,
-                    wall_time_s=wall_time,
-                    error_message=f"Timeout after {timeout_s}s",
-                )
+                    wall_time = time.monotonic() - t0
+                    finished_at = datetime.now(timezone.utc).isoformat()
+                    _active_processes.pop(spec.run_id, None)
+                    status_data = {
+                        "run_id": spec.run_id,
+                        "stage": "SIMULATION",
+                        "status": "TIMEOUT",
+                        "return_code": None,
+                        "pipeline_version": pipeline_version,
+                        "run_spec_sha256": run_spec_sha256,
+                        "schema_version": spec.schema_version,
+                        "config_sha256": spec.config_sha256,
+                        "network_sha256": spec.network_sha256,
+                        "experiment_id": spec.experiment_id,
+                        "sumo_seed": spec.sumo_seed,
+                        "assignment_seed": spec.seed,
+                        "started_at": started_at,
+                        "finished_at": finished_at,
+                        "wall_time_s": wall_time,
+                        "error_message": f"Timeout after {timeout_s}s",
+                        "sumo_command": cmd,
+                        "stderr_tail": _stderr_tail(prepared.stderr_path),
+                    }
+                    atomic_write_json(prepared.status_path, status_data)
+                    return SimulationResult(
+                        run_id=spec.run_id,
+                        status="TIMEOUT",
+                        return_code=None,
+                        run_dir=str(run_dir),
+                        started_at=started_at,
+                        finished_at=finished_at,
+                        wall_time_s=wall_time,
+                        error_message=f"Timeout after {timeout_s}s",
+                    )
+                # returncode 可用 → 继续正常判定
 
         _active_processes.pop(spec.run_id, None)
         wall_time = time.monotonic() - t0

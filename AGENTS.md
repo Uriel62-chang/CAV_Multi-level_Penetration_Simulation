@@ -77,6 +77,43 @@ python3 -m scripts.results.visualization \
   .venv/bin/python3 -m ruff format --check .
   ```
 
+## 当前版本
+
+**v0.4.1 阶段 1 完成**（2026-07-30）
+
+### 阶段 0 交付
+- cav_count 双 seed 网格（新 run_id 格式 `s2_IDM_v120_c060_as01_ss101`）
+- RunSpec 哈希向后兼容（legacy to_dict 不含新字段）
+- inactive dimension 规范化（cav=0 → model="IDM" sentinel, seed=0 sentinel）
+- resume 输入完整性校验（routes.rou.xml, vehicle_type_map.json, SHA-256）
+- v0.4.1 非 dry-run 门禁已解除
+
+### 阶段 1 交付
+- SUMO 命令注入 `--seed`、`--device.ssm.measures/thresholds/range`、FCD 输出
+- additional 文件 `withInternal="true"`
+- writer `non_internal_edge_vehicle_km` 列名语义修正
+- 进程退出轮询检测（不依赖 `process.wait()` 唤醒）
+- SIGINT → CANCELLED 状态机
+- CLI `--assignment-seeds` / `--sumo-seeds` 命名
+
+### 推迟到 1.post1
+- S8 冻结输入（canonical_json_bytes, atomic_write_bytes, --acceptance）
+- PreparedRun.fcd_path
+- fcd_max_leader_distance_m ≥ 环路总长校验
+
+### 测试基线
+- 104 tests passed（85 legacy + 19 v0.4.1）
+- Ruff / mypy / compileall / format 全通过
+- dry-run: v0.4.0 10,080 / pilot 162 / smoke 1
+- 使用项目根目录的 `.venv` 虚拟环境运行所有 Python 命令（`ruff`、`mypy`、`pytest`、`compileall` 等）
+  ```bash
+  .venv/bin/python3 -m pytest -q
+  .venv/bin/python3 -m ruff check .
+  .venv/bin/python3 -m mypy scripts/run_spec.py scripts/experiment_config.py scripts/provenance.py
+  .venv/bin/python3 -m compileall -q scripts tests
+  .venv/bin/python3 -m ruff format --check .
+  ```
+
 ## 辅助文档
 
 以下文件是被 Git 忽略的本地维护记录，用于项目作者日后回顾 v0.4.0–post2

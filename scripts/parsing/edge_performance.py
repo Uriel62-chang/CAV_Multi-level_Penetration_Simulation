@@ -13,6 +13,7 @@ def parse_edge_performance(xml_path: str, warmup_period: float = 0.0):
     Returns:
         dict: {
             "total_vehicle_km": float or NaN,
+            "non_internal_edge_vehicle_km": float or NaN,
             "total_time_loss_s": float or NaN,
             "parse_success": bool,
         }
@@ -20,6 +21,7 @@ def parse_edge_performance(xml_path: str, warmup_period: float = 0.0):
 
     result = {
         "total_vehicle_km": float("nan"),
+        "non_internal_edge_vehicle_km": float("nan"),
         "total_time_loss_s": float("nan"),
         "parse_success": False,
     }
@@ -31,6 +33,7 @@ def parse_edge_performance(xml_path: str, warmup_period: float = 0.0):
         return result
 
     total_distance_m = 0.0
+    non_internal_distance_m = 0.0
     total_time_loss = 0.0
 
     for interval in root.findall("interval"):
@@ -48,7 +51,12 @@ def parse_edge_performance(xml_path: str, warmup_period: float = 0.0):
                 continue
 
             # distance = meanSpeed × sampledSeconds (m)
-            total_distance_m += speed * sampled_seconds
+            edge_dist = speed * sampled_seconds
+            total_distance_m += edge_dist
+            if edge.get("id", "").startswith(":"):
+                pass  # internal edge, excluded from non_internal
+            else:
+                non_internal_distance_m += edge_dist
 
             try:
                 time_loss = float(edge.get("timeLoss", "0"))
@@ -57,8 +65,10 @@ def parse_edge_performance(xml_path: str, warmup_period: float = 0.0):
             total_time_loss += time_loss
 
     total_vehicle_km = total_distance_m / 1000.0
+    non_internal_km = non_internal_distance_m / 1000.0
 
     result["total_vehicle_km"] = total_vehicle_km
+    result["non_internal_edge_vehicle_km"] = non_internal_km
     result["total_time_loss_s"] = total_time_loss
     result["parse_success"] = True
     return result

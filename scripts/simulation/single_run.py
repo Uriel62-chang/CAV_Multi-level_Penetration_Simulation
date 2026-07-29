@@ -206,6 +206,7 @@ def _write_additional_xml(
 ) -> None:
     """写入合并的附加 XML（检测器 + edgeData）"""
     internal_attr = ' withInternal="true"' if with_internal else ""
+    with additional_path.open("w", encoding="utf-8") as f:
         f.write("<additional>\n")
         # E1 检测器
         for lane_idx in range(num_lanes):

@@ -1019,9 +1019,14 @@ def main():
     parser.add_argument("--pstep", type=float, default=None, help="显式覆盖配置中的 pCAV 网格步长")
     parser.add_argument("--vehN-list", default=None, help="显式覆盖配置中的车辆数列表，逗号分隔")
     parser.add_argument(
+        "--assignment-seeds",
+        default=None,
+        help="显式覆盖车辆类型排列种子列表（推荐）",
+    )
+    parser.add_argument(
         "--seeds",
         default=None,
-        help="显式覆盖车辆类型排列种子列表，仅控制 Python 侧 CAV/HV 空间排列",
+        help="[deprecated] 同 --assignment-seeds",
     )
     parser.add_argument(
         "--model", choices=CAV_MODELS, default=None, help="显式覆盖配置，仅运行一个 CAV 模型"
@@ -1040,6 +1045,11 @@ def main():
         config = load_experiment_config(args.config)
     except ValueError as exc:
         parser.error(str(exc))
+
+    if args.seeds is not None and args.assignment_seeds is not None:
+        parser.error("cannot use both --seeds and --assignment-seeds")
+    if args.seeds is not None:
+        print("[WARNING] --seeds is deprecated, use --assignment-seeds")
 
     scenarios = [args.scenario] if args.scenario else list(config.scenarios)
     # 校验 --scenario 是否在配置的场景列表中
@@ -1080,11 +1090,12 @@ def main():
                 parser.error(f"invalid --sumo-seeds value: {args.sumo_seeds}")
         # 注入全局 assignment_seeds 到 treatments（CLI 覆盖优先）
         aseeds = list(config.seeds)
-        if args.seeds is not None:
+        seeds_arg = args.assignment_seeds or args.seeds
+        if seeds_arg is not None:
             try:
-                aseeds = [int(x.strip()) for x in args.seeds.split(",") if x.strip()]
+                aseeds = [int(x.strip()) for x in seeds_arg.split(",") if x.strip()]
             except ValueError:
-                parser.error(f"invalid --seeds value: {args.seeds}")
+                parser.error(f"invalid assignment seeds value: {seeds_arg}")
         for t in treatments:
             if "assignment_seeds" not in t and aseeds:
                 t["assignment_seeds"] = aseeds
@@ -1108,11 +1119,12 @@ def main():
             except ValueError:
                 parser.error(f"invalid --vehN-list value: {args.vehN_list}")
         seeds = list(config.seeds)
-        if args.seeds is not None:
+        seeds_arg = args.assignment_seeds or args.seeds
+        if seeds_arg is not None:
             try:
-                seeds = [int(x.strip()) for x in args.seeds.split(",") if x.strip()]
+                seeds = [int(x.strip()) for x in seeds_arg.split(",") if x.strip()]
             except ValueError:
-                parser.error(f"invalid --seeds value: {args.seeds}")
+                parser.error(f"invalid assignment seeds value: {seeds_arg}")
         try:
             pcav_levels = (
                 generate_pcav_levels(args.pstep)
@@ -1179,13 +1191,7 @@ def main():
         sys.exit(1)
     print(f"[VALIDATE] {len(specs)} tasks generated")
 
-    # v0.4.1 pipeline 在阶段 1 完成前仅允许 dry-run
-    if not args.dry_run and resolved_config.pipeline_version == "v0.4.1":
-        print(
-            "[ERROR] v0.4.1 pipeline is not yet ready for full simulation. "
-            "Use --dry-run to validate the grid, or wait for Stage 1."
-        )
-        sys.exit(1)
+    # v0.4.1 pipeline: non-dry-run gate removed (Stage 1 complete)
 
     try:
         validate_specs(specs, scenarios, models, **spec_kwargs)
@@ -1236,6 +1242,8 @@ def main():
         "results": [
             {
                 "run_id": spec.run_id,
+                "assignment_seed": spec.seed,
+                "sumo_seed": spec.sumo_seed,
                 "status": "PLANNED",
                 "run_spec_sha256": spec.sha256(),
                 "network_sha256": spec.network_sha256,

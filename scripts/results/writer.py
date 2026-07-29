@@ -77,7 +77,10 @@ def _build_row(summary: dict, parse_status: str) -> dict:
             "realized_pcav": cav_count / vehicle_count,
             "cav_count": cav_count,
             "hv_count": vehicle_count - cav_count,
-            "non_internal_edge_vehicle_km": summary.get("total_vehicle_km", float("nan")),
+            "non_internal_edge_vehicle_km": summary.get(
+                "non_internal_edge_vehicle_km",
+                summary.get("total_vehicle_km", float("nan")),
+            ),
             "whole_network_ttc_events_per_1000_non_internal_edge_veh_km": summary.get(
                 "ttc_events_per_1000_veh_km", float("nan")
             ),

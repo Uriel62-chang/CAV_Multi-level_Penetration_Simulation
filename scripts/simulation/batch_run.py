@@ -14,7 +14,6 @@ import argparse
 import asyncio
 import hashlib
 import os
-import resource
 import shutil
 import signal
 import sys
@@ -785,7 +784,7 @@ async def run_sumo_process(
             )
 
         # 启动 SUMO 子进程
-        _rss_before = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+        _max_rss_kb = 0
         with (
             prepared.stdout_path.open("wb") as stdout_f,
             prepared.stderr_path.open("wb") as stderr_f,
@@ -802,11 +801,24 @@ async def run_sumo_process(
                 deadline = timeout_s if timeout_s else 7200.0
                 poll_interval = min(0.5, deadline / 10.0)
                 started = time.monotonic()
+                _pid = process.pid
+                _status_path = f"/proc/{_pid}/status" if _pid else None
                 while True:
                     rc = getattr(process, "returncode", None)
                     if rc is not None:
                         return_code = rc
                         break
+                    if _status_path:
+                        try:
+                            with open(_status_path) as _sf:
+                                for _line in _sf:
+                                    if _line.startswith("VmRSS:"):
+                                        _val = int(_line.split()[1])
+                                        if _val > _max_rss_kb:
+                                            _max_rss_kb = _val
+                                        break
+                        except (OSError, ValueError, IndexError):
+                            pass
                     if _shutting_down:
                         raise asyncio.CancelledError()
                     if time.monotonic() - started >= deadline:
@@ -843,6 +855,7 @@ async def run_sumo_process(
                     "error_message": "Cancelled by user",
                     "sumo_command": cmd,
                     "stderr_tail": _stderr_tail(prepared.stderr_path),
+                    "sumo_peak_rss_kb": _max_rss_kb,
                 }
                 atomic_write_json(prepared.status_path, status_data)
                 return SimulationResult(
@@ -894,6 +907,7 @@ async def run_sumo_process(
                         "error_message": f"Timeout after {deadline}s",
                         "sumo_command": cmd,
                         "stderr_tail": _stderr_tail(prepared.stderr_path),
+                        "sumo_peak_rss_kb": _max_rss_kb,
                     }
                     atomic_write_json(prepared.status_path, status_data)
                     return SimulationResult(
@@ -911,8 +925,6 @@ async def run_sumo_process(
         _active_processes.pop(spec.run_id, None)
         wall_time = time.monotonic() - t0
         finished_at = datetime.now(timezone.utc).isoformat()
-        _rss_after = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
-        _peak_rss_kb = max(0, _rss_after - _rss_before)
         missing_outputs = _missing_required_outputs(run_dir, spec)
         success = return_code == 0 and not missing_outputs
 
@@ -949,7 +961,7 @@ async def run_sumo_process(
             "error_message": error_msg,
             "sumo_command": cmd,
             "stderr_tail": _stderr_tail(prepared.stderr_path),
-            "sumo_peak_rss_kb": _peak_rss_kb,
+            "sumo_peak_rss_kb": _max_rss_kb,
         }
         # v0.4.1: 记录冻结输入哈希供 resume 校验
         if status == "SUCCESS" and spec.pipeline_version == "v0.4.1":
@@ -999,6 +1011,7 @@ async def run_sumo_process(
                     -4000:
                 ],
                 "stderr_tail": _stderr_tail(run_dir / "stderr.log"),
+                "sumo_peak_rss_kb": _max_rss_kb if "_max_rss_kb" in dir() else 0,
             },
         )
         return SimulationResult(

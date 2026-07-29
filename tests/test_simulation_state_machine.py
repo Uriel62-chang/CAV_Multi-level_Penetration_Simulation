@@ -70,6 +70,7 @@ def test_missing_sumo_writes_failed_terminal_status(monkeypatch, tmp_path):
 def test_nonzero_return_code_writes_failed_terminal_status(monkeypatch, tmp_path):
     class Process:
         returncode = 2
+        pid = None
 
         async def wait(self):
             return 2
@@ -89,6 +90,7 @@ def test_nonzero_return_code_writes_failed_terminal_status(monkeypatch, tmp_path
 def test_zero_return_with_missing_outputs_is_failed(monkeypatch, tmp_path):
     class Process:
         returncode = 0
+        pid = None
 
         async def wait(self):
             return 0
@@ -106,6 +108,7 @@ def test_zero_return_with_missing_outputs_is_failed(monkeypatch, tmp_path):
 def test_timeout_writes_timeout_terminal_status(monkeypatch, tmp_path):
     class Process:
         terminated = False
+        pid = None
 
         async def wait(self):
             if not self.terminated:

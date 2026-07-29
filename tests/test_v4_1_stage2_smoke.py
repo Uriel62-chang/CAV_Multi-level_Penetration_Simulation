@@ -74,6 +74,9 @@ def test_smoke_v4_1_full_pipeline():
             assert (rd / "performance_CAV.xml").exists()
             assert (rd / "emissions_HV.xml").exists()
             assert (rd / "emissions_CAV.xml").exists()
+            ss = json.loads((rd / "simulation_status.json").read_text())
+            assert "sumo_peak_rss_kb" in ss
+            assert ss["sumo_peak_rss_kb"] > 0
 
         # Stage 2: parsing
         result = subprocess.run(
@@ -92,6 +95,8 @@ def test_smoke_v4_1_full_pipeline():
             ps = json.loads((rd / "parse_status.json").read_text())
             assert ps["status"] == "SUCCESS", f"parse status: {ps['status']}"
             assert (rd / "subgroup_summary.jsonl").exists()
+            assert "parse_peak_rss_kb" in ps
+            assert ps["parse_peak_rss_kb"] > 0
 
         # Stage 3: writer
         out_dir = root / "results"

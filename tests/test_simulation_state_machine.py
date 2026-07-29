@@ -85,6 +85,7 @@ def test_nonzero_return_code_writes_failed_terminal_status(monkeypatch, tmp_path
     assert status["status"] == "FAILED"
     assert status["return_code"] == 2
     assert status["sumo_command"]
+    assert "sumo_peak_rss_kb" in status
 
 
 def test_zero_return_with_missing_outputs_is_failed(monkeypatch, tmp_path):
@@ -103,6 +104,7 @@ def test_zero_return_with_missing_outputs_is_failed(monkeypatch, tmp_path):
 
     assert result.status == "FAILED"
     assert "missing or empty outputs" in status["error_message"]
+    assert status["sumo_peak_rss_kb"] == 0
 
 
 def test_timeout_writes_timeout_terminal_status(monkeypatch, tmp_path):
@@ -143,3 +145,4 @@ def test_shutdown_before_start_writes_cancelled_terminal_status(tmp_path):
     assert result.status == "CANCELLED"
     assert status["status"] == "CANCELLED"
     assert status["error_message"] == "Interrupted before start"
+    assert status["sumo_peak_rss_kb"] == 0

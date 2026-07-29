@@ -10,6 +10,7 @@ parse_one_run(run_dir, pipeline_version)
 
 import json
 import math
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -221,11 +222,33 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
     started_at = datetime.now(timezone.utc).isoformat()
     t0 = time.monotonic()
     subgroup_sha = None
+
     _max_rss_kb = 0
+    _rss_stop = threading.Event()
+    _rss_sampler = None
+
+    def _rss_sample():
+        nonlocal _max_rss_kb
+        while not _rss_stop.is_set():
+            try:
+                with open("/proc/self/status") as _sf:
+                    for _line in _sf:
+                        if _line.startswith("VmHWM:"):
+                            _val = int(_line.split()[1])
+                            if _val > _max_rss_kb:
+                                _max_rss_kb = _val
+                            break
+            except (OSError, ValueError, IndexError):
+                pass
+            _rss_stop.wait(0.05)
+
+    _rss_sampler = threading.Thread(target=_rss_sample, daemon=True)
+    _rss_sampler.start()
 
     # ── 预检 ──
     skip_reason = _check_preconditions(run_dir, pipeline_version)
     if skip_reason:
+        _rss_stop.set()
         parse_status = {
             "run_id": run_id,
             "status": skip_reason["status"],
@@ -234,6 +257,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
             "finished_at": datetime.now(timezone.utc).isoformat(),
             "wall_time_s": 0.0,
             "error_message": skip_reason["error_message"],
+            "parse_peak_rss_kb": _max_rss_kb,
         }
         atomic_write_json(status_path, parse_status)
         return parse_status
@@ -282,14 +306,9 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
 
         wall_time = time.monotonic() - t0
         finished_at = datetime.now(timezone.utc).isoformat()
-        try:
-            with open("/proc/self/status") as _sf:
-                for _line in _sf:
-                    if _line.startswith("VmRSS:"):
-                        _max_rss_kb = int(_line.split()[1])
-                        break
-        except (OSError, ValueError, IndexError):
-            pass
+        _rss_stop.set()
+        if _rss_sampler is not None:
+            _rss_sampler.join(timeout=1.0)
 
         if errors:
             summary["_invariant_errors"] = errors
@@ -336,6 +355,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
         return parse_status
 
     except Exception as e:
+        _rss_stop.set()
         wall_time = time.monotonic() - t0
         parse_status = {
             "run_id": run_id,
@@ -345,6 +365,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
             "finished_at": datetime.now(timezone.utc).isoformat(),
             "wall_time_s": wall_time,
             "error_message": str(e),
+            "parse_peak_rss_kb": _max_rss_kb,
         }
         atomic_write_json(status_path, parse_status)
         return parse_status

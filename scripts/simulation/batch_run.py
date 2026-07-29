@@ -760,6 +760,7 @@ async def run_sumo_process(
                     "finished_at": finished_at,
                     "wall_time_s": 0.0,
                     "error_message": "Interrupted before start",
+                    "sumo_peak_rss_kb": 0,
                 },
             )
             return SimulationResult(
@@ -812,7 +813,7 @@ async def run_sumo_process(
                         try:
                             with open(_status_path) as _sf:
                                 for _line in _sf:
-                                    if _line.startswith("VmRSS:"):
+                                    if _line.startswith("VmHWM:"):
                                         _val = int(_line.split()[1])
                                         if _val > _max_rss_kb:
                                             _max_rss_kb = _val

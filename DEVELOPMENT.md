@@ -4,13 +4,14 @@
 > 1. README.md
 > 2. 本文档（关键决策 + 交接摘要）
 > 3. AGENTS.md（项目约定、CLI 入口）
-> 4. `git log --oneline -10`
+> 4. `docs/development/v0.4.1-stage2-design.md`（当前阶段批准基线）
+> 5. `git log --oneline -10`
 >
 > 补充材料（Git 忽略，本地可用时参考）：
 > `docs/internal/releases/v0.4.1.md`（完整开发计划）、
 > `docs/internal/releases/v0.4.1-stage1-design.md`（阶段 1 设计文档）
 >
-> 阶段 2 的设计文档获批后应作为受跟踪文档提交（含函数契约、校验矩阵和验收探针）。
+> 阶段 2 批准基线已受 Git 跟踪；实现或审查不得用聊天记录覆盖其函数契约、校验矩阵和验收探针。
 
 ---
 
@@ -39,16 +40,16 @@
 - **原因**：避免两阶段构造破坏 frozen dataclass 不可变性；status 已是 resume 的核心数据源。
 - **当前代价**：RunSpec SHA 不覆盖输入文件完整性（需配合 status 和文件内容双重校验）。
 
-### D-003：schema_version="2" 的解析路由推迟到阶段 2
+### D-003：schema_version="2" 的解析路由在阶段 2 实现
 
-- **状态**：Active
-- **决策提交**：`1f61e36`
-- **适用范围**：RunSpec.schema_version、parser/writer 输出列
-- **重新评估触发条件**：阶段 2 开始实现 parser/writer schema 路由时
-- **背景**：v0.4.1 新增列需 parser/writer 切换。阶段 1 只产生 raw，不调用解析链路。
-- **决定**：RunSpec/status 使用 schema_version="2" 作为身份标记。parser/writer 仍使用 schema=1 路由。当前链路可读取 raw，但不得将现有 writer 输出视为完整 schema=2 结果。
-- **原因**：分离关注点；阶段 1 只负责 raw 生成。
-- **当前代价**：暂无 schema=2 的完整 CSV 输出。
+- **状态**：Implemented（阶段 1 的推迟决定已履行）
+- **决策提交**：`1f61e36`；实现提交：`ef0d9ad`、`c73007e`、`9c33477`
+- **适用范围**：RunSpec.schema_version、parser/writer/aggregate 输出路由
+- **重新评估触发条件**：新增 schema_version="3" 或修改 schema=2 公共列时
+- **背景**：v0.4.1 新增列需 parser/writer 切换。阶段 1 只产生 raw，不调用解析链路，因此当时只使用 schema_version="2" 作为身份标记。
+- **决定**：阶段 2 已实现完整 schema=2 parser、writer 和 aggregate 路由；aggregate 的 `schema_ver`/`--schema-version` 必须显式传入，不从 CSV 列推断。
+- **原因**：显式 schema 消除含兼容列的 legacy CSV 被误判为 schema=2 的风险。
+- **当前代价**：所有 aggregate 调用方必须明确选择 schema 1 或 2。
 
 ### D-004：进程退出检测使用轮询 process.returncode
 
@@ -72,6 +73,50 @@
 - **决定**：推迟到阶段 1.post1。阶段 1 解除门禁条件改为 S1–S7, S9, S10。
 - **当前代价**：暂无 frozen_inputs 目录、非 resume 覆盖保护和 fcd_path 字段。
 
+### D-006：SSM role 按 measure 独立保留极值来源
+
+- **状态**：Active
+- **决策提交**：`460f0e6`；实现提交：`a76ffd2`、`d0c54a2`
+- **适用范围**：SSM 镜像去重、HV/CAV pair 分类、follow/leader role 分类
+- **重新评估触发条件**：支持 code 2/3 以外的 encounter type，或 SUMO 修改 SSM XML 语义时
+- **背景**：镜像 conflict 合并后，TTC 与 DRAC 的更危急极值可能分别来自相反的 ego/foe 方向。
+- **决定**：只在 `<minTTC>` / `<maxDRAC>` 的 type code ∈ {2,3} 时恢复角色；TTC 与 DRAC 分别保存 `{value,time,type_code,source_ego,source_foe}`，分类时使用对应 measure 的 provenance。
+- **原因**：用去重后保留记录的 ego/foe 会在反向记录贡献极值时颠倒 follower/leader。
+- **当前代价**：无法可靠恢复的 encounter 进入 unclassified，不推测角色。
+
+### D-007：FCD 分位数使用 numpy float64 原地排序
+
+- **状态**：Active
+- **决策提交**：`460f0e6`；实现提交：`7274412`
+- **适用范围**：`scripts/parsing/fcd.py` 的 THW 数组和分位数计算
+- **重新评估触发条件**：FCD 规模超过当前 200 MB RSS 预算，或移除 numpy 依赖时
+- **背景**：FCD gzip 需流式解析，但精确 higher quantile 仍需保存并排序有效 THW 样本。
+- **决定**：先以 `array('d')` 流式收集，逐组转为 `numpy.ndarray(dtype=float64)`，执行 `sort()` 原地排序并及时释放。
+- **原因**：在当前规模下保持精确分位数，同时满足阶段 2 内存预算。
+- **当前代价**：FCD parser 直接依赖 numpy；内存仍随有效样本数线性增长。
+
+### D-008：v0.4.1 不接受 ACC 自由流参考
+
+- **状态**：Active
+- **决策提交**：`460f0e6`；实现提交：`8b13dbe`、`34534a5`、`f0dd97f`
+- **适用范围**：v0.4.1 pilot、free-flow artifact 生成与加载
+- **重新评估触发条件**：正式实验把 ACC 纳入模型集合并生成对应单车参考时
+- **背景**：v0.4.1 pilot 只包含 IDM/CACC，现有自由流测量没有 ACC 基准。
+- **决定**：ACC 在自由流 reference selection 中 hard reject；artifact 必须匹配 SUMO 完整版本字符串和每场景 net SHA，且 HV/当前 CAV model 圈时均为有限正数。
+- **原因**：用 IDM/CACC 或硬编码值代替 ACC 会产生无 provenance 的 delay。
+- **当前代价**：ACC 配置在补充参考 artifact 前不能进入 schema=2 正式解析。
+
+### D-009：schema=2 detector 预期输出由 net.json.num_lanes 决定并 fail-closed
+
+- **状态**：Active；`7f996e7` 尚有严格类型校验缺口，未通过 Reviewer 终验
+- **决策提交**：`faac364`；当前实现提交：`7f996e7`
+- **适用范围**：`_missing_required_outputs()`、`is_simulation_complete()`、schema=2 simulation/resume
+- **重新评估触发条件**：PreparedRun 固化 expected-output 清单，或网络元数据 schema 变更时
+- **背景**：从实际存在的 detector 文件反推预期集合无法发现“全部缺失”或双车道缺 lane1。
+- **决定**：从 RunSpec.network_file 同目录的受验证 `net.json` 读取正整数 `num_lanes`，无条件要求 `0..num_lanes-1` 每个 lane 的 all/HV/CAV 三件套；元数据缺失、损坏、结构错误或 num_lanes 非正整数时不得回退单车道。
+- **原因**：required-output 和 resume 必须 fail-closed，不能用缺失输出来推断实验结构。
+- **当前代价**：run 完整性校验依赖 net.json 可用；两个调用点目前有少量重复读取逻辑。
+
 ---
 
 ## 当前交接摘要
@@ -79,34 +124,44 @@
 ### 已完成
 
 - **阶段 0+1 已实现**：cav_count 双 seed 网格 + inactive-dimension 规范化；SUMO 命令注入 seed/SSM capture/FCD 输出；withInternal=true additional；writer `non_internal_edge_vehicle_km` 列名修正；进程退出轮询 + SIGINT→CANCELLED；CLI `--assignment-seeds`/`--sumo-seeds` 命名。
-- **阶段 2 基本完成**：HV/CAV 子群拆分（detector/edgeData/SSM/vehroute/lanechange/stderr）；FCD physical THW 解析；metrics.py 统一指标计算；runner v4.1 路径；writer schema=2 路由 + subgroup CSV 输出；aggregate schema_ver 参数化；SSM 敏感性 CLI；自由流测量；smoke 端到端。
-- **已验证**：142 tests passed；pilot 162 唯一 run；legacy 10,080 无回归；smoke 全链路 SUCCESS；FCD gzip 有效；subgroup headway 落入长表。
-- **已提交**：阶段 0（`acb5bc6`）→ 阶段 1（`05ab6bb`~`99f4af4`）→ 阶段 2（`460f0e6`~`d0c54a2`），共 23 commits。
+- **阶段 2 实现基本完成、终验未通过**：HV/CAV 子群拆分（detector/edgeData/SSM/vehroute/lanechange/stderr）；FCD physical THW 与 headway 长表；SSM pair/role provenance；schema=2 runner/writer/aggregate；subgroup JSONL + SHA；自由流 artifact hard-reject 链；SSM sensitivity CLI；free-flow 测量；sim→parse→write→aggregate smoke。
+- **已验证**：142 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；真实 smoke 得到 16 条 headway 记录；cav_count=0 合法空子群 parse SUCCESS；free-flow producer→loader round-trip 成功；subgroup 缺失/篡改时 resume 和 writer 均拒绝。
+- **已提交**：阶段 2 从设计基线 `460f0e6` 到最近功能提交 `7f996e7`，共 21 commits。
 
 ### 当前状态
 
 - **当前分支**：`main`
-- **最近验证通过的功能提交**：`d0c54a2`（fix: stage2 FCD headway output, free-flow artifact chain, SSM provenance, subgroup SHA, mypy）
+- **最近门禁通过的功能提交**：`7f996e7`（net.json num_lanes fail-closed）；自动门禁通过，但 Reviewer 尚未批准阶段 2。
+- **Reviewer 终验状态**：BLOCKED — `is_simulation_complete()` 对合法 JSON 的错误结构/数值未稳定返回 False。
 - **本文档最后更新**：参见 `git log -1 --oneline -- DEVELOPMENT.md`
 - **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-29
 - **可运行入口**：
   ```bash
   .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.1/smoke_v4_1.json --output-root /tmp/smoke --sumo-processes 1
+  .venv/bin/python3 -m scripts.parsing.batch --input-root /tmp/smoke
+  .venv/bin/python3 -m scripts.results.writer --input-root /tmp/smoke --output-dir /tmp/smoke-out --manifest /tmp/smoke/manifest.json
+  .venv/bin/python3 -m scripts.results.aggregate --input /tmp/smoke-out/run_level_results.csv --output /tmp/smoke-out/aggregated_results.csv --schema-version 2
   .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.1/pilot.json --dry-run
   .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.0.json --dry-run
   ```
 
 ### 待处理
 
-- **下一阶段任务**：micro-pilot 验证（Level 1: 6-12 runs）→ Level 2 bounded factorial pilot。
-- **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 场景的探针数据；subgroup 空子群 parser NaN 与真实缺失数据当前共享 NaN sentinel；free_flow 测量脚本生成的 artifact 需经 SUMO 版本验证后才能用于正式解析。
+- **立即处理的唯一 Reviewer blocker**：统一严格读取 `net.json.num_lanes`。JSON root 必须为 object，且 `type(num_lanes) is int and num_lanes >= 1`；`_missing_required_outputs()` 对错误抛 FileNotFoundError/ValueError，`is_simulation_complete()` 对同类错误返回 False。
+  - 当前 `7f996e7` 的复现：`net.json=[]` → resume 抛 AttributeError；`num_lanes=NaN` → resume 抛 ValueError；`num_lanes=1.5` → 被 `int()` 截断并错误接受。
+  - 修复后必须增加三个负向测试，并复跑 schema=2 单车道/双车道 simulation + resume 探针。
+- **Reviewer 复核顺序**：先检查 `git diff 7f996e7..HEAD`；再验证上述三项均 fail-closed；随后运行 142+ tests、Ruff/mypy/format/compileall、10,080/162 dry-run。不得因现有门禁全绿而跳过定向探针。
+- **终验通过后的下一阶段任务**：micro-pilot Level 1（6–12 runs）→ Level 2 bounded factorial pilot。
+- **known gaps（非当前 blocker）**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针；测试总数仍为 142，近期多项边界修复主要依赖 smoke/人工探针。
 - **暂缓**：S8 冻结输入、PreparedRun.fcd_path → 1.post1。
 
 ### 重要约束
 
 - **不得未经版本化决策修改**：`configs/v0.4.0.json`、`configs/smoke.json`（旧哈希基线）；legacy RunSpec.to_dict() 字段集；legacy SUMO 命令字节序列。修改时必须同步更新哈希基线和兼容测试。
 - **需要保持兼容**：`build_run_id()` 旧调用方式（`cav_count=None` 走 legacy 格式）；flow_generator 输出；10,080 旧 run ID 列表。
-- **修改前验证**：`ExperimentConfig.sha256() == 178dfcef...`；旧 pipeline dry-run 10,080；RunSpec legacy hash 不变。
+- **schema=2 完整性约束**：detector 必须覆盖 net.json 指定的全部 lane，且每个 lane 同时存在 all/HV/CAV；net.json 异常不得回退单车道。subgroup JSONL 必须存在、非空且 SHA 与 parse_status 一致。
+- **自由流约束**：不得恢复硬编码 98.8 fallback；artifact 的 SUMO 完整版本、scenario net SHA、HV/当前 model 有限正圈时必须全部匹配。
+- **修改前验证**：`ExperimentConfig.sha256() == 178dfcef...`；旧 pipeline dry-run 10,080；RunSpec legacy hash 不变；涉及 schema=2 时额外运行 pilot 162 dry-run 和定向完整性探针。
 
 ---
 

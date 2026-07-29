@@ -126,12 +126,12 @@
 - **阶段 0+1 已实现**：cav_count 双 seed 网格 + inactive-dimension 规范化；SUMO 命令注入 seed/SSM capture/FCD 输出；withInternal=true additional；writer `non_internal_edge_vehicle_km` 列名修正；进程退出轮询 + SIGINT→CANCELLED；CLI `--assignment-seeds`/`--sumo-seeds` 命名。
 - **阶段 2 完成**（2026-07-29，已批准）：HV/CAV 子群拆分（detector/edgeData/SSM/vehroute/lanechange/stderr）；FCD physical THW 与 headway 长表；SSM pair/role provenance（D-006）；schema=2 runner/writer/aggregate；subgroup JSONL + SHA；自由流 artifact hard-reject 链（D-008）；SSM sensitivity CLI；free-flow 测量；FCD numpy 内存方案（D-007）；net.json num_lanes fail-closed 校验（D-009）；sim→parse→write→aggregate smoke。
 - **已验证**：149 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过。
-- **已提交**：阶段 2 从设计基线 `460f0e6` 到最终批准 `49d1ac2`，共 29 commits。
+- **已提交**：阶段 2 从设计基线 `460f0e6` 到最终批准 `49d1ac2`，共 27 commits。
 
 ### 当前状态
 
 - **当前分支**：`main`
-- **最近提交**：`49d1ac2`（docs: stage2 complete）
+- **最近提交**：`6cc2932`（docs: finalize stage2 handover）
 - **本文档最后更新**：参见 `git log -1 --oneline -- DEVELOPMENT.md`
 - **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-29
 - **可运行入口**：
@@ -147,7 +147,7 @@
 ### 待处理
 
 - **下一阶段任务**：micro-pilot Level 1（6-12 runs）→ Level 2 bounded factorial pilot。
-- **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针数据；测试总数 149（设计要求 48 项 stage2 测试，当前新增 38 项，以上轮审批确认的 38 项实际新增为准）。
+- **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针数据；测试总数 149（85 legacy + 19 v0.4.1 + 45 stage2）。
 - **暂缓**：S8 冻结输入、PreparedRun.fcd_path → 1.post1。
 
 ### 重要约束

@@ -788,7 +788,12 @@ async def run_sumo_process(
             except asyncio.CancelledError:
                 return_code = getattr(process, "returncode", None)
                 if return_code is None:
-                    return_code = process.wait() if hasattr(process, "wait") else -15
+                    with suppress(ProcessLookupError):
+                        process.terminate()
+                    try:
+                        return_code = await asyncio.wait_for(process.wait(), timeout=10)
+                    except (asyncio.TimeoutError, ProcessLookupError):
+                        return_code = None
                 wall_time = time.monotonic() - t0
                 finished_at = datetime.now(timezone.utc).isoformat()
                 _active_processes.pop(spec.run_id, None)

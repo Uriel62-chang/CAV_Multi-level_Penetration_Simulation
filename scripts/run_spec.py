@@ -525,18 +525,25 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
                 for p in run_dir.glob("detector_lane*.xml")
                 if "_HV" not in p.name and "_CAV" not in p.name
             )
-            if not det_all and (
-                not (run_dir / "detector_lane0_HV.xml").exists()
-                or not (run_dir / "detector_lane0_CAV.xml").exists()
-            ):
-                return False
-            for p in det_all:
-                hv_path = p.with_name(p.name.replace(".xml", "_HV.xml"))
-                cav_path = p.with_name(p.name.replace(".xml", "_CAV.xml"))
-                if not hv_path.exists() or hv_path.stat().st_size == 0:
-                    return False
-                if not cav_path.exists() or cav_path.stat().st_size == 0:
-                    return False
+            if det_all:
+                for p in det_all:
+                    if p.stat().st_size == 0:
+                        return False
+                    hv_path = p.with_name(p.name.replace(".xml", "_HV.xml"))
+                    cav_path = p.with_name(p.name.replace(".xml", "_CAV.xml"))
+                    if not hv_path.exists() or hv_path.stat().st_size == 0:
+                        return False
+                    if not cav_path.exists() or cav_path.stat().st_size == 0:
+                        return False
+            else:
+                for name in (
+                    "detector_lane0.xml",
+                    "detector_lane0_HV.xml",
+                    "detector_lane0_CAV.xml",
+                ):
+                    p = run_dir / name
+                    if not p.exists() or p.stat().st_size == 0:
+                        return False
     for path in required_files:
         if not path.exists() or path.stat().st_size == 0:
             return False

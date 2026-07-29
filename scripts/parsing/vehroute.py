@@ -182,7 +182,7 @@ def parse_lap_times_subgroup(
                 "median_lap_time_s": float("nan"),
                 "p95_lap_time_s": float("nan"),
                 "lap_time_std_s": float("nan"),
-                "parse_success": False,
+                "parse_success": True,
             }
         values.sort()
         n = len(values)

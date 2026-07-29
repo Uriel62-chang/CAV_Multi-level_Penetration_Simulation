@@ -780,11 +780,49 @@ async def run_sumo_process(
                     if rc is not None:
                         return_code = rc
                         break
+                    if _shutting_down:
+                        raise asyncio.CancelledError()
                     if time.monotonic() - started >= deadline:
                         raise asyncio.TimeoutError()
-                    if _shutting_down:
-                        raise asyncio.TimeoutError()
                     await asyncio.sleep(poll_interval)
+            except asyncio.CancelledError:
+                return_code = getattr(process, "returncode", None)
+                if return_code is None:
+                    return_code = process.wait() if hasattr(process, "wait") else -15
+                wall_time = time.monotonic() - t0
+                finished_at = datetime.now(timezone.utc).isoformat()
+                _active_processes.pop(spec.run_id, None)
+                status_data = {
+                    "run_id": spec.run_id,
+                    "stage": "SIMULATION",
+                    "status": "CANCELLED",
+                    "return_code": return_code,
+                    "pipeline_version": pipeline_version,
+                    "run_spec_sha256": run_spec_sha256,
+                    "schema_version": spec.schema_version,
+                    "config_sha256": spec.config_sha256,
+                    "network_sha256": spec.network_sha256,
+                    "experiment_id": spec.experiment_id,
+                    "sumo_seed": spec.sumo_seed,
+                    "assignment_seed": spec.seed,
+                    "started_at": started_at,
+                    "finished_at": finished_at,
+                    "wall_time_s": wall_time,
+                    "error_message": "Cancelled by user",
+                    "sumo_command": cmd,
+                    "stderr_tail": _stderr_tail(prepared.stderr_path),
+                }
+                atomic_write_json(prepared.status_path, status_data)
+                return SimulationResult(
+                    run_id=spec.run_id,
+                    status="CANCELLED",
+                    return_code=return_code,
+                    run_dir=str(run_dir),
+                    started_at=started_at,
+                    finished_at=finished_at,
+                    wall_time_s=wall_time,
+                    error_message="Cancelled by user",
+                )
             except asyncio.TimeoutError:
                 if getattr(process, "returncode", None) is not None:
                     # 进程已自行退出 → 使用实际返回码，继续正常判定
@@ -821,7 +859,7 @@ async def run_sumo_process(
                         "started_at": started_at,
                         "finished_at": finished_at,
                         "wall_time_s": wall_time,
-                        "error_message": f"Timeout after {timeout_s}s",
+                        "error_message": f"Timeout after {deadline}s",
                         "sumo_command": cmd,
                         "stderr_tail": _stderr_tail(prepared.stderr_path),
                     }
@@ -834,7 +872,7 @@ async def run_sumo_process(
                         started_at=started_at,
                         finished_at=finished_at,
                         wall_time_s=wall_time,
-                        error_message=f"Timeout after {timeout_s}s",
+                        error_message=f"Timeout after {deadline}s",
                     )
                 # returncode 可用 → 继续正常判定
 

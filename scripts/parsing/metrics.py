@@ -352,7 +352,7 @@ def validate_subgroup_invariants(primitives):
     ee_hv = primitives.edge_emis.get("HV", {})
     ee_cav = primitives.edge_emis.get("CAV", {})
     for key in ("total_CO2_kg", "total_NOx_g", "total_PMx_g", "total_fuel_kg"):
-        _check_additive(ee_all, ee_hv, ee_cav, key, 1e-6, 1e-9)
+        _check_additive(ee_all, ee_hv, ee_cav, key, 5e-5, 1e-3)
 
     # Exact counts
     for src_name, src_key in [

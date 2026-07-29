@@ -684,10 +684,14 @@ def _missing_required_outputs(run_dir: Path, spec: RunSpec) -> list[str]:
                 "emissions_CAV.xml",
             ]
         )
-        det_all = sorted(run_dir.glob("detector_lane*.xml"))
-        det_all_names = {p.name for p in det_all if "_HV" not in p.name and "_CAV" not in p.name}
-        expected_hv = {n.replace(".xml", "_HV.xml") for n in det_all_names}
-        expected_cav = {n.replace(".xml", "_CAV.xml") for n in det_all_names}
+        det_all_names = {p.name for p in run_dir.glob("detector_lane*.xml")
+                         if "_HV" not in p.name and "_CAV" not in p.name}
+        if det_all_names:
+            expected_hv = {n.replace(".xml", "_HV.xml") for n in det_all_names}
+            expected_cav = {n.replace(".xml", "_CAV.xml") for n in det_all_names}
+        else:
+            expected_hv = {"detector_lane0_HV.xml"}
+            expected_cav = {"detector_lane0_CAV.xml"}
         names.extend(sorted(expected_hv))
         names.extend(sorted(expected_cav))
     return [

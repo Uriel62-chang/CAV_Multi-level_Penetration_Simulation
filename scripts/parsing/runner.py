@@ -377,16 +377,25 @@ def _load_free_flow_references(spec):
         )
 
     refs = scenario_data.get("references", {})
-    result = {}
-    if "HV" in refs:
-        result["HV"] = refs["HV"]["lap_time_s"]
+    if "HV" not in refs:
+        raise ValueError("free-flow artifact missing HV reference")
+    hv_lap = refs["HV"]["lap_time_s"]
+    import math as _m
+    if not isinstance(hv_lap, (int, float)) or _m.isnan(hv_lap) or hv_lap <= 0:
+        raise ValueError(f"free-flow artifact HV lap_time_s invalid: {hv_lap}")
+    result = {"HV": hv_lap}
     key = f"CAV_{spec.model}"
-    if key in refs:
-        result[spec.model] = refs[key]["lap_time_s"]
-    elif spec.model == "ACC":
-        raise ValueError("ACC free-flow reference not available in v0.4.1; add to artifact first")
-    else:
+
+    if key not in refs:
+        if spec.model == "ACC":
+            raise ValueError(
+                "ACC free-flow reference not available in v0.4.1; add to artifact first"
+            )
         raise ValueError(f"model {spec.model} not in free-flow artifact")
+    model_lap = refs[key]["lap_time_s"]
+    if not isinstance(model_lap, (int, float)) or _m.isnan(model_lap) or model_lap <= 0:
+        raise ValueError(f"free-flow artifact {key} lap_time_s invalid: {model_lap}")
+    result[spec.model] = model_lap
 
     return result
 
@@ -506,6 +515,6 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
     core = compute_core_summary(primitives, spec, free_flow_refs)
     subgroup = compute_subgroup_records(primitives, spec, free_flow_refs)
 
-    errors = _validate_invariants(core) + validate_subgroup_invariants(primitives)
+    errors = _validate_invariants(core) + validate_subgroup_invariants(primitives, spec)
 
     return core, subgroup, errors

@@ -53,7 +53,8 @@ python3 -m scripts.results.writer \
 # 多 assignment-seed 聚合
 python3 -m scripts.results.aggregate \
   --input out/run_level_results.csv \
-  --output out/aggregated_results.csv
+  --output out/aggregated_results.csv \
+  --schema-version 1
 
 # 单次仿真
 python3 -m scripts.simulation.single_run --vehN 30 --pCAV 0.5 --model IDM --net net/scenario_1/loop.net.xml

@@ -4,8 +4,24 @@ import json
 import time
 
 
-def test_parse_rss_reset_across_runs(tmp_path):
+def test_parse_rss_isolation_large_then_small(tmp_path, monkeypatch):
     from scripts.parsing.runner import parse_one_run
+
+    spec = {
+        "scenario": "scenario_0",
+        "model": "IDM",
+        "pcav": 0.5,
+        "vehicle_count": 10,
+        "seed": 1,
+        "run_id": "run1",
+        "simulation_end": 3600,
+        "warmup": 600,
+        "pipeline_version": "v0.4.0.post1",
+        "schema_version": "1",
+        "config_sha256": "",
+        "network_sha256": "",
+        "experiment_id": "",
+    }
 
     rd1 = tmp_path / "run1"
     rd1.mkdir()
@@ -13,29 +29,13 @@ def test_parse_rss_reset_across_runs(tmp_path):
     rd2.mkdir()
 
     for rd in (rd1, rd2):
-        spec = {
-            "scenario": "scenario_0",
-            "model": "IDM",
-            "pcav": 0.5,
-            "vehicle_count": 10,
-            "seed": 1,
-            "run_id": rd.name,
-            "pipeline_version": "v0.4.0.post1",
-            "schema_version": "1",
-            "config_sha256": "",
-            "network_sha256": "",
-            "experiment_id": "",
-        }
         (rd / "run_spec.json").write_text(json.dumps(spec))
-        for f in [
-            "performance.xml",
-            "emissions.xml",
-            "vehroute.xml",
-            "lanechange.xml",
-            "stderr.log",
-            "ssm.xml",
-        ]:
-            (rd / f).write_text("<root/>" if not f.endswith("log") else "")
+        (rd / "performance.xml").write_text("<meandata/>")
+        (rd / "emissions.xml").write_text("<meandata/>")
+        (rd / "vehroute.xml").write_text("<routes/>")
+        (rd / "lanechange.xml").write_text("<lanechanges/>")
+        (rd / "stderr.log").write_text("")
+        (rd / "ssm.xml").write_text("<SSMLog/>")
         status = {
             "run_id": rd.name,
             "pipeline_version": "v0.4.0.post1",
@@ -49,11 +49,15 @@ def test_parse_rss_reset_across_runs(tmp_path):
         }
         (rd / "simulation_status.json").write_text(json.dumps(status))
 
+    _block = ["x"] * (10 * 1024 * 1024)  # ~80 MB string allocation
     ps1 = parse_one_run(rd1, "v0.4.0.post1")
+    del _block
     time.sleep(0.05)
     ps2 = parse_one_run(rd2, "v0.4.0.post1")
 
-    assert "parse_peak_rss_kb" in ps1
-    assert "parse_peak_rss_kb" in ps2
     assert ps1["parse_peak_rss_kb"] > 0
     assert ps2["parse_peak_rss_kb"] > 0
+    assert ps1["parse_peak_rss_kb"] > ps2["parse_peak_rss_kb"], (
+        f"large run RSS ({ps1['parse_peak_rss_kb']}) should exceed "
+        f"small run RSS ({ps2['parse_peak_rss_kb']})"
+    )

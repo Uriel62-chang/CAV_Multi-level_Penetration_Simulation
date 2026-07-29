@@ -86,3 +86,80 @@ def test_resume_requires_route_hash_for_v4_1(tmp_path):
     del st["route_file_sha256"]
     (rd / "simulation_status.json").write_text(json.dumps(st))
     assert not is_simulation_complete(spec, rd, PIPELINE_V4_1)
+
+
+def test_missing_required_outputs_requires_fcd_when_enabled(tmp_path):
+    from scripts.simulation.batch_run import _missing_required_outputs
+
+    spec = RunSpec(
+        scenario="scenario_0",
+        model="IDM",
+        pcav=0.5,
+        vehicle_count=10,
+        seed=1,
+        run_id="fcd-test",
+        pipeline_version=PIPELINE_V4_1,
+        sumo_seed=101,
+        cav_count=5,
+        requested_pcav=None,
+        fcd_profile="1s",
+    )
+    rd = tmp_path / "fcd_run"
+    rd.mkdir()
+    for f in ["ssm.xml", "lanechange.xml", "performance.xml", "emissions.xml", "vehroute.xml"]:
+        (rd / f).write_text("<root/>")
+    missing = _missing_required_outputs(rd, spec)
+    assert "fcd.xml.gz" in missing
+
+
+def test_resume_rejects_missing_fcd(tmp_path):
+    spec = RunSpec(
+        scenario="scenario_0",
+        model="IDM",
+        pcav=0.5,
+        vehicle_count=10,
+        seed=1,
+        run_id="fcd-resume",
+        pipeline_version=PIPELINE_V4_1,
+        sumo_seed=101,
+        cav_count=5,
+        requested_pcav=None,
+        fcd_profile="1s",
+    )
+    rd = tmp_path / "fcd_run"
+    rd.mkdir()
+    for f in [
+        "routes.rou.xml",
+        "ssm.xml",
+        "lanechange.xml",
+        "performance.xml",
+        "emissions.xml",
+        "vehroute.xml",
+        "vehicle_type_map.json",
+    ]:
+        (rd / f).write_text("<root/>")
+    (rd / "simulation_status.json").write_text(
+        json.dumps(
+            {
+                "run_id": spec.run_id,
+                "pipeline_version": PIPELINE_V4_1,
+                "status": "SUCCESS",
+                "return_code": 0,
+                "run_spec_sha256": spec.sha256(),
+                "schema_version": spec.schema_version,
+                "config_sha256": "",
+                "network_sha256": "",
+                "experiment_id": "",
+                "sumo_seed": spec.sumo_seed,
+                "route_file_sha256": sha256_file(str(rd / "routes.rou.xml")),
+                "vehicle_type_map_sha256": sha256_file(str(rd / "vehicle_type_map.json")),
+            }
+        )
+    )
+    (rd / "run_spec.json").write_text(json.dumps(spec.to_dict()))
+    assert not is_simulation_complete(spec, rd, PIPELINE_V4_1)
+
+
+def test_resume_ignores_fcd_when_profile_disabled(tmp_path):
+    rd, spec = _make_v4_1_run(tmp_path)
+    assert is_simulation_complete(spec, rd, PIPELINE_V4_1)

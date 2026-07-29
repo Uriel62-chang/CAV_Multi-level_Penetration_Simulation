@@ -31,9 +31,10 @@ def test_cav_zero_canonical_model():
 
 def test_cav_zero_canonical_route_idempotent():
     """不同 model 子集产生相同的 RunSpec SHA 和 route 输出。"""
-    from scripts.simulation.flow_generator import generate_flow
-    import tempfile
     import os
+    import tempfile
+
+    from scripts.simulation.flow_generator import generate_flow
 
     with tempfile.TemporaryDirectory() as d:
         p = os.path.join(d, "r.rou.xml")
@@ -132,7 +133,8 @@ def test_endpoint_seed_full_cav_must_be_zero():
 
 def test_unique_run_ids_162():
     """pilot.json 展开为 162 个唯一 run_id。"""
-    config = json.load(open("configs/v0.4.1/pilot.json"))
+    with open("configs/v0.4.1/pilot.json") as f:
+        config = json.load(f)
     specs = build_run_specs(
         list(config["scenarios"]),
         list(config["models"]),

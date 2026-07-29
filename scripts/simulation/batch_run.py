@@ -42,7 +42,11 @@ from scripts.run_spec import (
     build_run_id,
     is_simulation_complete,
 )
-from scripts.simulation.single_run import build_sumo_command, prepare_run
+from scripts.simulation.single_run import (
+    build_sumo_command,
+    build_sumo_command_v4_1,
+    prepare_run,
+)
 
 # ═══════════════════════════════════════════════════════════════════
 # 默认实验参数
@@ -603,8 +607,10 @@ def _stderr_tail(path: Path, limit: int = 4000) -> str:
         return ""
 
 
-def _missing_required_outputs(run_dir: Path) -> list[str]:
+def _missing_required_outputs(run_dir: Path, spec: RunSpec) -> list[str]:
     names = ["ssm.xml", "lanechange.xml", "performance.xml", "emissions.xml", "vehroute.xml"]
+    if spec.fcd_profile is not None:
+        names.append("fcd.xml.gz")
     return [
         name
         for name in names
@@ -681,9 +687,12 @@ async def run_sumo_process(
         # 准备 run 目录
         prepared = prepare_run(spec, run_dir, network_file)
         run_spec_sha256 = spec.sha256()
-        cmd = build_sumo_command(
-            prepared, network_file, sumo_command, spec.simulation_end, spec.step_length
-        )
+        if spec.pipeline_version == "v0.4.1":
+            cmd = build_sumo_command_v4_1(prepared, network_file, spec, sumo_command)
+        else:
+            cmd = build_sumo_command(
+                prepared, network_file, sumo_command, spec.simulation_end, spec.step_length
+            )
 
         # 启动 SUMO 子进程
         with (
@@ -749,7 +758,7 @@ async def run_sumo_process(
         _active_processes.pop(spec.run_id, None)
         wall_time = time.monotonic() - t0
         finished_at = datetime.now(timezone.utc).isoformat()
-        missing_outputs = _missing_required_outputs(run_dir)
+        missing_outputs = _missing_required_outputs(run_dir, spec)
         success = return_code == 0 and not missing_outputs
 
         if success:

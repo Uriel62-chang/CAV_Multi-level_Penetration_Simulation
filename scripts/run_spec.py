@@ -492,6 +492,8 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
     ]
     if spec.pipeline_version == PIPELINE_V4_1:
         required_files.append(run_dir / "vehicle_type_map.json")
+        if spec.fcd_profile is not None:
+            required_files.append(run_dir / "fcd.xml.gz")
     for path in required_files:
         if not path.exists() or path.stat().st_size == 0:
             return False

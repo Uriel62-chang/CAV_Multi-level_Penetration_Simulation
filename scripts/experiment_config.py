@@ -53,6 +53,7 @@ _ALL_KNOWN_FIELDS = (
         "ssm_capture_drac_threshold_mps2",
         "ssm_measures",
         "ssm_range",
+        "ssm_range_m",
         "ssm_trajectories",
         "fcd_profile",
         "fcd_max_leader_distance_m",

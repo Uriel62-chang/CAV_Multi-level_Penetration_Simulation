@@ -267,6 +267,65 @@ def build_sumo_command(
     ]
 
 
+def build_sumo_command_v4_1(
+    prepared: PreparedRun,
+    network_file: str,
+    spec,
+    sumo_command: str = "sumo",
+) -> list:
+    """v0.4.1 SUMO 命令行：继承旧基命令，追加 seed/SSM capture/FCD。"""
+
+    cmd = build_sumo_command(
+        prepared,
+        network_file,
+        sumo_command,
+        spec.simulation_end,
+        spec.step_length,
+    )
+    # 移除旧 --device.ssm.trajectories false（在末尾重建单值）
+    ssm_traj_idx = None
+    for i, a in enumerate(cmd):
+        if a == "--device.ssm.trajectories":
+            ssm_traj_idx = i
+            break
+    if ssm_traj_idx is not None:
+        del cmd[ssm_traj_idx : ssm_traj_idx + 2]
+    # v0.4.1 追加参数
+    cmd.extend(
+        [
+            "--seed",
+            str(spec.sumo_seed),
+            "--device.ssm.measures",
+            "TTC DRAC",
+            "--device.ssm.thresholds",
+            f"{spec.ssm_capture_ttc_threshold_s} {spec.ssm_capture_drac_threshold_mps2}",
+            "--device.ssm.range",
+            str(spec.ssm_range_m),
+            "--device.ssm.trajectories",
+            "true" if spec.ssm_trajectories else "false",
+        ]
+    )
+    # FCD 选项
+    if spec.fcd_profile is not None:
+        period = 1 if spec.fcd_profile == "1s" else 0.1
+        fcd_path = prepared.run_dir / "fcd.xml.gz"
+        cmd.extend(
+            [
+                "--fcd-output",
+                str(fcd_path),
+                "--fcd-output.attributes",
+                "id,type,speed,lane,pos,leaderID,leaderGap",
+                "--fcd-output.max-leader-distance",
+                str(spec.fcd_max_leader_distance_m or 0),
+                "--device.fcd.begin",
+                str(int(spec.warmup)),
+                "--device.fcd.period",
+                str(period),
+            ]
+        )
+    return cmd
+
+
 # ═══════════════════════════════════════════════════════════════════
 # 单次仿真（CLI 入口 + 完整解析管线）
 # ═══════════════════════════════════════════════════════════════════

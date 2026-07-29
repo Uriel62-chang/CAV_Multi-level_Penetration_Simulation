@@ -85,6 +85,33 @@ def parse_detector_multi(xml_paths: list, warmup_period: float = 600.0):
     return mean_flow, max_flow, mean_speed, speed_variance, len(speed_values)
 
 
+def parse_detector_subgroup(
+    xml_paths_all,
+    xml_paths_HV,
+    xml_paths_CAV,
+    warmup_period=600.0,
+):
+    result = {}
+    for label, paths in [
+        ("all", xml_paths_all),
+        ("HV", xml_paths_HV),
+        ("CAV", xml_paths_CAV),
+    ]:
+        if len(paths) > 1:
+            mf, xf, ms, sv, wc = parse_detector_multi(list(paths), warmup_period)
+        else:
+            mf, xf, ms, sv, wc = parse_detector(list(paths)[0], warmup_period)
+        result[label] = {
+            "mean_flow_veh_h": mf,
+            "max_flow_veh_h": xf,
+            "mean_speed_m_s": ms,
+            "speed_variance": sv,
+            "window_count": wc,
+            "parse_success": True,
+        }
+    return result
+
+
 def main():
     # 设置命令行位置参数
     parser = argparse.ArgumentParser()

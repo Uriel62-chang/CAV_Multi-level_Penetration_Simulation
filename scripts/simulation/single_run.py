@@ -170,6 +170,7 @@ def prepare_run(
         emissions_path,
         spec.simulation_end,
         spec.edge_data_frequency,
+        with_internal=spec.with_internal,
     )
 
     return PreparedRun(
@@ -200,9 +201,11 @@ def _write_additional_xml(
     emissions_path: Path,
     sim_end_time: float,
     edge_data_freq: int,
+    *,
+    with_internal: bool = False,
 ) -> None:
     """写入合并的附加 XML（检测器 + edgeData）"""
-    with additional_path.open("w", encoding="utf-8") as f:
+    internal_attr = ' withInternal="true"' if with_internal else ""
         f.write("<additional>\n")
         # E1 检测器
         for lane_idx in range(num_lanes):
@@ -216,12 +219,12 @@ def _write_additional_xml(
         f.write(
             f'    <edgeData id="ed_perf" type="performance" file="{performance_path.name}" '
             f'freq="{edge_data_freq}" begin="0" end="{int(sim_end_time)}" '
-            f'excludeEmpty="true"/>\n'
+            f'excludeEmpty="true"{internal_attr}/>\n'
         )
         f.write(
             f'    <edgeData id="ed_emis" type="emissions" file="{emissions_path.name}" '
             f'freq="{edge_data_freq}" begin="0" end="{int(sim_end_time)}" '
-            f'excludeEmpty="true"/>\n'
+            f'excludeEmpty="true"{internal_attr}/>\n'
         )
         f.write("</additional>\n")
 

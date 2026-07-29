@@ -772,10 +772,8 @@ async def run_sumo_process(
             _active_processes[spec.run_id] = process
 
             try:
-                if timeout_s:
-                    return_code = await asyncio.wait_for(process.wait(), timeout=timeout_s)
-                else:
-                    return_code = await process.wait()
+                effective_timeout = timeout_s if timeout_s else 7200  # 2h 硬上限
+                return_code = await asyncio.wait_for(process.wait(), timeout=effective_timeout)
             except asyncio.TimeoutError:
                 if getattr(process, "returncode", None) is not None:
                     # 进程已自行退出 → 使用实际返回码，继续正常判定

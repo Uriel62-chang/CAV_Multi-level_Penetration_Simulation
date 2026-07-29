@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from scripts.provenance import sha256_file
-from scripts.run_spec import atomic_write_json, load_run_spec
+from scripts.run_spec import PIPELINE_V4_1, atomic_write_json, load_run_spec
 from scripts.simulation.single_run import load_network_meta, parse_run_outputs
 
 
@@ -254,10 +254,28 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
 
         # ── 解析 ──
         net_file = network_file or spec.network_file
-        summary = parse_run_outputs(run_dir, spec, net_file)
+        if spec.schema_version == "2" and spec.pipeline_version == PIPELINE_V4_1:
+            core, subgroup, errors = _parse_one_run_v4_1(run_dir, spec, net_file)
+            summary = core
+            import json as _json
 
-        # ── 不变量校验 ──
-        errors = _validate_invariants(summary)
+            subgroup_path = run_dir / "subgroup_summary.jsonl"
+            tmp = subgroup_path.with_suffix(".jsonl.tmp")
+            with tmp.open("w", encoding="utf-8") as _f:
+                for rec in subgroup:
+                    _f.write(_json.dumps(rec, ensure_ascii=False) + "\n")
+                _f.flush()
+                import os as _os
+
+                _os.fsync(_f.fileno())
+            import os as _os
+
+            _os.replace(tmp, subgroup_path)
+        else:
+            summary = parse_run_outputs(run_dir, spec, net_file)
+
+            # ── 不变量校验 ──
+            errors = _validate_invariants(summary)
 
         wall_time = time.monotonic() - t0
         finished_at = datetime.now(timezone.utc).isoformat()
@@ -315,3 +333,106 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
         }
         atomic_write_json(status_path, parse_status)
         return parse_status
+
+
+def _parse_one_run_v4_1(run_dir, spec, network_file):
+    from scripts.parsing.detector import parse_detector_subgroup
+    from scripts.parsing.edge_emissions import parse_edge_emissions
+    from scripts.parsing.edge_performance import parse_edge_performance
+    from scripts.parsing.lanechange import parse_lanechange_subgroup
+    from scripts.parsing.metrics import (
+        SubgroupPrimitives,
+        compute_core_summary,
+        compute_subgroup_records,
+        validate_subgroup_invariants,
+    )
+    from scripts.parsing.ssm import parse_ssm_subgroup
+    from scripts.parsing.stderr import parse_emergency_braking_subgroup
+    from scripts.parsing.vehroute import parse_lap_times_subgroup
+
+    type_map = load_and_validate_type_map(run_dir, spec)
+
+    net_meta_raw = load_network_meta(network_file or spec.network_file)
+    num_lanes = max(net_meta_raw.get("num_lanes", 1), 1)
+
+    free_flow_refs = {"HV": 98.8, "IDM": 98.8, "CACC": 98.8}  # TODO: A7 artifact
+
+    warmup = spec.warmup
+
+    # Detector
+    det_all = [str(run_dir / f"detector_lane{lane_idx}.xml") for lane_idx in range(num_lanes)]
+    det_HV = [str(run_dir / f"detector_lane{lane_idx}_HV.xml") for lane_idx in range(num_lanes)]
+    det_CAV = [str(run_dir / f"detector_lane{lane_idx}_CAV.xml") for lane_idx in range(num_lanes)]
+    detector = parse_detector_subgroup(det_all, det_HV, det_CAV, warmup)
+
+    # Edge performance / emissions
+    edge_perf = {}
+    edge_emis = {}
+    for suffix, label in [("", "all"), ("_HV", "HV"), ("_CAV", "CAV")]:
+        perf_path = run_dir / f"performance{suffix}.xml"
+        emis_path = run_dir / f"emissions{suffix}.xml"
+        edge_perf[label] = parse_edge_performance(str(perf_path), warmup)
+        edge_emis[label] = parse_edge_emissions(str(emis_path), warmup)
+
+    # SSM
+    ssm_file = run_dir / "ssm_compact.xml"
+    if not ssm_file.exists():
+        ssm_file = run_dir / "ssm.xml"
+    ssm = parse_ssm_subgroup(str(ssm_file), type_map, warmup, ttc_threshold=3.0, drac_threshold=3.0)
+
+    # Lanechange
+    lc_path = run_dir / "lanechange.xml"
+    lc = (
+        parse_lanechange_subgroup(str(lc_path), type_map, warmup)
+        if lc_path.exists()
+        else {
+            "all": {
+                "lane_change_count": 0,
+                "unsafe_lc_gap_count": 0,
+                "unsafe_lc_gap_ratio": float("nan"),
+                "parse_success": False,
+            },
+            "HV": {
+                "lane_change_count": 0,
+                "unsafe_lc_gap_count": 0,
+                "unsafe_lc_gap_ratio": float("nan"),
+                "parse_success": False,
+            },
+            "CAV": {
+                "lane_change_count": 0,
+                "unsafe_lc_gap_count": 0,
+                "unsafe_lc_gap_ratio": float("nan"),
+                "parse_success": False,
+            },
+        }
+    )
+
+    # Vehroute
+    edges_per_lap = net_meta_raw.get("num_sides", 4)
+    vr = parse_lap_times_subgroup(
+        str(run_dir / "vehroute.xml"), type_map, edges_per_lap, warmup, spec.simulation_end
+    )
+
+    # Emergency braking
+    stderr_path = run_dir / "stderr.log"
+    stderr_text = (
+        stderr_path.read_text(encoding="utf-8", errors="replace") if stderr_path.exists() else ""
+    )
+    eb = parse_emergency_braking_subgroup(stderr_text, type_map, warmup)
+
+    primitives = SubgroupPrimitives(
+        detector=detector,
+        ssm=ssm,
+        lanechange=lc,
+        edge_perf=edge_perf,
+        edge_emis=edge_emis,
+        vehroute=vr,
+        emerg_brake=eb,
+    )
+
+    core = compute_core_summary(primitives, spec, free_flow_refs)
+    subgroup = compute_subgroup_records(primitives, spec, free_flow_refs)
+
+    errors = _validate_invariants(core) + validate_subgroup_invariants(primitives)
+
+    return core, subgroup, errors

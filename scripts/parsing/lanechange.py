@@ -71,6 +71,81 @@ def parse_lanechange(xml_path: str, warmup_period: float = 600.0):
     return result
 
 
+def parse_lanechange_subgroup(
+    xml_path: str,
+    type_map: dict[str, str],
+    warmup_period: float = 600.0,
+) -> dict:
+    counts: dict[str, dict[str, int]] = {
+        "all": {"total": 0, "unsafe": 0},
+        "HV": {"total": 0, "unsafe": 0},
+        "CAV": {"total": 0, "unsafe": 0},
+    }
+
+    try:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+    except (ET.ParseError, FileNotFoundError, OSError):
+        return {
+            label: {
+                "lane_change_count": 0,
+                "unsafe_lc_gap_count": 0,
+                "unsafe_lc_gap_ratio": float("nan"),
+                "parse_success": False,
+            }
+            for label in ("all", "HV", "CAV")
+        }
+
+    for change in root.findall("change"):
+        change_id = change.get("id", "")
+        if change_id not in type_map:
+            raise ValueError(f"change id '{change_id}' not found in type_map")
+        veh_type = type_map[change_id]
+        if veh_type not in ("HV", "CAV"):
+            raise ValueError(f"unexpected vehicle type '{veh_type}' for '{change_id}'")
+
+        try:
+            time_val = float(change.get("time", "0"))
+        except (ValueError, TypeError):
+            continue
+
+        if time_val < warmup_period:
+            continue
+
+        counts["all"]["total"] += 1
+        counts[veh_type]["total"] += 1
+
+        leader_gap = _parse_float_attr(change, "leaderGap")
+        leader_secure = _parse_float_attr(change, "leaderSecureGap")
+        follower_gap = _parse_float_attr(change, "followerGap")
+        follower_secure = _parse_float_attr(change, "followerSecureGap")
+
+        leader_unsafe = (
+            leader_gap is not None and leader_secure is not None and leader_gap < leader_secure
+        )
+        follower_unsafe = (
+            follower_gap is not None
+            and follower_secure is not None
+            and follower_gap < follower_secure
+        )
+
+        if leader_unsafe or follower_unsafe:
+            counts["all"]["unsafe"] += 1
+            counts[veh_type]["unsafe"] += 1
+
+    def _build(label: str) -> dict:
+        t = counts[label]["total"]
+        u = counts[label]["unsafe"]
+        return {
+            "lane_change_count": t,
+            "unsafe_lc_gap_count": u,
+            "unsafe_lc_gap_ratio": u / t if t > 0 else float("nan"),
+            "parse_success": True,
+        }
+
+    return {"all": _build("all"), "HV": _build("HV"), "CAV": _build("CAV")}
+
+
 def _parse_float_attr(elem, attr_name):
     """安全解析 XML 属性为 float，None 或 'None' 都返回 None。"""
     val = elem.get(attr_name)

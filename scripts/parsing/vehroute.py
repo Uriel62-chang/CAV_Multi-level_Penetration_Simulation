@@ -106,3 +106,100 @@ def parse_lap_times(
     result["parse_success"] = True
 
     return result
+
+
+def parse_lap_times_subgroup(
+    xml_path: str,
+    type_map: dict[str, str],
+    edges_per_lap: int,
+    warmup_period: float = 600.0,
+    sim_end_time: float = 3600.0,
+) -> dict:
+    grouped: dict[str, list[float]] = {"all": [], "HV": [], "CAV": []}
+
+    try:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+    except (ET.ParseError, FileNotFoundError, OSError):
+        return {
+            label: {
+                "completed_lap_count": 0,
+                "mean_lap_time_s": float("nan"),
+                "median_lap_time_s": float("nan"),
+                "p95_lap_time_s": float("nan"),
+                "lap_time_std_s": float("nan"),
+                "parse_success": False,
+            }
+            for label in ("all", "HV", "CAV")
+        }
+
+    for vehicle in root.findall("vehicle"):
+        vehicle_id = vehicle.get("id", "")
+        if vehicle_id not in type_map:
+            raise ValueError(f"vehicle_id '{vehicle_id}' not found in type_map")
+        veh_type = type_map[vehicle_id]
+        if veh_type not in ("HV", "CAV"):
+            raise ValueError(f"unexpected vehicle type '{veh_type}' for '{vehicle_id}'")
+
+        route = vehicle.find("route")
+        if route is None:
+            continue
+        exit_times_str = route.get("exitTimes", "")
+        if not exit_times_str:
+            continue
+
+        times = []
+        for t in exit_times_str.split():
+            try:
+                val = float(t)
+                if val < 0:
+                    continue
+                times.append(val)
+            except ValueError:
+                continue
+
+        if len(times) < edges_per_lap * 1:
+            continue
+
+        lap_ends = times[edges_per_lap - 1 :: edges_per_lap]
+
+        for i in range(1, len(lap_ends)):
+            lap_start = lap_ends[i - 1]
+            lap_end = lap_ends[i]
+            if lap_start < warmup_period:
+                continue
+            if lap_end > sim_end_time:
+                continue
+            lap_time = lap_end - lap_start
+            grouped["all"].append(lap_time)
+            grouped[veh_type].append(lap_time)
+
+    def _stats(values: list[float]) -> dict:
+        if not values:
+            return {
+                "completed_lap_count": 0,
+                "mean_lap_time_s": float("nan"),
+                "median_lap_time_s": float("nan"),
+                "p95_lap_time_s": float("nan"),
+                "lap_time_std_s": float("nan"),
+                "parse_success": False,
+            }
+        values.sort()
+        n = len(values)
+        mean_val = sum(values) / n
+        std_val = (sum((x - mean_val) ** 2 for x in values) / n) ** 0.5
+        median_val = values[n // 2] if n % 2 == 1 else (values[n // 2 - 1] + values[n // 2]) / 2
+        return {
+            "completed_lap_count": n,
+            "mean_lap_time_s": mean_val,
+            "median_lap_time_s": median_val,
+            "p95_lap_time_s": _quantile_higher(values, 0.95),
+            "lap_time_std_s": std_val,
+            "parse_success": True,
+        }
+
+    return {
+        "all": _stats(grouped["all"]),
+        "HV": _stats(grouped["HV"]),
+        "CAV": _stats(grouped["CAV"]),
+    }

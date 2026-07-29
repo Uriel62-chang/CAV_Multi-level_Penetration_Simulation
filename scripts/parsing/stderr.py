@@ -51,3 +51,55 @@ def parse_emergency_braking(stderr_text: str, warmup_period: float = 600.0):
         "emergency_braking_count": len(events),
         "emergency_braking_affected_vehicle_count": len(affected),
     }
+
+
+def parse_emergency_braking_subgroup(
+    stderr_text: str,
+    type_map: dict[str, str],
+    warmup_period: float = 600.0,
+) -> dict:
+    if stderr_text is None:
+        return {
+            label: {
+                "emergency_braking_count": float("nan"),
+                "emergency_braking_affected_vehicle_count": float("nan"),
+            }
+            for label in ("all", "HV", "CAV")
+        }
+
+    pattern = re.compile(
+        r"Vehicle '(\S+?)' performs emergency braking.*?time=([0-9]+(?:\.[0-9]+)?)"
+    )
+
+    grouped_events: dict[str, list[float]] = {"all": [], "HV": [], "CAV": []}
+    grouped_affected: dict[str, set[str]] = {"all": set(), "HV": set(), "CAV": set()}
+
+    for match in pattern.finditer(stderr_text):
+        vehicle_id = match.group(1)
+        try:
+            event_time = float(match.group(2))
+        except ValueError:
+            continue
+
+        if event_time < warmup_period:
+            continue
+
+        grouped_events["all"].append(event_time)
+        grouped_affected["all"].add(vehicle_id)
+
+        if vehicle_id not in type_map:
+            raise ValueError(f"vehicle_id '{vehicle_id}' not found in type_map")
+        veh_type = type_map[vehicle_id]
+        if veh_type not in ("HV", "CAV"):
+            raise ValueError(f"unexpected vehicle type '{veh_type}' for '{vehicle_id}'")
+
+        grouped_events[veh_type].append(event_time)
+        grouped_affected[veh_type].add(vehicle_id)
+
+    return {
+        label: {
+            "emergency_braking_count": len(grouped_events[label]),
+            "emergency_braking_affected_vehicle_count": len(grouped_affected[label]),
+        }
+        for label in ("all", "HV", "CAV")
+    }

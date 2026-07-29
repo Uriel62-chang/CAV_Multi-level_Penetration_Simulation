@@ -9,6 +9,8 @@
 > 补充材料（Git 忽略，本地可用时参考）：
 > `docs/internal/releases/v0.4.1.md`（完整开发计划）、
 > `docs/internal/releases/v0.4.1-stage1-design.md`（阶段 1 设计文档）
+>
+> 阶段 2 的设计文档获批后应作为受跟踪文档提交（含函数契约、校验矩阵和验收探针）。
 
 ---
 
@@ -56,7 +58,7 @@
 - **重新评估触发条件**：asyncio 上游修复 `process.wait()` 唤醒问题后
 - **背景**：`process.wait()` 在某些内核/SUMO 版本组合下不自主唤醒，即使子进程已退出。
 - **决定**：用 while 轮询 `getattr(process, "returncode", None)`（默认间隔 0.5s，硬截止 7200s）。
-- **原因**：`process.returncode` 是 asyncio 在子进程退出时立即设置的属性，轮询比 `wait()` 更可靠。
+- **原因**：`process.returncode` 是 asyncio 在子进程退出时设置的属性，在当前支持环境中可被可靠轮询观察到，比 `wait()` 更可靠。
 - **已考虑的替代方案**：只对显式 timeout 轮询，默认仍 `wait()`（不解决默认无限等待）。
 - **当前代价**：最多约 0.5 秒的退出检测延迟；mock Process 类需添加 `returncode` 属性。
 
@@ -78,14 +80,14 @@
 
 - **已实现**：cav_count 双 seed 网格 + inactive-dimension 规范化；SUMO 命令注入 seed/SSM capture/FCD 输出；withInternal=true additional；writer `non_internal_edge_vehicle_km` 列名修正；进程退出轮询 + SIGINT→CANCELLED；CLI `--assignment-seeds`/`--sumo-seeds` 命名。
 - **已验证**：104 tests passed；pilot 162 唯一 run；legacy 10,080 无回归；smoke SUCCESS + resume SKIPPED；FCD gzip 有效。
-- **已提交**：阶段 0（`acb5bc6`）→ 阶段 1（`05ab6bb`~`99f4af4`），共 14 commits。
+- **已提交**：阶段 0（`acb5bc6`）→ 阶段 1（`05ab6bb`~`99f4af4`），共 13 commits。
 
 ### 当前状态
 
 - **当前分支**：`main`
-- **文档 HEAD**：`6b70714`
 - **最近验证通过的功能提交**：`99f4af4`（fix: add await to process.wait() in CancelledError handler）
-- **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-30
+- **本文档最后更新**：参见 `git log -1 --oneline -- DEVELOPMENT.md`
+- **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-29
 - **可运行入口**：
   ```bash
   .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.1/smoke.json --output-root /tmp/smoke --sumo-processes 1

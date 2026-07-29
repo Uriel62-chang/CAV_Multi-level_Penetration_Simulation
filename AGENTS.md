@@ -79,7 +79,7 @@ python3 -m scripts.results.visualization \
 
 ## 当前版本
 
-**v0.4.1 阶段 1 完成**（2026-07-30）
+**v0.4.1 阶段 1 完成**（2026-07-29）
 
 ### 阶段 0 交付
 - cav_count 双 seed 网格（新 run_id 格式 `s2_IDM_v120_c060_as01_ss101`）

@@ -98,6 +98,8 @@
 ### 待处理
 
 - **下一阶段任务**：阶段 2 — HV/CAV 子群、FCD THW 解析、SSM 敏感性、自由流参考、micro-pilot。
+  - **阶段 2 设计文档必须作为受跟踪文件提交**（含函数契约、校验矩阵、验收探针），获批后再写代码。
+  - **A1 子群拆分是贯穿式改造**：建议先设计 `parsing/runner.py` 输出的 summary dict 结构（all/HV/CAV 键布局），再逐个 parser 实现。每个 parser 一个独立 commit。
 - **已知问题**：无阻塞缺陷。
 - **暂缓**：S8 冻结输入、PreparedRun.fcd_path、环路距离校验 → 1.post1；test_simulation_state_machine 缺进程启动后 SIGINT 测试。
 

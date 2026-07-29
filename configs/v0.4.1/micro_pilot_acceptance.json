@@ -1,0 +1,39 @@
+{
+  "acceptance_version": "v0.4.1-micro-pilot-1",
+  "max_failures": 0,
+  "single_run_timeout_s": 900,
+  "micro_pilot_wall_time_max_s": 7200,
+  "sumo_peak_rss_bytes_per_run_max": 2147483648,
+  "fcd_parser_peak_rss_bytes_per_run_max": 209715200,
+  "tolerances": {
+    "vehicle_km": {"rel": 5e-5, "abs": 1e-6},
+    "non_internal_edge_vehicle_km": {"rel": 5e-5, "abs": 1e-6},
+    "time_loss": {"rel": 1e-6, "abs": 1e-3},
+    "emissions": {"rel": 1e-6, "abs": 1e-9},
+    "lane_change_count": {"rel": 0, "abs": 0},
+    "unsafe_lc_gap_count": {"rel": 0, "abs": 0},
+    "emergency_braking_count": {"rel": 0, "abs": 0},
+    "completed_lap_count": {"rel": 0, "abs": 0}
+  },
+  "invariants": {
+    "ssm_pair_sum_equals_all_ttc": true,
+    "ssm_pair_sum_equals_all_drac": true,
+    "ssm_role_plus_unclassified_equals_all_ttc": true,
+    "ssm_role_plus_unclassified_equals_all_drac": true
+  },
+  "requirements": {
+    "simulation_all_success": true,
+    "parse_all_success": true,
+    "writer_complete": true,
+    "writer_all_rows_valid": true,
+    "subgroup_headway_present": true,
+    "at_least_one_run_has_ssm_events": true,
+    "fcd_gzip_all_nonempty": true
+  },
+  "resource_budget": {
+    "sim_wall_time_p95_s": 180,
+    "parse_wall_time_p95_s": 60,
+    "fcd_gzip_bytes_per_run_max": 52428800,
+    "subgroup_jsonl_rows_min": 10
+  }
+}

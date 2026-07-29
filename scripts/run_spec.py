@@ -524,11 +524,18 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
             net_meta_path = network_file.with_name("net.json")
             import json as _json
 
+            if not net_meta_path.exists():
+                return False
             try:
                 net_meta = _json.loads(net_meta_path.read_text(encoding="utf-8"))
-                num_lanes = max(int(net_meta.get("num_lanes", 1)), 1)
             except Exception:
-                num_lanes = 1
+                return False
+            raw = net_meta.get("num_lanes")
+            if not isinstance(raw, (int, float)) or isinstance(raw, bool):
+                return False
+            num_lanes = int(raw)
+            if num_lanes < 1:
+                return False
             for lane_idx in range(num_lanes):
                 lane_all = run_dir / f"detector_lane{lane_idx}.xml"
                 if not lane_all.exists() or lane_all.stat().st_size == 0:

@@ -528,6 +528,6 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
     core = compute_core_summary(primitives, spec, free_flow_refs)
     subgroup = compute_subgroup_records(primitives, spec, free_flow_refs)
 
-    errors = _validate_invariants(core) + validate_subgroup_invariants(primitives, spec)
+    errors = _validate_invariants(core) + validate_subgroup_invariants(primitives)
 
     return core, subgroup, errors

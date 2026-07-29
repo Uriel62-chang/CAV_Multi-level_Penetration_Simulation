@@ -349,14 +349,12 @@ def compute_subgroup_records(primitives, spec, free_flow_refs):
     return records
 
 
-def validate_subgroup_invariants(primitives, spec):
+def validate_subgroup_invariants(primitives):
     """Validate additivity invariants. Returns list of error strings."""
     errors = []
 
-    hv_empty = (spec.cav_count or 0) == spec.vehicle_count
-    cav_empty = (spec.cav_count or 0) == 0
-
-    # Check HV/CAV parser success (not just all)
+    # Check HV/CAV parser success (not just all); empty subgroups
+    # naturally have 0 data but parse_success=True after vehroute fix.
     for group_name, prim_key, parser_name in [
         ("HV", "edge_perf", "edge_performance"),
         ("CAV", "edge_perf", "edge_performance"),
@@ -367,10 +365,6 @@ def validate_subgroup_invariants(primitives, spec):
         ("HV", "vehroute", "vehroute"),
         ("CAV", "vehroute", "vehroute"),
     ]:
-        if group_name == "HV" and hv_empty:
-            continue
-        if group_name == "CAV" and cav_empty:
-            continue
         sub = primitives.__dict__.get(prim_key, {}).get(group_name, {})
         if sub.get("parse_success") is not True:
             errors.append(f"subgroup {group_name} {parser_name} parse_success is not True")
@@ -388,10 +382,6 @@ def validate_subgroup_invariants(primitives, spec):
 
     # Check detector subgroup
     for group_name in ("HV", "CAV"):
-        if group_name == "HV" and hv_empty:
-            continue
-        if group_name == "CAV" and cav_empty:
-            continue
         det_sub = primitives.detector.get(group_name, {})
         if det_sub.get("parse_success") is not True:
             errors.append(f"detector subgroup {group_name} parse_success is not True")

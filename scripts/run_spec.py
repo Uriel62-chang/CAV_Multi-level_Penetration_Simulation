@@ -520,30 +520,18 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
                     run_dir / "emissions_CAV.xml",
                 ]
             )
-            det_all = sorted(
-                p
-                for p in run_dir.glob("detector_lane*.xml")
-                if "_HV" not in p.name and "_CAV" not in p.name
-            )
-            if det_all:
-                for p in det_all:
-                    if p.stat().st_size == 0:
-                        return False
-                    hv_path = p.with_name(p.name.replace(".xml", "_HV.xml"))
-                    cav_path = p.with_name(p.name.replace(".xml", "_CAV.xml"))
-                    if not hv_path.exists() or hv_path.stat().st_size == 0:
-                        return False
-                    if not cav_path.exists() or cav_path.stat().st_size == 0:
-                        return False
-            else:
-                for name in (
-                    "detector_lane0.xml",
-                    "detector_lane0_HV.xml",
-                    "detector_lane0_CAV.xml",
-                ):
-                    p = run_dir / name
-                    if not p.exists() or p.stat().st_size == 0:
-                        return False
+            for lane_idx in (0, 1):
+                lane_all = run_dir / f"detector_lane{lane_idx}.xml"
+                if not lane_all.exists():
+                    break
+                if lane_all.stat().st_size == 0:
+                    return False
+                p_hv = lane_all.with_name(lane_all.name.replace(".xml", "_HV.xml"))
+                p_cav = lane_all.with_name(lane_all.name.replace(".xml", "_CAV.xml"))
+                if not p_hv.exists() or p_hv.stat().st_size == 0:
+                    return False
+                if not p_cav.exists() or p_cav.stat().st_size == 0:
+                    return False
     for path in required_files:
         if not path.exists() or path.stat().st_size == 0:
             return False

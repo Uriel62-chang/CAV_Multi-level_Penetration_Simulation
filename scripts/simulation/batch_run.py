@@ -675,6 +675,15 @@ def _missing_required_outputs(run_dir: Path, spec: RunSpec) -> list[str]:
     names = ["ssm.xml", "lanechange.xml", "performance.xml", "emissions.xml", "vehroute.xml"]
     if spec.fcd_profile is not None:
         names.append("fcd.xml.gz")
+    if getattr(spec, "schema_version", "1") == "2":
+        names.extend(
+            [
+                "performance_HV.xml",
+                "performance_CAV.xml",
+                "emissions_HV.xml",
+                "emissions_CAV.xml",
+            ]
+        )
     return [
         name
         for name in names

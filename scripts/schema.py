@@ -37,9 +37,6 @@ CONFIG_COLUMNS_V4_1 = [
     "with_internal",
 ]
 
-# v0.4.1 core run-level CSV 列
-RUN_LEVEL_COLUMNS_V4_1 = list(IDENTIFIER_COLUMNS_V4_1) + list(CONFIG_COLUMNS_V4_1)
-
 # ═══════════════════════════════════════════════════════════════
 # v0.4.0 schema_version=1 列定义（只读兼容，不修改）
 # ═══════════════════════════════════════════════════════════════
@@ -161,6 +158,42 @@ AUDIT_COLUMNS = [
     "vr_parse_success",
 ]
 
+# ═══════════════════════════════════════════════════════════════
+# v0.4.1 schema_version=2 审计字段
+# ═══════════════════════════════════════════════════════════════
+
+AUDIT_COLUMNS_V4_1 = AUDIT_COLUMNS + ["fcd_parse_success"]
+
+# v0.4.1 schema_version=2 核心 run-level CSV 列 (64 列)
+RUN_LEVEL_COLUMNS_V4_1 = (
+    list(IDENTIFIER_COLUMNS_V4_1)
+    + list(CONFIG_COLUMNS_V4_1)
+    + list(CAPACITY_COLUMNS)
+    + list(SAFETY_SSM_COLUMNS)
+    + list(SAFETY_EB_COLUMNS)
+    + list(LANECHANGE_COLUMNS)
+    + list(EMISSIONS_COLUMNS)
+    + list(EFFICIENCY_COLUMNS)
+    + list(NORMALIZED_COLUMNS)
+    + list(DELAY_COLUMNS)
+    + list(QUALITY_COLUMNS)
+)
+
+# v0.4.1 schema_version=2 summary.json 必需字段
+SUMMARY_REQUIRED_KEYS_V4_1 = (
+    list(IDENTIFIER_COLUMNS_V4_1)
+    + list(CONFIG_COLUMNS_V4_1)
+    + list(CAPACITY_COLUMNS)
+    + list(SAFETY_SSM_COLUMNS)
+    + list(SAFETY_EB_COLUMNS)
+    + list(LANECHANGE_COLUMNS)
+    + list(EMISSIONS_COLUMNS)
+    + list(EFFICIENCY_COLUMNS)
+    + list(NORMALIZED_COLUMNS)
+    + list(DELAY_COLUMNS)
+    + list(AUDIT_COLUMNS_V4_1)
+)
+
 # ── summary.json 完整必需字段 = CSV 列（去掉 quality 列）+ 审计字段 ──
 
 SUMMARY_REQUIRED_KEYS = (
@@ -191,13 +224,22 @@ SUMMARY_REQUIRED_KEYS = (
     + AUDIT_COLUMNS
 )
 
-# ── v0.4.1 subgroup 长表列定义（预留，阶段 2 实现） ──
+# ── v0.4.1 subgroup 长表列定义 ──
 
-SUBGROUP_LONG_COLUMNS = [
+SUBGROUP_LONG_COLUMNS_V4_1 = [
     "run_id",
+    "scenario",
+    "model",
+    "requested_pcav",
+    "realized_pcav",
+    "cav_count",
+    "hv_count",
+    "vehN",
+    "assignment_seed",
+    "sumo_seed",
     "metric_family",
-    "group_dimension",  # vehicle_type | pair_type | role_type
-    "group_value",  # HV | CAV | HV-HV | HV-CAV | CAV-CAV | follower_HV->leader_CAV
+    "group_dimension",
+    "group_value",
     "metric_name",
     "metric_value",
 ]

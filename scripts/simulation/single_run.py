@@ -137,6 +137,16 @@ def prepare_run(
     stdout_path = run_dir / "stdout.log"
     stderr_path = run_dir / "stderr.log"
     status_path = run_dir / "simulation_status.json"
+    detector_paths_HV = tuple(
+        run_dir / f"detector_lane{lane_index}_HV.xml" for lane_index in range(num_lanes)
+    )
+    detector_paths_CAV = tuple(
+        run_dir / f"detector_lane{lane_index}_CAV.xml" for lane_index in range(num_lanes)
+    )
+    performance_HV_path = run_dir / "performance_HV.xml"
+    performance_CAV_path = run_dir / "performance_CAV.xml"
+    emissions_HV_path = run_dir / "emissions_HV.xml"
+    emissions_CAV_path = run_dir / "emissions_CAV.xml"
 
     # ── 生成车流 ──
     vehicle_type_map = generate_flow(
@@ -159,35 +169,76 @@ def prepare_run(
     atomic_write_json(type_map_path, vehicle_type_map)
 
     # ── 生成附加文件（检测器 + edgeData 合并） ──
-    _write_additional_xml(
-        additional_path,
-        detector_paths,
-        spec.detector_frequency,
-        first_edge,
-        detector_pos,
-        num_lanes,
-        performance_path,
-        emissions_path,
-        spec.simulation_end,
-        spec.edge_data_frequency,
-        with_internal=spec.with_internal,
-    )
-
-    return PreparedRun(
-        run_dir=run_dir,
-        route_path=route_path,
-        additional_path=additional_path,
-        detector_paths=detector_paths,
-        ssm_path=ssm_path,
-        lanechange_path=lanechange_path,
-        performance_path=performance_path,
-        emissions_path=emissions_path,
-        vehroute_path=vehroute_path,
-        stdout_path=stdout_path,
-        stderr_path=stderr_path,
-        status_path=status_path,
-        vehicle_type_map_path=type_map_path,
-    )
+    if spec.schema_version == "2":
+        _write_additional_v4_1_subgroup(
+            additional_path,
+            detector_paths,
+            detector_paths_HV,
+            detector_paths_CAV,
+            spec.detector_frequency,
+            first_edge,
+            detector_pos,
+            num_lanes,
+            performance_path,
+            performance_HV_path,
+            performance_CAV_path,
+            emissions_path,
+            emissions_HV_path,
+            emissions_CAV_path,
+            spec.simulation_end,
+            spec.edge_data_frequency,
+            with_internal=spec.with_internal,
+        )
+        return PreparedRun(
+            run_dir=run_dir,
+            route_path=route_path,
+            additional_path=additional_path,
+            detector_paths=detector_paths,
+            ssm_path=ssm_path,
+            lanechange_path=lanechange_path,
+            performance_path=performance_path,
+            emissions_path=emissions_path,
+            vehroute_path=vehroute_path,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            status_path=status_path,
+            vehicle_type_map_path=type_map_path,
+            performance_HV_path=performance_HV_path,
+            performance_CAV_path=performance_CAV_path,
+            emissions_HV_path=emissions_HV_path,
+            emissions_CAV_path=emissions_CAV_path,
+            detector_paths_HV=detector_paths_HV,
+            detector_paths_CAV=detector_paths_CAV,
+        )
+    else:
+        _write_additional_xml(
+            additional_path,
+            detector_paths,
+            spec.detector_frequency,
+            first_edge,
+            detector_pos,
+            num_lanes,
+            performance_path,
+            emissions_path,
+            spec.simulation_end,
+            spec.edge_data_frequency,
+            with_internal=spec.with_internal,
+        )
+        return PreparedRun(
+            run_dir=run_dir,
+            route_path=route_path,
+            additional_path=additional_path,
+            detector_paths=detector_paths,
+            ssm_path=ssm_path,
+            lanechange_path=lanechange_path,
+            performance_path=performance_path,
+            emissions_path=emissions_path,
+            vehroute_path=vehroute_path,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            status_path=status_path,
+            vehicle_type_map_path=type_map_path,
+        )
 
 
 def _write_additional_xml(
@@ -226,6 +277,94 @@ def _write_additional_xml(
             f'    <edgeData id="ed_emis" type="emissions" file="{emissions_path.name}" '
             f'freq="{edge_data_freq}" begin="0" end="{int(sim_end_time)}" '
             f'excludeEmpty="true"{internal_attr}/>\n'
+        )
+        f.write("</additional>\n")
+
+
+def _write_additional_v4_1_subgroup(
+    additional_path: Path,
+    detector_paths: tuple[Path, ...],
+    detector_paths_HV: tuple[Path, ...],
+    detector_paths_CAV: tuple[Path, ...],
+    detector_frequency: int,
+    first_edge: str,
+    detector_pos: float,
+    num_lanes: int,
+    performance_path: Path,
+    performance_HV_path: Path,
+    performance_CAV_path: Path,
+    emissions_path: Path,
+    emissions_HV_path: Path,
+    emissions_CAV_path: Path,
+    sim_end_time: float,
+    edge_data_freq: int,
+    *,
+    with_internal: bool = True,
+) -> None:
+    """写入 schema=2 多测量子群附加 XML（all / HV / CAV）"""
+    internal_attr = ' withInternal="true"' if with_internal else ""
+    with additional_path.open("w", encoding="utf-8") as f:
+        f.write("<additional>\n")
+        # E1 检测器: all
+        for lane_idx in range(num_lanes):
+            f.write(
+                f'    <e1Detector id="det_l{lane_idx}" lane="{first_edge}_{lane_idx}" '
+                f'pos="{detector_pos:.1f}" freq="{detector_frequency}" '
+                f'file="{detector_paths[lane_idx].name}"/>\n'
+            )
+        # E1 检测器: HV
+        for lane_idx in range(num_lanes):
+            f.write(
+                f'    <e1Detector id="det_l{lane_idx}_HV" lane="{first_edge}_{lane_idx}" '
+                f'pos="{detector_pos:.1f}" freq="{detector_frequency}" '
+                f'file="{detector_paths_HV[lane_idx].name}" vTypes="HV"/>\n'
+            )
+        # E1 检测器: CAV
+        for lane_idx in range(num_lanes):
+            f.write(
+                f'    <e1Detector id="det_l{lane_idx}_CAV" lane="{first_edge}_{lane_idx}" '
+                f'pos="{detector_pos:.1f}" freq="{detector_frequency}" '
+                f'file="{detector_paths_CAV[lane_idx].name}" vTypes="CAV"/>\n'
+            )
+        # edgeData performance: all
+        f.write(
+            f'    <edgeData id="ed_perf" type="performance" file="{performance_path.name}" '
+            f'freq="{edge_data_freq}" begin="0" end="{int(sim_end_time)}" '
+            f'excludeEmpty="true"{internal_attr}/>\n'
+        )
+        # edgeData performance: HV
+        f.write(
+            f'    <edgeData id="ed_perf_HV" type="performance" '
+            f'file="{performance_HV_path.name}" '
+            f'freq="{edge_data_freq}" begin="0" end="{int(sim_end_time)}" '
+            f'excludeEmpty="true"{internal_attr} vTypes="HV"/>\n'
+        )
+        # edgeData performance: CAV
+        f.write(
+            f'    <edgeData id="ed_perf_CAV" type="performance" '
+            f'file="{performance_CAV_path.name}" '
+            f'freq="{edge_data_freq}" begin="0" end="{int(sim_end_time)}" '
+            f'excludeEmpty="true"{internal_attr} vTypes="CAV"/>\n'
+        )
+        # edgeData emissions: all
+        f.write(
+            f'    <edgeData id="ed_emis" type="emissions" file="{emissions_path.name}" '
+            f'freq="{edge_data_freq}" begin="0" end="{int(sim_end_time)}" '
+            f'excludeEmpty="true"{internal_attr}/>\n'
+        )
+        # edgeData emissions: HV
+        f.write(
+            f'    <edgeData id="ed_emis_HV" type="emissions" '
+            f'file="{emissions_HV_path.name}" '
+            f'freq="{edge_data_freq}" begin="0" end="{int(sim_end_time)}" '
+            f'excludeEmpty="true"{internal_attr} vTypes="HV"/>\n'
+        )
+        # edgeData emissions: CAV
+        f.write(
+            f'    <edgeData id="ed_emis_CAV" type="emissions" '
+            f'file="{emissions_CAV_path.name}" '
+            f'freq="{edge_data_freq}" begin="0" end="{int(sim_end_time)}" '
+            f'excludeEmpty="true"{internal_attr} vTypes="CAV"/>\n'
         )
         f.write("</additional>\n")
 

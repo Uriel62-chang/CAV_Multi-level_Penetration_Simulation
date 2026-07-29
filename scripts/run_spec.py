@@ -405,6 +405,14 @@ class PreparedRun:
     status_path: Path
     vehicle_type_map_path: Path | None = None
 
+    # 阶段 2：schema=2 子群输出路径
+    performance_HV_path: Path | None = None
+    performance_CAV_path: Path | None = None
+    emissions_HV_path: Path | None = None
+    emissions_CAV_path: Path | None = None
+    detector_paths_HV: tuple[Path, ...] = ()
+    detector_paths_CAV: tuple[Path, ...] = ()
+
 
 @dataclass
 class SimulationResult:
@@ -503,6 +511,15 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
         required_files.append(run_dir / "vehicle_type_map.json")
         if spec.fcd_profile is not None:
             required_files.append(run_dir / "fcd.xml.gz")
+        if getattr(spec, "schema_version", "1") == "2":
+            required_files.extend(
+                [
+                    run_dir / "performance_HV.xml",
+                    run_dir / "performance_CAV.xml",
+                    run_dir / "emissions_HV.xml",
+                    run_dir / "emissions_CAV.xml",
+                ]
+            )
     for path in required_files:
         if not path.exists() or path.stat().st_size == 0:
             return False

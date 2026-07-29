@@ -684,10 +684,15 @@ def _missing_required_outputs(run_dir: Path, spec: RunSpec) -> list[str]:
                 "emissions_CAV.xml",
             ]
         )
-        for lane_idx in (0, 1):
-            lane_all = run_dir / f"detector_lane{lane_idx}.xml"
-            if not lane_all.exists():
-                break
+        import json as _json
+
+        try:
+            net_meta_path = Path(spec.network_file).with_name("net.json")
+            net_meta = _json.loads(net_meta_path.read_text(encoding="utf-8"))
+            num_lanes = max(int(net_meta.get("num_lanes", 1)), 1)
+        except Exception:
+            num_lanes = 1
+        for lane_idx in range(num_lanes):
             names.append(f"detector_lane{lane_idx}.xml")
             names.append(f"detector_lane{lane_idx}_HV.xml")
             names.append(f"detector_lane{lane_idx}_CAV.xml")

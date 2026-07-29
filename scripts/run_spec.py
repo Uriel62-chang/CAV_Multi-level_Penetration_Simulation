@@ -520,11 +520,18 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
                     run_dir / "emissions_CAV.xml",
                 ]
             )
-            for lane_idx in (0, 1):
+            network_file = Path(spec.network_file)
+            net_meta_path = network_file.with_name("net.json")
+            import json as _json
+
+            try:
+                net_meta = _json.loads(net_meta_path.read_text(encoding="utf-8"))
+                num_lanes = max(int(net_meta.get("num_lanes", 1)), 1)
+            except Exception:
+                num_lanes = 1
+            for lane_idx in range(num_lanes):
                 lane_all = run_dir / f"detector_lane{lane_idx}.xml"
-                if not lane_all.exists():
-                    break
-                if lane_all.stat().st_size == 0:
+                if not lane_all.exists() or lane_all.stat().st_size == 0:
                     return False
                 p_hv = lane_all.with_name(lane_all.name.replace(".xml", "_HV.xml"))
                 p_cav = lane_all.with_name(lane_all.name.replace(".xml", "_CAV.xml"))

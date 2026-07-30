@@ -2,7 +2,7 @@
 
 > A reproducible SUMO experiment platform for evaluating how CAV penetration and car-following control affect **observed flow, safety, emissions, and reference-relative lap time** under different road constraints.
 
-`SUMO 1.27.1` · `Python 3.10+` · `10,080 simulations` · `5 assignment seeds` · `v0.4.0.post3`
+`SUMO 1.27.1` · `Python 3.10+` · `10,080 simulations` · `v0.4.1`
 
 [Key Findings](#key-findings) ·
 [Scenario Design](#scenario-design) ·
@@ -73,7 +73,7 @@ Under the current `TTC < 3.0 s` SSM configuration:
 
 The observed distribution is consistent with road geometry and loss of lateral freedom being major contributors to conflict formation.
 
-> This interpretation is limited to the current SSM threshold, model parameters, and experiment grid. v0.4.1 is planned to develop trajectory-level validation and threshold-sensitivity tooling and validate it with a bounded pilot; it does not automatically replace the frozen v0.4.0 experiment.
+> This interpretation is limited to the current SSM threshold, model parameters, and experiment grid. v0.4.1 delivers trajectory-level validation tooling and threshold sensitivity analysis; v0.4.2 will explore redesigned safety experiments independent of the main factorial grid.
 
 ---
 
@@ -701,7 +701,7 @@ docs/
 | Version | Focus |
 |---|---|
 | v0.4.1 | Measurement and experimental-design upgrade: HV/CAV subgroup metrics, physical THW, compact FCD/TraCI validation, TTC threshold sensitivity, space-matched exposure, independent SUMO/assignment seeds, model-specific free-flow references, and a bounded pilot |
-| v0.4.2 (conditional) | A new formal simulation and result release only if the v0.4.1 pilot passes predefined correctness, storage and runtime gates |
+| v0.4.2 (planned) | Main factorial (efficiency/emissions/FCD, SSM disabled) + independent safety experiment design |
 | v0.5.0 | Real-trajectory-driven car-following model calibration and simulation validation |
 | v0.6.0 | TraCI-based dynamic traffic control |
 | v0.7.0 | CACC communication degradation, including packet loss and latency |

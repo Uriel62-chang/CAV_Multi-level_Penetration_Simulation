@@ -88,7 +88,7 @@ python3 -m scripts.results.visualization \
 - schema=2 writer/aggregate 路由（`--schema-version` 必填）
 - SSM 敏感性 CLI（none/greedy/sorted_greedy dedup）
 - 自由流参考测量
-- 45 个 stage2 测试（总 149）
+- 61 个 stage2 测试（总 165）
 
 ### 阶段 0 交付
 - cav_count 双 seed 网格（新 run_id 格式 `s2_IDM_v120_c060_as01_ss101`）

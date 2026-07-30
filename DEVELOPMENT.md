@@ -137,7 +137,7 @@
 
 ### D-012：SSM 诊断证据使用不可复用 attempt，而非 case 根目录
 
-- **状态**：Implemented，待独立提交与 Reviewer 复核（不得作为规范诊断）
+- **状态**：Implemented，Reviewer 补正待独立提交与复核（不得作为规范诊断）
 - **适用范围**：`scripts/analysis/ssm_reproducer.py`、`configs/v0.4.1/ssm_reproducer_s[2|3].json`
 - **背景**：case 根目录复用会混淆不同代码基线与失败尝试；dirty tree 的观察不能替代规范证据。
 - **决定**：每次诊断写入 `case_id/attempt-###/{raw,report}`；启动前原子写 RUNNING，finally 写终态、错误与存在文件 SHA/缺失清单；仅完整成功且控制条件满足时生成派生 report。
@@ -156,7 +156,7 @@
 - **P2 summary companion-field 已由 Reviewer 关闭**（`9e742fc`）：schema=1 summary 单独提供 optional whole-network TTC rate 而缺少 optional `non_internal_edge_vehicle_km` 时，契约返回字段级 companion-missing 错误；NaN 与有限 rate 均不再抛出 `KeyError`。
 - **P2 runner 错误聚合已由 Reviewer 关闭**（`c35f7fe`）：summary contract 与既有 invariant 同时失败时，runner 会按稳定顺序保留两类独立错误，并写入 `_invariant_errors` / `parse_status.error_message`。
 - **v0.4.1.post1 已启动**：仅补强 acceptance/input 冻结、SHA 追溯与 SSM 最小复现诊断；canonical frozen pair 已接入非 dry-run v0.4.1 batch 的 `--acceptance`、manifest 与 resume 防覆盖闭环。已冻结 s2/s3 CACC 全 CAV `as00/ss102` 对照 case；attempt 证据状态机尚未完成，s2 禁止运行。
-- **D-012 待复核实现**：attempt 目录以 `mkdir` 排他递增；启动 SUMO 前持久化 RUNNING（case SHA、git commit/dirty、开始时间）；finally 闭合 SUCCESS/FAILED/TIMEOUT/INTERRUPTED/REPORT_FAILED，并清点 frozen case、RunSpec、route、SSM、FCD、stdout/stderr、RSS 的 size/SHA 和缺失项。仅 SUMO=0、证据完整、SSM 汇总成功且 positive control 通过才写 report。回归覆盖 timeout、SUMO nonzero、SSM parse、report write 和状态写入双错误。尚未运行 s2/s3 case。
+- **D-012 待复核实现**：attempt 目录以 `mkdir` 排他递增；启动 SUMO 前持久化 RUNNING（case SHA、git commit/dirty、开始时间）；finally 闭合 SUCCESS/FAILED/TIMEOUT/INTERRUPTED/REPORT_FAILED，并清点 frozen case、RunSpec、route、SSM、FCD、stdout/stderr、RSS 的 size/SHA 和缺失项。仅 SUMO=0、证据完整、SSM 汇总成功且 positive control 通过才写 report。首轮 Reviewer 发现并已补正 setup 半成品盘点与 SIGINT 子进程收束；回归覆盖 timeout、SUMO nonzero、SSM parse、report write、setup failure、SIGINT 和状态写入双错误。尚未运行 s2/s3 case。
 - **已验证**：207 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；micro-pilot Level 1 通过（10/10）；Level 2 bounded factorial pilot 完成（162 runs, failed original resource gate）；mitigation calibration 完成（48 runs with extratime=1.0+merge, failed simultaneous fidelity+RSS gates）。
 - **已提交**：阶段 2 从设计基线 `460f0e6` 到 v0.4.1 发布。
 
@@ -179,7 +179,7 @@
 
 - **v0.4.2**：分拆设计——主 factorial 关闭 SSM 运行效率/排放/FCD 完整网格；独立 safety experiment 专门定义 TTC/DRAC estimand。
 - **SUMO upstream**：s2 无事件但 RSS ~9 GiB 的 encounter-tracking 行为，制作最小复现提交。
-- **SSM repro（阻塞）**：D-012 实现待独立提交与 Reviewer 复核；dirty `31fc13b` 的 s3 成功仅为开发观察，首次失败尝试不可验证、不得引用。完成 clean D-012 提交的规范 s3 attempt 且 positive-control pass 前，不得运行 s2。
+- **SSM repro（阻塞）**：D-012 Reviewer 补正待独立提交与复核；dirty `31fc13b` 的 s3 成功仅为开发观察，首次失败尝试不可验证、不得引用。完成 clean D-012 提交的规范 s3 attempt 且 positive-control pass 前，不得运行 s2。
 - **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针。
 - **暂缓**：S8 冻结输入、PreparedRun.fcd_path → 1.post1。
 

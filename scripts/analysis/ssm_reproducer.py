@@ -96,18 +96,32 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _expected_evidence_paths(root: Path, prepared) -> list[Path]:
+def _expected_evidence_paths(root: Path, run_dir: Path) -> list[Path]:
     """List the immutable inputs and raw outputs that make an attempt auditable."""
     return [
         root / "raw" / "frozen_case.json",
-        prepared.run_dir / "run_spec.json",
-        prepared.route_path,
-        prepared.ssm_path,
-        prepared.run_dir / "fcd.xml.gz",
-        prepared.stderr_path,
-        prepared.stdout_path,
+        run_dir / "run_spec.json",
+        run_dir / "routes.rou.xml",
+        run_dir / "ssm.xml",
+        run_dir / "fcd.xml.gz",
+        run_dir / "stderr.log",
+        run_dir / "stdout.log",
         root / "raw" / "rss_samples.jsonl",
     ]
+
+
+def _stop_process(process) -> dict | None:
+    """Best-effort stop for an interrupted SUMO process, without hiding SIGINT."""
+    try:
+        process.terminate()
+        try:
+            process.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=30)
+    except BaseException as exc:  # An interrupt cleanup failure must remain auditable.
+        return {"exception_type": type(exc).__name__, "exception_message": str(exc)}
+    return None
 
 
 def load_case(path: str | Path) -> dict:
@@ -184,7 +198,8 @@ def run_case(
     started = time.monotonic()
     network_file = str(case["network_file"])
     process = None
-    expected: list[Path] = [raw_dir / "frozen_case.json", raw_dir / "rss_samples.jsonl"]
+    run_dir = raw_dir / "run"
+    expected = _expected_evidence_paths(root, run_dir)
     terminal_status = "FAILED"
     failure_stage = "setup"
     evidence: dict | None = None
@@ -193,6 +208,7 @@ def run_case(
     sumo_return_code: int | None = None
     rss_peak_kb = 0
     rss_sample_count = 0
+    cleanup_error: dict | None = None
 
     try:
         raw_dir.mkdir(parents=True)
@@ -236,11 +252,9 @@ def run_case(
             fcd_max_leader_distance_m=float(case["fcd_max_leader_distance_m"]),
             with_internal=bool(case["with_internal"]),
         )
-        run_dir = raw_dir / "run"
         run_dir.mkdir()
         write_run_spec(spec, run_dir)
         prepared = prepare_run(spec, run_dir, network_file)
-        expected = _expected_evidence_paths(root, prepared)
         command = build_sumo_command_v4_1(prepared, network_file, spec, sumo_command)
         provenance = collect_provenance({case["scenario"]: network_file}, sumo_command, command)
         atomic_write_bytes(
@@ -320,6 +334,8 @@ def run_case(
     except KeyboardInterrupt as exc:
         terminal_status = "INTERRUPTED"
         active_error = exc
+        if process is not None:
+            cleanup_error = _stop_process(process)
         raise
     except TimeoutError as exc:
         terminal_status = "TIMEOUT"
@@ -346,6 +362,7 @@ def run_case(
             "sumo_return_code": sumo_return_code,
             "rss_peak_kb": rss_peak_kb,
             "rss_sample_count": rss_sample_count,
+            "cleanup_error": cleanup_error,
             "evidence": inventory["files"],
             "expected_but_missing": inventory["missing"],
             "ssm": evidence,

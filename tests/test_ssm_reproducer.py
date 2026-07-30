@@ -247,3 +247,57 @@ def test_terminal_status_write_preserves_original_and_status_errors(monkeypatch,
         ssm_reproducer.write_attempt_terminal_status(tmp_path, {}, original_error)
 
     assert isinstance(caught.value.__cause__, OSError)
+
+
+def test_prepare_failure_inventories_written_run_spec(monkeypatch, tmp_path):
+    _patch_run(monkeypatch, tmp_path)
+    output_root = tmp_path / "out"
+
+    def fail_prepare(_spec, _run_dir, _network):
+        raise RuntimeError("prepare failed")
+
+    monkeypatch.setattr(ssm_reproducer, "prepare_run", fail_prepare)
+
+    with pytest.raises(RuntimeError, match="prepare failed"):
+        ssm_reproducer.run_case("unused", output_root)
+
+    status = _terminal_status(output_root)
+    assert status["failure_stage"] == "setup"
+    assert "raw/run/run_spec.json" in status["evidence"]
+    assert "raw/run/routes.rou.xml" in status["expected_but_missing"]
+
+
+def test_interrupt_terminates_running_sumo_before_terminal_status(monkeypatch, tmp_path):
+    _patch_run(monkeypatch, tmp_path)
+    output_root = tmp_path / "out"
+    instances = []
+
+    class InterruptingProcess:
+        pid = None
+        returncode = None
+
+        def __init__(self, *_args, **_kwargs):
+            self.returncode = None
+            self.terminated = False
+            instances.append(self)
+
+        def poll(self):
+            raise KeyboardInterrupt
+
+        def terminate(self):
+            self.terminated = True
+            self.returncode = -15
+
+        def kill(self):
+            self.returncode = -9
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+    monkeypatch.setattr(ssm_reproducer.subprocess, "Popen", InterruptingProcess)
+
+    with pytest.raises(KeyboardInterrupt):
+        ssm_reproducer.run_case("unused", output_root)
+
+    assert instances[0].terminated
+    assert _terminal_status(output_root)["status"] == "INTERRUPTED"

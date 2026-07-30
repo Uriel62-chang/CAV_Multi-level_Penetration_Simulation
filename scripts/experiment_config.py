@@ -24,10 +24,6 @@ GRID_MODE_REQUESTED_PCAV = "requested_pcav"
 GRID_MODE_CAV_COUNT = "cav_count"
 GRID_MODES = (GRID_MODE_REQUESTED_PCAV, GRID_MODE_CAV_COUNT)
 
-# The published v0.4.0 manifest was created with this historical digest.  It
-# remains the identity used by existing run directories and must not change.
-LEGACY_V040_CONFIG_SHA256 = "178dfcef1bf352ab27eb1b91ec59b001418416387cf703a7e62a0aa6ff883b87"
-
 _COMMON_REQUIRED = {
     "config_version",
     "pipeline_version",
@@ -182,9 +178,8 @@ class ExperimentConfig:
         return config
 
     def to_dict(self) -> dict[str, Any]:
-        # The v0.4.0.post1 config digest identifies persisted manifests.  Its
-        # canonical representation predates grid/capture/FCD fields, so never
-        # add later defaults to this branch.
+        # This is the historical resolved-manifest representation.  It includes
+        # the capture defaults available in v0.4.0.post1, but not later fields.
         if self.pipeline_version != PIPELINE_V4_1:
             return {
                 "config_version": self.config_version,
@@ -203,6 +198,13 @@ class ExperimentConfig:
                 "edge_data_frequency": self.edge_data_frequency,
                 "loops": self.loops,
                 "network_files": dict(self.network_files),
+                "grid_mode": self.grid_mode,
+                "ssm_capture_ttc_threshold_s": self.ssm_capture_ttc_threshold_s,
+                "ssm_capture_drac_threshold_mps2": self.ssm_capture_drac_threshold_mps2,
+                "ssm_measures": self.ssm_measures,
+                "ssm_range": self.ssm_range,
+                "ssm_trajectories": self.ssm_trajectories,
+                "with_internal": self.with_internal,
             }
 
         result: dict[str, Any] = {
@@ -243,30 +245,7 @@ class ExperimentConfig:
         return result
 
     def sha256(self) -> str:
-        if self._is_frozen_v040_config():
-            return LEGACY_V040_CONFIG_SHA256
         return hashlib.sha256(canonical_json(self.to_dict()).encode("utf-8")).hexdigest()
-
-    def _is_frozen_v040_config(self) -> bool:
-        """Identify the one published legacy config without admitting new fields."""
-        return self.pipeline_version == PIPELINE_V4_0_POST1 and self.to_dict() == {
-            "config_version": "v0.4.0",
-            "pipeline_version": PIPELINE_V4_0_POST1,
-            "schema_version": "1",
-            "scenarios": ["scenario_0", "scenario_1", "scenario_2", "scenario_3"],
-            "models": ["IDM", "CACC"],
-            "pcav_levels": [i / 20 for i in range(21)],
-            "vehicle_counts": list(range(10, 121, 10)),
-            "seeds": [1, 2, 3, 4, 5],
-            "seed_scope": SEED_SCOPE,
-            "simulation_end": 3600.0,
-            "warmup": 600.0,
-            "step_length": 0.1,
-            "detector_frequency": 120,
-            "edge_data_frequency": 300,
-            "loops": 300,
-            "network_files": {f"scenario_{i}": f"net/scenario_{i}/loop.net.xml" for i in range(4)},
-        }
 
     def validate(self) -> None:
         # pipeline/schema 版本配对

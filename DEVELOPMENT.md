@@ -122,9 +122,9 @@
 - **状态**：Active
 - **适用范围**：`ExperimentConfig.sha256()`、legacy resume
 - **背景**：已发布 v0.4.0 raw manifest 和 run status 使用 `178dfcef…` 作为配置身份；v0.4.1 添加的配置默认字段曾改变 legacy 规范化表示。
-- **决定**：legacy `to_dict()` 只输出 v0.4.0 字段集；精确匹配已发布 v0.4.0 配置的实例返回冻结哈希，其他配置仍按规范 JSON 计算。
-- **原因**：使原始 `run_spec.json` / `simulation_status.json` 可在不重写历史产物的前提下被 resume 验证，同时保证任一配置修改不会被误认作冻结配置。
-- **当前代价**：该单一已发布配置需保留显式识别器和回归探针。
+- **决定**：legacy `to_dict()` 使用历史 resolved-manifest 字段集（含当时的 grid/SSM capture 字段，不含之后的 FCD、extra-time、range-m 字段）；哈希始终由该表示的规范 JSON 自然计算。
+- **原因**：使配置内容与 manifest SHA 同源，原始 `run_spec.json` / `simulation_status.json` 可在不重写历史产物的前提下被 resume 验证，且 CLI 覆盖配置同样产生可审计的新哈希。
+- **当前代价**：该历史字段集需保留冻结与 CLI override 的回归探针。
 
 ### D-011：summary 契约在 runner 与 writer 双层 fail-closed
 

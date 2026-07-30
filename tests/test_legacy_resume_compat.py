@@ -5,9 +5,10 @@ RunSpec serialization round trip.  A legacy run is reusable only if every
 identity and frozen-input check still closes.
 """
 
+import hashlib
 import json
 
-from scripts.experiment_config import load_experiment_config
+from scripts.experiment_config import canonical_json, load_experiment_config
 from scripts.provenance import sha256_file
 from scripts.run_spec import PIPELINE_V4_0_POST1, RunSpec, is_simulation_complete
 
@@ -80,8 +81,14 @@ def test_v040_config_hash_is_frozen():
     config = load_experiment_config("configs/v0.4.0.json")
 
     assert config.sha256() == LEGACY_CONFIG_SHA256
-    assert "ssm_capture_ttc_threshold_s" not in config.to_dict()
-    assert "with_internal" not in config.to_dict()
+    assert hashlib.sha256(canonical_json(config.to_dict()).encode()).hexdigest() == config.sha256()
+
+    overridden = config.__class__.from_dict({**config.to_dict(), "seeds": [1]})
+    assert (
+        overridden.sha256()
+        == hashlib.sha256(canonical_json(overridden.to_dict()).encode()).hexdigest()
+    )
+    assert overridden.sha256() != config.sha256()
 
 
 def test_frozen_legacy_run_is_skipped_and_rejects_tampering(tmp_path):

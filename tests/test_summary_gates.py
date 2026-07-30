@@ -67,11 +67,15 @@ def test_summary_contract_rejects_invalid_identity_count_and_exposure():
     summary["run_id"] = ""
     summary["ttc_conflict_event_count"] = 1.5
     summary["total_vehicle_km"] = math.nan
+    summary["total_CO2_kg"] = math.nan
+    summary["non_internal_edge_vehicle_km"] = -1.0
 
     errors = validate_summary_contract(summary, "1")
     assert "summary run_id must be a non-empty string" in errors
     assert "summary ttc_conflict_event_count must be a non-negative int" in errors
     assert "summary total_vehicle_km must be finite" in errors
+    assert "summary total_CO2_kg must be finite" in errors
+    assert "summary non_internal_edge_vehicle_km must be non-negative" in errors
 
 
 def test_writer_summary_read_rejects_missing_core_field(tmp_path):
@@ -131,19 +135,44 @@ def test_subgroup_gate_checks_unique_expected_keys_not_only_row_count():
     from scripts.results.writer import _expected_subgroup_keys, _valid_subgroup_rows
 
     expected = _expected_subgroup_keys(False)
+    spec = {
+        "scenario": "scenario_0",
+        "model": "IDM",
+        "requested_pcav": None,
+        "cav_count": 5,
+        "vehicle_count": 10,
+        "seed": 1,
+        "sumo_seed": 101,
+    }
     rows = [
         {
             "run_id": "run-1",
+            "scenario": "scenario_0",
+            "model": "IDM",
+            "requested_pcav": None,
+            "realized_pcav": 0.5,
+            "cav_count": 5,
+            "hv_count": 5,
+            "vehN": 10,
+            "assignment_seed": 1,
+            "sumo_seed": 101,
             "metric_family": family,
             "group_dimension": dimension,
             "group_value": value,
             "metric_name": metric,
+            "metric_value": 0.0,
         }
         for family, dimension, value, metric in expected
     ]
-    assert _valid_subgroup_rows(rows, "run-1", False)
+    assert _valid_subgroup_rows(rows, "run-1", spec)
     rows[-1] = dict(rows[0])
-    assert not _valid_subgroup_rows(rows, "run-1", False)
+    assert not _valid_subgroup_rows(rows, "run-1", spec)
+
+
+def test_subgroup_gate_rejects_missing_identity_and_metric_value():
+    from scripts.results.writer import _valid_subgroup_rows
+
+    assert not _valid_subgroup_rows([{"run_id": "run-1", "metric_family": "capacity"}], "run-1", {})
 
 
 def test_writer_manifest_duplicate_never_closes_complete_gate(tmp_path):
@@ -164,4 +193,20 @@ def test_writer_manifest_duplicate_never_closes_complete_gate(tmp_path):
 
     report = build_run_level_results(tmp_path, tmp_path / "out", "v0.4.0.post1", manifest_path)
     assert report["duplicate_run_ids"] == 1
+    assert report["complete"] is False
+
+
+def test_writer_manifest_requires_explicit_nonzero_total_and_results(tmp_path):
+    from scripts.results.writer import build_run_level_results
+
+    manifest = {
+        "pipeline_version": "v0.4.0.post1",
+        "schema_version": "1",
+        "config_sha256": "a" * 64,
+    }
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    report = build_run_level_results(tmp_path, tmp_path / "out", "v0.4.0.post1", path)
+
+    assert report["manifest_structure_valid"] is False
     assert report["complete"] is False

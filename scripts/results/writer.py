@@ -281,7 +281,33 @@ def _expected_subgroup_keys(fcd_enabled: bool) -> set[tuple[str, str, str, str]]
     return keys
 
 
-def _valid_subgroup_rows(rows: list[dict], run_id: str, fcd_enabled: bool) -> bool:
+def _valid_subgroup_rows(rows: list[dict], run_id: str, spec: dict) -> bool:
+    fcd_enabled = spec.get("fcd_profile") is not None
+    vehicle_count = spec.get("vehicle_count")
+    cav_count = spec.get("cav_count")
+    if type(vehicle_count) is not int or type(cav_count) is not int or vehicle_count <= 0:
+        return False
+    expected_identity = {
+        "scenario": spec.get("scenario"),
+        "model": spec.get("model"),
+        "requested_pcav": spec.get("requested_pcav"),
+        "realized_pcav": cav_count / vehicle_count,
+        "cav_count": cav_count,
+        "hv_count": vehicle_count - cav_count,
+        "vehN": vehicle_count,
+        "assignment_seed": spec.get("seed"),
+        "sumo_seed": spec.get("sumo_seed"),
+    }
+    if any(set(row) != set(SUBGROUP_LONG_COLUMNS_V4_1) for row in rows):
+        return False
+    if any(
+        any(row[field] != expected_identity[field] for field in expected_identity) for row in rows
+    ):
+        return False
+    for row in rows:
+        value = row["metric_value"]
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or math.isinf(value):
+            return False
     keys = {
         (
             row.get("metric_family"),
@@ -345,11 +371,16 @@ def build_run_level_results(
     if not manifest.get("config_sha256"):
         raise ValueError("manifest config_sha256 missing")
     schema_ver = manifest.get("schema_version", "1")
-    manifest_results = manifest.get("results", [])
+    results_value = manifest.get("results")
+    total_value = manifest.get("total")
+    manifest_structure_valid = (
+        isinstance(results_value, list) and type(total_value) is int and total_value > 0
+    )
+    manifest_results = results_value if isinstance(results_value, list) else []
 
-    expected_total = manifest.get("total", len(manifest_results))
+    expected_total = total_value if type(total_value) is int else 0
     discovered = len(manifest_results)
-    manifest_total_matches = type(expected_total) is int and expected_total == discovered
+    manifest_total_matches = manifest_structure_valid and expected_total == discovered
 
     # ── 遍历所有 run ──
     success_rows = []
@@ -558,9 +589,7 @@ def build_run_level_results(
                     if line.strip():
                         run_rows.append(json.loads(line))
                 spec_data = json.loads((run_dir / "run_spec.json").read_text(encoding="utf-8"))
-                if not _valid_subgroup_rows(
-                    run_rows, run_id, spec_data.get("fcd_profile") is not None
-                ):
+                if not _valid_subgroup_rows(run_rows, run_id, spec_data):
                     subgroup_excluded += 1
                     continue
                 subgroup_rows.extend(run_rows)
@@ -591,6 +620,7 @@ def build_run_level_results(
         "duplicate_run_ids": duplicates,
         "missing_run_ids": expected_total - discovered,
         "manifest_total_matches": manifest_total_matches,
+        "manifest_structure_valid": manifest_structure_valid,
         "pipeline_version": pipeline_version,
     }
     report.update(
@@ -599,7 +629,10 @@ def build_run_level_results(
             non_ok_count=quality_counts["quality_non_ok"],
             subgroup_excluded=subgroup_excluded,
             closure_ok=(
-                manifest_total_matches and duplicates == 0 and len(success_rows) == expected_total
+                manifest_structure_valid
+                and manifest_total_matches
+                and duplicates == 0
+                and len(success_rows) == expected_total
             ),
         )
     )

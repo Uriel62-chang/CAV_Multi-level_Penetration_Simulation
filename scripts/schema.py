@@ -284,7 +284,7 @@ def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
         "detector_frequency_s",
         "edge_data_frequency_s",
     }
-    required_finite = {
+    finite_nonnegative = {
         "pCAV",
         "requested_pcav",
         "realized_pcav",
@@ -295,9 +295,44 @@ def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
         "ssm_capture_drac_threshold_mps2",
         "total_vehicle_km",
         "non_internal_edge_vehicle_km",
+        "mean_flow_veh_h",
+        "max_flow_veh_h",
+        "total_CO2_kg",
+        "total_NOx_g",
+        "total_PMx_g",
+        "total_fuel_kg",
+        "total_time_loss_s",
     }
     nullable = {"requested_pcav"}
-    for key in required:
+    nullable_nan = {
+        "min_ttc_s",
+        "max_drac_mps2",
+        "mean_speed_m_s",
+        "detector_mean_speed_temporal_variance",
+        "unsafe_lc_gap_ratio",
+        "mean_lap_time_s",
+        "median_lap_time_s",
+        "p95_lap_time_s",
+        "lap_time_std_s",
+        "ttc_events_per_1000_veh_km",
+        "whole_network_ttc_events_per_1000_non_internal_edge_veh_km",
+        "emergency_brakes_per_1000_veh_km",
+        "lane_changes_per_1000_veh_km",
+        "CO2_g_per_veh_km",
+        "NOx_mg_per_veh_km",
+        "PMx_mg_per_veh_km",
+        "fuel_g_per_veh_km",
+        "time_loss_s_per_veh_km",
+        "mean_lap_delay_s",
+        "p95_lap_delay_s",
+    }
+    keys_to_validate = list(required)
+    if (
+        "non_internal_edge_vehicle_km" in summary
+        and "non_internal_edge_vehicle_km" not in keys_to_validate
+    ):
+        keys_to_validate.append("non_internal_edge_vehicle_km")
+    for key in keys_to_validate:
         value = summary[key]
         if key in nullable and value is None:
             continue
@@ -312,8 +347,8 @@ def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
                 errors.append(f"summary {key} must be a non-negative int")
         elif not isinstance(value, (int, float)) or isinstance(value, bool):
             errors.append(f"summary {key} must be numeric")
-        elif math.isinf(float(value)) or (
-            key in required_finite and not math.isfinite(float(value))
-        ):
+        elif not math.isfinite(float(value)) and key not in nullable_nan:
             errors.append(f"summary {key} must be finite")
+        elif key in finite_nonnegative and float(value) < 0:
+            errors.append(f"summary {key} must be non-negative")
     return errors

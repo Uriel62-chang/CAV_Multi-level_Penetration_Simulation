@@ -163,27 +163,30 @@ def run_case(
         with_internal=bool(case["with_internal"]),
     )
     run_dir = raw_dir / "run"
+    run_dir.mkdir()
     write_run_spec(spec, run_dir)
     prepared = prepare_run(spec, run_dir, network_file)
     command = build_sumo_command_v4_1(prepared, network_file, spec, sumo_command)
     samples: list[dict] = []
     started = time.monotonic()
-    with prepared.stdout_path.open("wb") as stdout, prepared.stderr_path.open("wb") as stderr:
+    rss_path = raw_dir / "rss_samples.jsonl"
+    with (
+        prepared.stdout_path.open("wb") as stdout,
+        prepared.stderr_path.open("wb") as stderr,
+        rss_path.open("wb") as rss_stream,
+    ):
         process = subprocess.Popen(command, stdout=stdout, stderr=stderr)
         while process.poll() is None:
-            samples.append(
-                {"elapsed_s": time.monotonic() - started, "rss_kb": _rss_kb(process.pid)}
-            )
+            sample = {"elapsed_s": time.monotonic() - started, "rss_kb": _rss_kb(process.pid)}
+            samples.append(sample)
+            rss_stream.write(canonical_json_bytes(sample) + b"\n")
+            rss_stream.flush()
             if time.monotonic() - started >= timeout_s:
                 process.terminate()
                 process.wait(timeout=30)
                 break
             time.sleep(sample_period_s)
     wall_time_s = time.monotonic() - started
-    atomic_write_bytes(
-        raw_dir / "rss_samples.jsonl",
-        b"".join(canonical_json_bytes(sample) + b"\n" for sample in samples),
-    )
     ssm = summarize_ssm_evidence(prepared.ssm_path, spec.warmup, str(case["expected_ttc"]))
     report = {
         "case_id": case["case_id"],

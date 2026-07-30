@@ -448,6 +448,8 @@ def build_sumo_command_v4_1(
             "true" if spec.ssm_trajectories else "false",
         ]
     )
+    if spec.ssm_extratime_s != 5.0:
+        cmd.extend(["--device.ssm.extratime", str(spec.ssm_extratime_s)])
     # FCD 选项
     if spec.fcd_profile is not None:
         period = 1 if spec.fcd_profile == "1s" else 0.1

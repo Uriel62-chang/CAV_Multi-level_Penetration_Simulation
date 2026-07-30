@@ -112,6 +112,7 @@ _V4_1_EXTRA_KEYS = {
     "ssm_capture_drac_threshold_mps2",
     "ssm_range_m",
     "ssm_trajectories",
+    "ssm_extratime_s",
     "with_internal",
     "fcd_profile",
     "fcd_max_leader_distance_m",
@@ -160,6 +161,7 @@ class RunSpec:
     ssm_capture_drac_threshold_mps2: float = 3.0
     ssm_range_m: float = 50.0
     ssm_trajectories: bool = False
+    ssm_extratime_s: float = 5.0
 
     # 阶段 1 新增：edgeData
     with_internal: bool = False
@@ -259,6 +261,7 @@ class RunSpec:
             result["ssm_capture_drac_threshold_mps2"] = self.ssm_capture_drac_threshold_mps2
             result["ssm_range_m"] = self.ssm_range_m
             result["ssm_trajectories"] = self.ssm_trajectories
+            result["ssm_extratime_s"] = self.ssm_extratime_s
             result["with_internal"] = self.with_internal
             result["fcd_profile"] = self.fcd_profile
             result["fcd_max_leader_distance_m"] = self.fcd_max_leader_distance_m
@@ -330,6 +333,7 @@ class RunSpec:
             ssm_capture_drac_threshold_mps2=float(data["ssm_capture_drac_threshold_mps2"]),
             ssm_range_m=float(data["ssm_range_m"]),
             ssm_trajectories=bool(data["ssm_trajectories"]),
+            ssm_extratime_s=float(data.get("ssm_extratime_s", 5.0)),
             with_internal=bool(data["with_internal"]),
             fcd_profile=_optional_str(data, "fcd_profile"),
             fcd_max_leader_distance_m=_optional_float(data, "fcd_max_leader_distance_m"),

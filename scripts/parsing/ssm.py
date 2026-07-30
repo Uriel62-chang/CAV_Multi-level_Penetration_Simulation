@@ -167,7 +167,6 @@ def parse_ssm(
 
     valid_count = len(parsed)
 
-    # ── 碎片合并（extratime=1.0 后置恢复） ──
     parsed, fragment_merged = _merge_fragments(parsed)
 
     # ── 第二步：按车辆对分组，组内一对一匹配镜像 ──

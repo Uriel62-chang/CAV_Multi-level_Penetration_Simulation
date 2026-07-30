@@ -55,6 +55,7 @@ _ALL_KNOWN_FIELDS = (
         "ssm_range",
         "ssm_range_m",
         "ssm_trajectories",
+        "ssm_extratime_s",
         "fcd_profile",
         "fcd_max_leader_distance_m",
         "with_internal",
@@ -101,6 +102,7 @@ class ExperimentConfig:
     ssm_measures: str = "TTC DRAC"
     ssm_range: str = "50.0"
     ssm_trajectories: bool = False
+    ssm_extratime_s: float = 5.0
 
     # 阶段 1 新增：ssm_range 数值形式
     ssm_range_m: float = 50.0
@@ -166,6 +168,7 @@ class ExperimentConfig:
             ssm_range=str(data.get("ssm_range", "50.0")),
             ssm_range_m=float(data.get("ssm_range_m", 50.0)),
             ssm_trajectories=bool(data.get("ssm_trajectories", False)),
+            ssm_extratime_s=float(data.get("ssm_extratime_s", 5.0)),
             fcd_profile=_optional_str(data, "fcd_profile"),
             fcd_max_leader_distance_m=_optional_float(data, "fcd_max_leader_distance_m"),
             with_internal=bool(data.get("with_internal", False)),
@@ -193,6 +196,7 @@ class ExperimentConfig:
             "ssm_capture_drac_threshold_mps2": self.ssm_capture_drac_threshold_mps2,
             "ssm_measures": self.ssm_measures,
             "ssm_trajectories": self.ssm_trajectories,
+            "ssm_extratime_s": self.ssm_extratime_s,
             "with_internal": self.with_internal,
         }
         if self.pipeline_version == PIPELINE_V4_1:

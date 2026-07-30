@@ -123,6 +123,28 @@ def test_summary_nan_requires_an_empty_companion_measure():
     assert "summary CO2_g_per_veh_km may be NaN only when total_vehicle_km=0" in errors
 
 
+def test_summary_rates_require_exposure_and_bad_types_return_errors():
+    summary = _legacy_summary()
+    summary.update(
+        {
+            "ttc_events_per_1000_veh_km": math.nan,
+            "emergency_brakes_per_1000_veh_km": math.nan,
+            "lane_changes_per_1000_veh_km": math.nan,
+        }
+    )
+    errors = validate_summary_contract(summary, "1")
+    assert "summary ttc_events_per_1000_veh_km may be NaN only when total_vehicle_km=0" in errors
+    assert (
+        "summary emergency_brakes_per_1000_veh_km may be NaN only when total_vehicle_km=0" in errors
+    )
+    assert "summary lane_changes_per_1000_veh_km may be NaN only when total_vehicle_km=0" in errors
+
+    summary["ttc_conflict_event_count"] = "bad"
+    assert validate_summary_contract(summary, "1") == [
+        "summary ttc_conflict_event_count must be a non-negative int"
+    ]
+
+
 def test_writer_summary_read_rejects_missing_core_field(tmp_path):
     from scripts.results.writer import _read_summary
 
@@ -304,6 +326,65 @@ def test_subgroup_gate_rejects_negative_counts_exposure_and_emissions():
     for row in rows:
         if row["metric_name"] in {"total_vehicle_km", "ttc_event_count", "total_CO2_kg"}:
             row["metric_value"] = -1
+    assert not _valid_subgroup_rows(rows, "run-1", spec)
+
+
+def test_subgroup_gate_resolves_cross_family_nan_prerequisites():
+    from scripts.results.writer import _expected_subgroup_keys, _valid_subgroup_rows
+
+    spec = {
+        "scenario": "scenario_0",
+        "model": "IDM",
+        "requested_pcav": None,
+        "cav_count": 5,
+        "vehicle_count": 10,
+        "seed": 1,
+        "sumo_seed": 101,
+    }
+    rows = []
+    integer_metrics = {
+        "window_count",
+        "ttc_event_count",
+        "drac_event_count",
+        "emergency_braking_count",
+        "affected_vehicle_count",
+        "lane_change_count",
+        "unsafe_lc_gap_count",
+        "completed_lap_count",
+    }
+    for family, dimension, value, metric in _expected_subgroup_keys(False):
+        metric_value = 0 if metric in integer_metrics else 0.0
+        if (family, metric) in {
+            ("efficiency", "total_vehicle_km"),
+            ("efficiency", "completed_lap_count"),
+            ("capacity", "window_count"),
+        }:
+            metric_value = 1
+        if (family, metric) in {
+            ("emissions", "CO2_g_per_veh_km"),
+            ("delay", "mean_lap_delay_s"),
+            ("capacity", "mean_speed_m_s"),
+        }:
+            metric_value = math.nan
+        rows.append(
+            {
+                "run_id": "run-1",
+                "scenario": "scenario_0",
+                "model": "IDM",
+                "requested_pcav": None,
+                "realized_pcav": 0.5,
+                "cav_count": 5,
+                "hv_count": 5,
+                "vehN": 10,
+                "assignment_seed": 1,
+                "sumo_seed": 101,
+                "metric_family": family,
+                "group_dimension": dimension,
+                "group_value": value,
+                "metric_name": metric,
+                "metric_value": metric_value,
+            }
+        )
     assert not _valid_subgroup_rows(rows, "run-1", spec)
 
 

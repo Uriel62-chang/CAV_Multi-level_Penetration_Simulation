@@ -379,30 +379,32 @@ def _valid_subgroup_rows(rows: list[dict], run_id: str, spec: dict) -> bool:
             "thw_lt_1s_ratio",
         }:
             return False
-        group = (row["metric_family"], row["group_dimension"], row["group_value"])
+        group = (row["group_dimension"], row["group_value"])
         prerequisites = {
-            "unsafe_lc_gap_ratio": "lane_change_count",
-            "mean_lap_time_s": "completed_lap_count",
-            "median_lap_time_s": "completed_lap_count",
-            "p95_lap_time_s": "completed_lap_count",
-            "lap_time_std_s": "completed_lap_count",
-            "mean_lap_delay_s": "completed_lap_count",
-            "p95_lap_delay_s": "completed_lap_count",
-            "CO2_g_per_veh_km": "total_vehicle_km",
-            "NOx_mg_per_veh_km": "total_vehicle_km",
-            "PMx_mg_per_veh_km": "total_vehicle_km",
-            "fuel_g_per_veh_km": "total_vehicle_km",
-            "time_loss_s_per_veh_km": "total_vehicle_km",
-            "mean_thw_s": "valid_thw_sample_count",
-            "median_thw_s": "valid_thw_sample_count",
-            "p05_thw_s": "valid_thw_sample_count",
-            "thw_lt_1s_ratio": "valid_thw_sample_count",
+            "mean_speed_m_s": ("capacity", "window_count"),
+            "speed_variance": ("capacity", "window_count"),
+            "unsafe_lc_gap_ratio": ("lanechange", "lane_change_count"),
+            "mean_lap_time_s": ("efficiency", "completed_lap_count"),
+            "median_lap_time_s": ("efficiency", "completed_lap_count"),
+            "p95_lap_time_s": ("efficiency", "completed_lap_count"),
+            "lap_time_std_s": ("efficiency", "completed_lap_count"),
+            "mean_lap_delay_s": ("efficiency", "completed_lap_count"),
+            "p95_lap_delay_s": ("efficiency", "completed_lap_count"),
+            "CO2_g_per_veh_km": ("efficiency", "total_vehicle_km"),
+            "NOx_mg_per_veh_km": ("efficiency", "total_vehicle_km"),
+            "PMx_mg_per_veh_km": ("efficiency", "total_vehicle_km"),
+            "fuel_g_per_veh_km": ("efficiency", "total_vehicle_km"),
+            "time_loss_s_per_veh_km": ("efficiency", "total_vehicle_km"),
+            "mean_thw_s": ("headway", "valid_thw_sample_count"),
+            "median_thw_s": ("headway", "valid_thw_sample_count"),
+            "p05_thw_s": ("headway", "valid_thw_sample_count"),
+            "thw_lt_1s_ratio": ("headway", "valid_thw_sample_count"),
         }
-        required_count = prerequisites.get(row["metric_name"])
+        prerequisite = prerequisites.get(row["metric_name"])
         if (
             math.isnan(value)
-            and required_count
-            and group_values.get((*group, required_count), 0) > 0
+            and prerequisite
+            and group_values.get((prerequisite[0], *group, prerequisite[1]), 0) > 0
         ):
             return False
     keys = {

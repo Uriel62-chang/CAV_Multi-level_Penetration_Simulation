@@ -365,6 +365,8 @@ def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
             errors.append(f"summary {key} must be positive")
         elif key in {"pCAV", "requested_pcav", "realized_pcav"} and not 0 <= float(value) <= 1:
             errors.append(f"summary {key} must be within [0, 1]")
+    if errors:
+        return errors
     for metric, count in (
         ("min_ttc_s", "ttc_conflict_event_count"),
         ("max_drac_mps2", "drac_conflict_event_count"),
@@ -386,6 +388,9 @@ def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
         "PMx_mg_per_veh_km",
         "fuel_g_per_veh_km",
         "time_loss_s_per_veh_km",
+        "ttc_events_per_1000_veh_km",
+        "emergency_brakes_per_1000_veh_km",
+        "lane_changes_per_1000_veh_km",
     ):
         if (
             summary["total_vehicle_km"] > 0

@@ -93,22 +93,33 @@ def test_ssm_off_command_removes_every_ssm_device_option(monkeypatch):
     assert command == ["sumo", "--fcd-output", "/tmp/a/fcd.xml.gz"]
 
 
-def test_normalized_non_ssm_commands_only_allow_ssm_and_attempt_path_differences():
-    on = [
-        "sumo",
-        "-r",
-        "/tmp/a/routes.rou.xml",
-        "--device.ssm.file",
-        "/tmp/a/ssm.xml",
-        "--device.ssm.range",
-        "50.0",
-        "--fcd-output",
-        "/tmp/a/fcd.xml.gz",
-    ]
-    off = ["sumo", "-r", "/tmp/b/routes.rou.xml", "--fcd-output", "/tmp/b/fcd.xml.gz"]
+def test_normalized_non_ssm_commands_only_allow_ssm_and_attempt_path_differences(monkeypatch):
+    def base_command(prepared, network_file, _spec, sumo_command):
+        return [
+            sumo_command,
+            "-n",
+            network_file,
+            "-r",
+            str(prepared.run_dir / "routes.rou.xml"),
+            "--device.ssm.file",
+            str(prepared.run_dir / "ssm.xml"),
+            "--device.ssm.range",
+            "50.0",
+            "--fcd-output",
+            str(prepared.run_dir / "fcd.xml.gz"),
+        ]
 
-    assert normalize_non_ssm_command(on, Path("/tmp/a")) == normalize_non_ssm_command(
-        off, Path("/tmp/b")
+    monkeypatch.setattr(ssm_reproducer, "build_sumo_command_v4_1", base_command)
+    prepared_on = SimpleNamespace(run_dir=Path("/tmp/attempt-a/raw/run"))
+    prepared_off = SimpleNamespace(run_dir=Path("/tmp/attempt-b/raw/run"))
+    on = build_diagnostic_command(prepared_on, "net.xml", None, "sumo", ssm_enabled=True)
+    off = build_diagnostic_command(prepared_off, "net.xml", None, "sumo", ssm_enabled=False)
+
+    normalized_on = normalize_non_ssm_command(on, prepared_on.run_dir)
+    normalized_off = normalize_non_ssm_command(off, prepared_off.run_dir)
+    assert normalized_on == normalized_off
+    assert normalized_on != normalize_non_ssm_command(
+        [*off, "--fcd-output.max-leader-distance", "999"], prepared_off.run_dir
     )
 
 

@@ -125,14 +125,14 @@
 
 - **阶段 0+1 已实现**：cav_count 双 seed 网格 + inactive-dimension 规范化；SUMO 命令注入 seed/SSM capture/FCD 输出；withInternal=true additional；writer `non_internal_edge_vehicle_km` 列名修正；进程退出轮询 + SIGINT→CANCELLED；CLI `--assignment-seeds`/`--sumo-seeds` 命名。
 - **阶段 2 完成**（2026-07-30，v0.4.1 发布）：HV/CAV 子群拆分；FCD physical THW；SSM pair/role provenance（D-006）；schema=2 runner/writer/aggregate；subgroup JSONL + SHA；自由流 artifact（D-008）；SSM sensitivity CLI；free-flow 测量；FCD numpy 内存方案（D-007）；net.json num_lanes fail-closed（D-009）；fragment merge（opt-in）；`--frozen-inputs`；per-run RSS；sim→parse→write→aggregate smoke。
-- **已验证**：167 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；micro-pilot Level 1 通过（10/10）；Level 2 calibration completed（failed gate，48 runs with extratime=1.0+merge）。
+- **已验证**：169 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；micro-pilot Level 1 通过（10/10）；Level 2 calibration completed（failed gate，48 runs with extratime=1.0+merge）。
 - **已提交**：阶段 2 从设计基线 `460f0e6` 到 v0.4.1 发布。
 
 ### 当前状态
 
 - **当前分支**：`main`
 - **本文档最后更新**：参见 `git log -1 --oneline -- DEVELOPMENT.md`
-- **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-29
+- **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-30
 - **可运行入口**：
   ```bash
   .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.1/smoke_v4_1.json --output-root /tmp/smoke --sumo-processes 1

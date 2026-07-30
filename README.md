@@ -707,11 +707,13 @@ docs/
 | v0.7.0 | CACC communication degradation, including packet loss and latency |
 
 v0.4.1 delivers the measurement toolchain. Its micro-pilot Level 1 (10 runs)
-passed; Level 2 factorial pilot (48 runs, extratime=1.0+merge) was completed as
-a calibration run with documented SSM memory limitations in mixed traffic. The
-v0.4.0 10,080-run grid was not re-run. v0.4.2 will explore a redesigned
-experiment structure with SSM disabled in the main factorial and a separate
-safety experiment design.
+passed. Level 2 bounded factorial pilot (162 runs) was completed but failed the
+original resource gate (SSM memory exceeded 2 GiB at high density). A subsequent
+mitigation calibration (48 runs, extratime=1.0 + fragment merge) also failed to
+meet simultaneous fidelity and RSS gates for mixed traffic. The v0.4.0
+10,080-run grid was not re-run. v0.4.2 will explore a redesigned experiment
+structure with SSM disabled in the main factorial and a separate safety
+experiment design.
 
 ---
 

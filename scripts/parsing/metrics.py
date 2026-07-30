@@ -104,6 +104,7 @@ def compute_core_summary(primitives, spec, free_flow_refs):
         "ssm_warmup_filtered_count": ssm_all.get("ssm_warmup_filtered_count", 0),
         "ssm_valid_record_count": ssm_all.get("ssm_valid_record_count", 0),
         "ssm_mirrored_record_count": ssm_all.get("ssm_mirrored_record_count", 0),
+        "ssm_fragment_merged_count": ssm_all.get("ssm_fragment_merged_count", 0),
         "ttc_conflict_event_count": ssm_all.get("ttc_conflict_event_count", 0),
         "min_ttc_s": ssm_all.get("min_ttc_s", float("nan")),
         "ttc_affected_vehicle_count": ssm_all.get("ttc_involved_vehicle_count", 0),

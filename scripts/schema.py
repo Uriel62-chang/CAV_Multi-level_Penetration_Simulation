@@ -374,6 +374,10 @@ def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
     if errors:
         return errors
     for metric, (companion, max_value) in SUMMARY_NAN_RULES.items():
-        if metric in summary and math.isnan(summary[metric]) and summary[companion] > max_value:
+        if metric not in summary:
+            continue
+        if companion not in summary:
+            errors.append(f"summary {metric} requires companion key: {companion}")
+        elif math.isnan(summary[metric]) and summary[companion] > max_value:
             errors.append(f"summary {metric} may be NaN only when {companion}<={max_value}")
     return errors

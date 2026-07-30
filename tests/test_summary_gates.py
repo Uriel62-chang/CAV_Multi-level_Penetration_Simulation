@@ -146,6 +146,16 @@ def test_summary_rates_require_exposure_and_bad_types_return_errors():
     ]
 
 
+def test_optional_whole_network_ttc_rate_requires_its_optional_exposure():
+    summary = _legacy_summary()
+    summary["whole_network_ttc_events_per_1000_non_internal_edge_veh_km"] = math.nan
+
+    assert validate_summary_contract(summary, "1") == [
+        "summary whole_network_ttc_events_per_1000_non_internal_edge_veh_km "
+        "requires companion key: non_internal_edge_vehicle_km"
+    ]
+
+
 def test_summary_nan_rule_table_is_complete_and_respects_thresholds():
     assert set(SUMMARY_NAN_RULES) == {
         "min_ttc_s",

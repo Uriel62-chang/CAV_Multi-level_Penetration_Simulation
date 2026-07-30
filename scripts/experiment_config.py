@@ -18,10 +18,15 @@ from scripts.config import (
 )
 
 PIPELINE_V4_1 = "v0.4.1"
+PIPELINE_V4_0_POST1 = "v0.4.0.post1"
 SEED_SCOPE = "vehicle_type_assignment"
 GRID_MODE_REQUESTED_PCAV = "requested_pcav"
 GRID_MODE_CAV_COUNT = "cav_count"
 GRID_MODES = (GRID_MODE_REQUESTED_PCAV, GRID_MODE_CAV_COUNT)
+
+# The published v0.4.0 manifest was created with this historical digest.  It
+# remains the identity used by existing run directories and must not change.
+LEGACY_V040_CONFIG_SHA256 = "178dfcef1bf352ab27eb1b91ec59b001418416387cf703a7e62a0aa6ff883b87"
 
 _COMMON_REQUIRED = {
     "config_version",
@@ -177,6 +182,29 @@ class ExperimentConfig:
         return config
 
     def to_dict(self) -> dict[str, Any]:
+        # The v0.4.0.post1 config digest identifies persisted manifests.  Its
+        # canonical representation predates grid/capture/FCD fields, so never
+        # add later defaults to this branch.
+        if self.pipeline_version != PIPELINE_V4_1:
+            return {
+                "config_version": self.config_version,
+                "pipeline_version": self.pipeline_version,
+                "schema_version": self.schema_version,
+                "scenarios": list(self.scenarios),
+                "models": list(self.models),
+                "pcav_levels": list(self.pcav_levels),
+                "vehicle_counts": list(self.vehicle_counts),
+                "seeds": list(self.seeds),
+                "seed_scope": self.seed_scope,
+                "simulation_end": self.simulation_end,
+                "warmup": self.warmup,
+                "step_length": self.step_length,
+                "detector_frequency": self.detector_frequency,
+                "edge_data_frequency": self.edge_data_frequency,
+                "loops": self.loops,
+                "network_files": dict(self.network_files),
+            }
+
         result: dict[str, Any] = {
             "config_version": self.config_version,
             "pipeline_version": self.pipeline_version,
@@ -199,10 +227,7 @@ class ExperimentConfig:
             "ssm_extratime_s": self.ssm_extratime_s,
             "with_internal": self.with_internal,
         }
-        if self.pipeline_version == PIPELINE_V4_1:
-            result["ssm_range_m"] = self.ssm_range_m
-        else:
-            result["ssm_range"] = self.ssm_range
+        result["ssm_range_m"] = self.ssm_range_m
         if self.grid_mode == GRID_MODE_REQUESTED_PCAV:
             result["pcav_levels"] = list(self.pcav_levels)
             result["vehicle_counts"] = list(self.vehicle_counts)
@@ -218,7 +243,30 @@ class ExperimentConfig:
         return result
 
     def sha256(self) -> str:
+        if self._is_frozen_v040_config():
+            return LEGACY_V040_CONFIG_SHA256
         return hashlib.sha256(canonical_json(self.to_dict()).encode("utf-8")).hexdigest()
+
+    def _is_frozen_v040_config(self) -> bool:
+        """Identify the one published legacy config without admitting new fields."""
+        return self.pipeline_version == PIPELINE_V4_0_POST1 and self.to_dict() == {
+            "config_version": "v0.4.0",
+            "pipeline_version": PIPELINE_V4_0_POST1,
+            "schema_version": "1",
+            "scenarios": ["scenario_0", "scenario_1", "scenario_2", "scenario_3"],
+            "models": ["IDM", "CACC"],
+            "pcav_levels": [i / 20 for i in range(21)],
+            "vehicle_counts": list(range(10, 121, 10)),
+            "seeds": [1, 2, 3, 4, 5],
+            "seed_scope": SEED_SCOPE,
+            "simulation_end": 3600.0,
+            "warmup": 600.0,
+            "step_length": 0.1,
+            "detector_frequency": 120,
+            "edge_data_frequency": 300,
+            "loops": 300,
+            "network_files": {f"scenario_{i}": f"net/scenario_{i}/loop.net.xml" for i in range(4)},
+        }
 
     def validate(self) -> None:
         # pipeline/schema 版本配对

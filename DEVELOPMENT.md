@@ -117,6 +117,15 @@
 - **原因**：required-output 和 resume 必须 fail-closed，不能用缺失输出来推断实验结构。
 - **当前代价**：两个调用点有少量重复读取逻辑。
 
+### D-010：冻结 v0.4.0 ExperimentConfig 哈希兼容外部 manifest
+
+- **状态**：Active
+- **适用范围**：`ExperimentConfig.sha256()`、legacy resume
+- **背景**：已发布 v0.4.0 raw manifest 和 run status 使用 `178dfcef…` 作为配置身份；v0.4.1 添加的配置默认字段曾改变 legacy 规范化表示。
+- **决定**：legacy `to_dict()` 只输出 v0.4.0 字段集；精确匹配已发布 v0.4.0 配置的实例返回冻结哈希，其他配置仍按规范 JSON 计算。
+- **原因**：使原始 `run_spec.json` / `simulation_status.json` 可在不重写历史产物的前提下被 resume 验证，同时保证任一配置修改不会被误认作冻结配置。
+- **当前代价**：该单一已发布配置需保留显式识别器和回归探针。
+
 ---
 
 ## 当前交接摘要

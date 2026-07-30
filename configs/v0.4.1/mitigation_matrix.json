@@ -1,0 +1,43 @@
+{
+  "config_version": "v0.4.1-mitigation-ff-1",
+  "design": "extratime=1.0 fragment-merge fidelity matrix: 32 paired conditions (baseline vs extratime=1.0)",
+  "baseline_config": "configs/v0.4.1/pilot.json",
+  "mitigation": {
+    "ssm_extratime_s": 1.0,
+    "fragment_merge_gap_s": 5.0
+  },
+  "matrix": [
+    {"scenario": "scenario_0", "model": "IDM",  "vehicle_count": 60, "cav_count": 30, "assignment_seed": 1, "sumo_seed": 101},
+    {"scenario": "scenario_0", "model": "IDM",  "vehicle_count": 60, "cav_count": 30, "assignment_seed": 1, "sumo_seed": 102},
+    {"scenario": "scenario_0", "model": "IDM",  "vehicle_count": 60, "cav_count": 60, "assignment_seed": 0, "sumo_seed": 101},
+    {"scenario": "scenario_0", "model": "IDM",  "vehicle_count": 60, "cav_count": 60, "assignment_seed": 0, "sumo_seed": 102},
+    {"scenario": "scenario_0", "model": "CACC", "vehicle_count": 60, "cav_count": 30, "assignment_seed": 2, "sumo_seed": 101},
+    {"scenario": "scenario_0", "model": "CACC", "vehicle_count": 60, "cav_count": 30, "assignment_seed": 2, "sumo_seed": 102},
+    {"scenario": "scenario_0", "model": "CACC", "vehicle_count": 60, "cav_count": 60, "assignment_seed": 0, "sumo_seed": 101},
+    {"scenario": "scenario_0", "model": "CACC", "vehicle_count": 60, "cav_count": 60, "assignment_seed": 0, "sumo_seed": 102},
+    {"scenario": "scenario_0", "model": "IDM",  "vehicle_count": 120, "cav_count": 60, "assignment_seed": 3, "sumo_seed": 101},
+    {"scenario": "scenario_0", "model": "IDM",  "vehicle_count": 120, "cav_count": 60, "assignment_seed": 3, "sumo_seed": 102},
+    {"scenario": "scenario_0", "model": "IDM",  "vehicle_count": 120, "cav_count": 120, "assignment_seed": 0, "sumo_seed": 101},
+    {"scenario": "scenario_0", "model": "IDM",  "vehicle_count": 120, "cav_count": 120, "assignment_seed": 0, "sumo_seed": 102},
+    {"scenario": "scenario_0", "model": "CACC", "vehicle_count": 120, "cav_count": 60, "assignment_seed": 1, "sumo_seed": 101},
+    {"scenario": "scenario_0", "model": "CACC", "vehicle_count": 120, "cav_count": 60, "assignment_seed": 1, "sumo_seed": 102},
+    {"scenario": "scenario_0", "model": "CACC", "vehicle_count": 120, "cav_count": 120, "assignment_seed": 0, "sumo_seed": 101},
+    {"scenario": "scenario_0", "model": "CACC", "vehicle_count": 120, "cav_count": 120, "assignment_seed": 0, "sumo_seed": 102},
+    {"scenario": "scenario_2", "model": "IDM",  "vehicle_count": 60, "cav_count": 30, "assignment_seed": 1, "sumo_seed": 101},
+    {"scenario": "scenario_2", "model": "IDM",  "vehicle_count": 60, "cav_count": 30, "assignment_seed": 1, "sumo_seed": 102},
+    {"scenario": "scenario_2", "model": "IDM",  "vehicle_count": 60, "cav_count": 60, "assignment_seed": 0, "sumo_seed": 101},
+    {"scenario": "scenario_2", "model": "IDM",  "vehicle_count": 60, "cav_count": 60, "assignment_seed": 0, "sumo_seed": 102},
+    {"scenario": "scenario_2", "model": "CACC", "vehicle_count": 60, "cav_count": 30, "assignment_seed": 2, "sumo_seed": 101},
+    {"scenario": "scenario_2", "model": "CACC", "vehicle_count": 60, "cav_count": 30, "assignment_seed": 2, "sumo_seed": 102},
+    {"scenario": "scenario_2", "model": "CACC", "vehicle_count": 60, "cav_count": 60, "assignment_seed": 0, "sumo_seed": 101},
+    {"scenario": "scenario_2", "model": "CACC", "vehicle_count": 60, "cav_count": 60, "assignment_seed": 0, "sumo_seed": 102},
+    {"scenario": "scenario_2", "model": "IDM",  "vehicle_count": 120, "cav_count": 60, "assignment_seed": 3, "sumo_seed": 101},
+    {"scenario": "scenario_2", "model": "IDM",  "vehicle_count": 120, "cav_count": 60, "assignment_seed": 3, "sumo_seed": 102},
+    {"scenario": "scenario_2", "model": "IDM",  "vehicle_count": 120, "cav_count": 120, "assignment_seed": 0, "sumo_seed": 101},
+    {"scenario": "scenario_2", "model": "IDM",  "vehicle_count": 120, "cav_count": 120, "assignment_seed": 0, "sumo_seed": 102},
+    {"scenario": "scenario_2", "model": "CACC", "vehicle_count": 120, "cav_count": 60, "assignment_seed": 1, "sumo_seed": 101},
+    {"scenario": "scenario_2", "model": "CACC", "vehicle_count": 120, "cav_count": 60, "assignment_seed": 1, "sumo_seed": 102},
+    {"scenario": "scenario_2", "model": "CACC", "vehicle_count": 120, "cav_count": 120, "assignment_seed": 0, "sumo_seed": 101},
+    {"scenario": "scenario_2", "model": "CACC", "vehicle_count": 120, "cav_count": 120, "assignment_seed": 0, "sumo_seed": 102}
+  ]
+}

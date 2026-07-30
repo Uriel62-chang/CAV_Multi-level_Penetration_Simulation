@@ -1,0 +1,37 @@
+{
+  "acceptance_version": "v0.4.1-mitigation-ff-acceptance-1",
+  "design": "extratime=1.0 fragment-merge fidelity acceptance",
+  "total_conditions": 32,
+  "max_failures": 0,
+  "gates": {
+    "TTC": {
+      "total": {"max_relative_error": 0.10},
+      "pair_HV_HV": {"max_relative_error": 0.10},
+      "pair_HV_CAV": {"max_relative_error": 0.10},
+      "pair_CAV_CAV": {"max_relative_error": 0.10},
+      "role_f_HV_l_HV": {"max_relative_error": 0.10},
+      "role_f_HV_l_CAV": {"max_relative_error": 0.10},
+      "role_f_CAV_l_HV": {"max_relative_error": 0.10},
+      "role_f_CAV_l_CAV": {"max_relative_error": 0.10}
+    },
+    "DRAC": {
+      "total": {"max_relative_error": 0.02},
+      "pair_HV_HV": {"max_relative_error": 0.02},
+      "pair_HV_CAV": {"max_relative_error": 0.02},
+      "pair_CAV_CAV": {"max_relative_error": 0.02},
+      "role_f_HV_l_HV": {"max_relative_error": 0.02},
+      "role_f_HV_l_CAV": {"max_relative_error": 0.02},
+      "role_f_CAV_l_HV": {"max_relative_error": 0.02},
+      "role_f_CAV_l_CAV": {"max_relative_error": 0.02}
+    },
+    "minTTC": {"max_absolute_delta_s": 0.05},
+    "maxDRAC": {"max_absolute_delta_mps2": 0.05},
+    "pair_closure": {"max_event_delta": 0},
+    "role_closure": {"max_event_delta": 0}
+  },
+  "rss_acceptance": {
+    "scenario_0_max_mib": 2048,
+    "scenario_2_max_mib": 10240,
+    "scenario_2_note": "Known SUMO SSM encounter-tracking issue; accepts up to ~10 GiB pending upstream fix"
+  }
+}

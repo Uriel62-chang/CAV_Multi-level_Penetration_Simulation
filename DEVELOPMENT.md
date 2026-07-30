@@ -146,8 +146,8 @@
 - **P1 第一批复核关闭**（`dad8a97`–`e8242fe`）：恢复 legacy config/resume、summary/subgroup 数值契约、writer manifest 闭合与 dry-run 门禁；原 annotated `v0.4.1` tag 已恢复为 `211782… → b16771e…`。整体发布门禁仍未关闭。
 - **P2 summary companion-field 已由 Reviewer 关闭**（`9e742fc`）：schema=1 summary 单独提供 optional whole-network TTC rate 而缺少 optional `non_internal_edge_vehicle_km` 时，契约返回字段级 companion-missing 错误；NaN 与有限 rate 均不再抛出 `KeyError`。
 - **P2 runner 错误聚合已由 Reviewer 关闭**（`c35f7fe`）：summary contract 与既有 invariant 同时失败时，runner 会按稳定顺序保留两类独立错误，并写入 `_invariant_errors` / `parse_status.error_message`。
-- **v0.4.1.post1 已启动**：仅补强 acceptance/input 冻结、SHA 追溯与 SSM 最小复现诊断；不修改 `v0.4.1` tag 或原验收阈值，不启动新正式网格，不倒灌追认原 pilot。
-- **已验证**：195 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；micro-pilot Level 1 通过（10/10）；Level 2 bounded factorial pilot 完成（162 runs, failed original resource gate）；mitigation calibration 完成（48 runs with extratime=1.0+merge, failed simultaneous fidelity+RSS gates）。
+- **v0.4.1.post1 已启动**：仅补强 acceptance/input 冻结、SHA 追溯与 SSM 最小复现诊断；canonical frozen pair 已接入非 dry-run v0.4.1 batch 的 `--acceptance`、manifest 与 resume 防覆盖闭环。不修改 `v0.4.1` tag 或原验收阈值，不启动新正式网格，不倒灌追认原 pilot。
+- **已验证**：198 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；micro-pilot Level 1 通过（10/10）；Level 2 bounded factorial pilot 完成（162 runs, failed original resource gate）；mitigation calibration 完成（48 runs with extratime=1.0+merge, failed simultaneous fidelity+RSS gates）。
 - **已提交**：阶段 2 从设计基线 `460f0e6` 到 v0.4.1 发布。
 
 ### 当前状态

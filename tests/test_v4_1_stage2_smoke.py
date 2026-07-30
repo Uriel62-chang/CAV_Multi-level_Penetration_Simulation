@@ -35,6 +35,8 @@ def test_smoke_v4_1_full_pipeline():
         from scripts.run_spec import atomic_write_json
 
         atomic_write_json(ff_dir / "free_flow_references.json", ff_artifact)
+        acceptance_path = ff_dir / "pilot_acceptance.json"
+        atomic_write_json(acceptance_path, {"purpose": "post1 smoke only"})
 
         import copy
 
@@ -56,6 +58,8 @@ def test_smoke_v4_1_full_pipeline():
                 str(root),
                 "--sumo-processes",
                 "1",
+                "--acceptance",
+                str(acceptance_path),
             ],
             capture_output=True,
             text=True,
@@ -89,6 +93,7 @@ def test_smoke_v4_1_full_pipeline():
 
         # Verify parse_status.json and subgroup_summary.jsonl
         manifest = json.loads((root / "manifest.json").read_text())
+        assert set(manifest["frozen_inputs"]) == {"resolved_config_sha256", "acceptance_sha256"}
         for entry in manifest.get("results", []):
             rd = root / entry["run_id"]
             ps = json.loads((rd / "parse_status.json").read_text())

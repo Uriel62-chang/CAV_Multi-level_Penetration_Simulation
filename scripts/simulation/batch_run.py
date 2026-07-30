@@ -13,6 +13,7 @@
 import argparse
 import asyncio
 import hashlib
+import json
 import os
 import shutil
 import signal
@@ -33,7 +34,7 @@ from scripts.config import (
     DEFAULT_WARMUP,
 )
 from scripts.experiment_config import load_experiment_config, validate_analysis_windows
-from scripts.provenance import collect_provenance, sha256_file
+from scripts.provenance import collect_provenance, freeze_input_pair, sha256_file
 from scripts.run_spec import (
     PIPELINE_V4_1,
     RunSpec,
@@ -621,6 +622,39 @@ def _validate_cav_count_specs(
             raise RuntimeError(f"run_id mismatch: stored={s.run_id}, rederived={expected_rid}")
 
 
+def prepare_post1_frozen_inputs(
+    output_root: Path,
+    pipeline_version: str,
+    resolved_config: dict,
+    acceptance_path: str | Path | None,
+    resume: bool,
+) -> dict[str, str] | None:
+    """Freeze post1 inputs and reject unsafe manifest reuse before a batch starts."""
+    if pipeline_version != PIPELINE_V4_1:
+        return None
+    if acceptance_path is None:
+        raise ValueError("--acceptance is required for v0.4.1.post1 execution")
+
+    manifest_path = output_root / "manifest.json"
+    if manifest_path.exists() and not resume:
+        raise ValueError(
+            "output manifest already exists; use --resume after verifying frozen inputs"
+        )
+
+    hashes = freeze_input_pair(output_root / "frozen_inputs", resolved_config, acceptance_path)
+    if not resume:
+        return hashes
+    if not manifest_path.exists():
+        raise ValueError("--resume requires an existing manifest.json")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"resume manifest unreadable: {manifest_path}") from exc
+    if manifest.get("frozen_inputs") != hashes:
+        raise ValueError("resume manifest frozen_inputs mismatch")
+    return hashes
+
+
 def validate_path_safety(output_root: Path, specs: list[RunSpec]) -> None:
     """校验所有 run_dir 均位于 output_root 下方，防止路径逃逸"""
     output_resolved = output_root.resolve()
@@ -1203,6 +1237,11 @@ def main():
         "--frozen-inputs", default=None, help="冻结输入源目录 (复制 routes+type_map)"
     )
     parser.add_argument(
+        "--acceptance",
+        default=None,
+        help="v0.4.1.post1 pilot acceptance JSON（非 dry-run 必填）",
+    )
+    parser.add_argument(
         "--timeout", type=float, default=None, help="单次 SUMO 最大允许时间 (s)，默认 7200"
     )
     parser.add_argument("--resume", action="store_true", help="跳过已完成且版本匹配的 run")
@@ -1417,6 +1456,19 @@ def main():
         print(f"[ERROR] {e}")
         sys.exit(1)
 
+    frozen_input_hashes = None
+    if not args.dry_run:
+        try:
+            frozen_input_hashes = prepare_post1_frozen_inputs(
+                output_root,
+                resolved_config.pipeline_version,
+                resolved_config.to_dict(),
+                args.acceptance,
+                args.resume,
+            )
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
+
     # ── dry-run ──
     if args.dry_run:
         ordered = sort_specs(specs)
@@ -1460,6 +1512,8 @@ def main():
             for spec in specs
         ],
     }
+    if frozen_input_hashes is not None:
+        manifest["frozen_inputs"] = frozen_input_hashes
     atomic_write_json(manifest_path, manifest)
 
     # ── 执行 ──

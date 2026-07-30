@@ -6,6 +6,9 @@ from collections import defaultdict
 # 镜像判定：方向相反且 min(较短时长) 覆盖比 ≥ 阈值
 _MIRROR_OVERLAP_RATIO = 0.8
 
+# extratime=1.0 后置同向碎片合并间隔 (s)
+_FRAGMENT_MERGE_GAP_S = 5.0
+
 
 def _overlap_ratio(a_begin: float, a_end: float, b_begin: float, b_end: float) -> float:
     """重叠时长 / min(|A|, |B|)。"""
@@ -15,6 +18,54 @@ def _overlap_ratio(a_begin: float, a_end: float, b_begin: float, b_end: float) -
         return 0.0
     overlap = max(0.0, min(a_end, b_end) - max(a_begin, b_begin))
     return overlap / min(duration_a, duration_b)
+
+
+def _merge_fragments(records):
+    """按有向 (ego, foe) 合并 ≤5s 间隙的同向碎片。
+
+    Returns (merged_records, fragments_absorbed).
+    每个 group 内按 begin 排序，相邻记录 end→begin ≤ _FRAGMENT_MERGE_GAP_S 时合并，
+    保留更危急的 TTC/DRAC 极值及其 provenance（time, type_code, source_ego, source_foe）。
+    """
+    groups = defaultdict(list)
+    for rec in records:
+        groups[(rec["ego"], rec["foe"])].append(rec)
+
+    merged = []
+    absorbed = 0
+    for recs in groups.values():
+        recs.sort(key=lambda r: r["begin"])
+        current = None
+        for rec in recs:
+            if current is None:
+                current = dict(rec)
+                continue
+            gap = rec["begin"] - current["end"]
+            if gap <= _FRAGMENT_MERGE_GAP_S:
+                current["end"] = max(current["end"], rec["end"])
+                if rec.get("min_ttc") is not None and (
+                    current.get("min_ttc") is None or rec["min_ttc"] < current["min_ttc"]
+                ):
+                    current["min_ttc"] = rec["min_ttc"]
+                    current["min_ttc_time"] = rec.get("min_ttc_time", 0)
+                    current["min_ttc_type_code"] = rec.get("min_ttc_type_code")
+                    current["min_ttc_source_ego"] = rec["ego"]
+                    current["min_ttc_source_foe"] = rec["foe"]
+                if rec.get("max_drac") is not None and (
+                    current.get("max_drac") is None or rec["max_drac"] > current["max_drac"]
+                ):
+                    current["max_drac"] = rec["max_drac"]
+                    current["max_drac_time"] = rec.get("max_drac_time", 0)
+                    current["max_drac_type_code"] = rec.get("max_drac_type_code")
+                    current["max_drac_source_ego"] = rec["ego"]
+                    current["max_drac_source_foe"] = rec["foe"]
+                absorbed += 1
+            else:
+                merged.append(current)
+                current = dict(rec)
+        if current is not None:
+            merged.append(current)
+    return merged, absorbed
 
 
 def parse_ssm(
@@ -44,6 +95,7 @@ def parse_ssm(
         "ssm_warmup_filtered_count": 0,
         "ssm_valid_record_count": 0,
         "ssm_mirrored_record_count": 0,
+        "ssm_fragment_merged_count": 0,
         "parse_success": False,
     }
 
@@ -114,6 +166,9 @@ def parse_ssm(
         )
 
     valid_count = len(parsed)
+
+    # ── 碎片合并（extratime=1.0 后置恢复） ──
+    parsed, fragment_merged = _merge_fragments(parsed)
 
     # ── 第二步：按车辆对分组，组内一对一匹配镜像 ──
     groups = defaultdict(list)
@@ -198,6 +253,7 @@ def parse_ssm(
     result["ssm_warmup_filtered_count"] = warmup_filtered
     result["ssm_valid_record_count"] = valid_count
     result["ssm_mirrored_record_count"] = mirrored
+    result["ssm_fragment_merged_count"] = fragment_merged
     result["ttc_conflict_event_count"] = ttc_events
     result["min_ttc_s"] = min_ttc if min_ttc != float("inf") else float("nan")
     result["ttc_involved_vehicle_count"] = len(ttc_involved)
@@ -219,6 +275,7 @@ def _make_default_all_result() -> dict:
         "ssm_warmup_filtered_count": 0,
         "ssm_valid_record_count": 0,
         "ssm_mirrored_record_count": 0,
+        "ssm_fragment_merged_count": 0,
         "parse_success": False,
     }
 
@@ -328,6 +385,8 @@ def parse_ssm_subgroup(
         )
 
     valid_count = len(parsed)
+
+    parsed, fragment_merged = _merge_fragments(parsed)
 
     groups = defaultdict(list)
     for idx, rec in enumerate(parsed):
@@ -466,6 +525,7 @@ def parse_ssm_subgroup(
     all_result["ssm_warmup_filtered_count"] = warmup_filtered
     all_result["ssm_valid_record_count"] = valid_count
     all_result["ssm_mirrored_record_count"] = mirrored
+    all_result["ssm_fragment_merged_count"] = fragment_merged
     all_result["ttc_conflict_event_count"] = ttc_events
     all_result["min_ttc_s"] = min_ttc if min_ttc != float("inf") else float("nan")
     all_result["ttc_involved_vehicle_count"] = len(ttc_involved)

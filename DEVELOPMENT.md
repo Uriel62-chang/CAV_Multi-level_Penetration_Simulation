@@ -124,9 +124,9 @@
 ### 已完成
 
 - **阶段 0+1 已实现**：cav_count 双 seed 网格 + inactive-dimension 规范化；SUMO 命令注入 seed/SSM capture/FCD 输出；withInternal=true additional；writer `non_internal_edge_vehicle_km` 列名修正；进程退出轮询 + SIGINT→CANCELLED；CLI `--assignment-seeds`/`--sumo-seeds` 命名。
-- **阶段 2 完成**（2026-07-29，已批准）：HV/CAV 子群拆分（detector/edgeData/SSM/vehroute/lanechange/stderr）；FCD physical THW 与 headway 长表；SSM pair/role provenance（D-006）；schema=2 runner/writer/aggregate；subgroup JSONL + SHA；自由流 artifact hard-reject 链（D-008）；SSM sensitivity CLI；free-flow 测量；FCD numpy 内存方案（D-007）；net.json num_lanes fail-closed 校验（D-009）；sim→parse→write→aggregate smoke。
-- **已验证**：149 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过。
-- **已提交**：阶段 2 从设计基线 `460f0e6` 到收尾基线 `6cc2932`，共 27 commits。
+- **阶段 2 完成**（2026-07-29，v0.4.1 发布）：HV/CAV 子群拆分；FCD physical THW；SSM pair/role provenance（D-006）；schema=2 runner/writer/aggregate；subgroup JSONL + SHA；自由流 artifact（D-008）；SSM sensitivity CLI；free-flow 测量；FCD numpy 内存方案（D-007）；net.json num_lanes fail-closed（D-009）；fragment merge（opt-in，D-010）；`--frozen-inputs`；per-run RSS；sim→parse→write→aggregate smoke。
+- **已验证**：165 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；micro-pilot Level 1 通过（10/10）；Level 2 calibration completed（failed gate，48 runs with extratime=1.0+merge）。
+- **已提交**：阶段 2 从设计基线 `460f0e6` 到 v0.4.1 发布。
 
 ### 当前状态
 
@@ -145,8 +145,9 @@
 
 ### 待处理
 
-- **下一阶段任务**：micro-pilot Level 1（6-12 runs）→ Level 2 bounded factorial pilot。
-- **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针数据；测试总数 149（85 legacy + 19 v0.4.1 + 45 stage2）。
+- **v0.4.2**：分拆设计——主 factorial 关闭 SSM 运行效率/排放/FCD 完整网格；独立 safety experiment 专门定义 TTC/DRAC estimand。
+- **SUMO upstream**：s2 无事件但 RSS ~9 GiB 的 encounter-tracking 行为，制作最小复现提交。
+- **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针。
 - **暂缓**：S8 冻结输入、PreparedRun.fcd_path → 1.post1。
 
 ### 重要约束

@@ -80,7 +80,7 @@ python3 -m scripts.results.visualization \
 
 ## 当前版本
 
-**v0.4.1 阶段 2 完成**（2026-07-29）
+**v0.4.1 发布**（2026-07-29）
 
 ### 阶段 2 交付
 - HV/CAV 子群拆分（detector/edgeData/SSM/vehroute/lanechange/stderr + FCD headway）
@@ -110,7 +110,7 @@ python3 -m scripts.results.visualization \
 - PreparedRun.fcd_path
 
 ### 测试基线
-- 149 tests passed（85 legacy + 19 v0.4.1 + 45 stage2）
+- 165 tests passed（85 legacy + 19 v0.4.1 + 61 stage2）
 - Ruff / mypy / compileall / format 全通过
 - dry-run: v0.4.0 10,080 / pilot 162 / smoke 1
 - aggregate 现已要求 --schema-version 参数

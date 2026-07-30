@@ -1,6 +1,56 @@
 # Changelog
 
-## v0.4.0.post3
+## v0.4.1 (2026-07-29)
+
+`v0.4.1` 是工具链功能发布，不包含正式实验结论。它构建了子群测量、FCD THW、
+SSM 敏感性分析、自由流参考等能力，并完成 micro-pilot Level 1 验证。
+Level 2 bounded factorial pilot 因 SUMO SSM encounter-tracking 在混合交通下的
+内存增长超出预算而标记为 calibration / failed gate。
+
+### 新功能
+
+- **HV/CAV 子群拆分**：detector/edgeData/SSM/vehroute/lanechange/stderr 均支持
+  按车辆类型（HV/CAV）分别统计；SSM 新增 pair（HV-HV/HV-CAV/CAV-CAV）和
+  role（follower→leader）分类。
+- **FCD physical THW**：流式 gzip 解析，numpy float64 分位数计算，按 follower
+  类型分 HV/CAV。
+- **`parsing/metrics.py`**：统一指标计算模块，从 parser primitives 派生 core
+  summary 和 subgroup 长表（`run_level_subgroup_results.csv`）。
+- **schema=2 writer/aggregate 路由**：`--schema-version` 必填；aggregate 按
+  `cav_count` 分组。
+- **SSM 敏感性分析 CLI**（`scripts/analysis/ssm_sensitivity.py`）：三种 dedup
+  方法（none / greedy_one_to_one_80pct / sorted_greedy_80pct），TTC/DRAC 阈值扫描。
+- **自由流参考测量**（`scripts/analysis/free_flow.py`）：单车 HV/IDM/CACC 稳态
+  圈时 artifact 生成，加载时强校验 SUMO 版本 + net SHA + 有限正数值。
+- **fragment merge**（opt-in）：`ssm_extratime_s` 全链路（ExperimentConfig
+  → RunSpec → SUMO 命令），parser 级同向 5s gap 合并恢复 encounter 语义；
+  `ssm_fragment_merged_count` 独立台账。
+- **`--frozen-inputs`**：baseline routes + type_map 复用与 SHA-256 校验，支持
+  跨配置对比实验。
+- **per-run RSS 采集**：SUMO 子进程 VmHWM 轮询 + parser 进程 VmRSS 采样。
+
+### 已知限制
+
+- **SSM 内存**：在 SUMO 1.27.1 下，extratime=1.0 可将全 CAV 场景 RSS 从
+  ~10 GiB 降至 ~155 MiB，但 s0 混合交通（vehN=120, 50/50 CAV/HV）仍约 3 GiB；
+  s2 无 SSM 事件时 RSS 仍可达 ~9 GiB（疑似 SUMO 内部 encounter-tracking 行为）。
+- **CAV-CAV TTC**：extratime=1.0 + fragment merge 在混合交通下有 composition-
+  dependent 低估（~13%，仅 vehN=60 IDM 混合）。
+- s2 的 SSM 内存问题独立于 extratime 参数，不适合在本版本通过参数调优解决。
+- fragment merge 默认禁用（`gap_s=0.0`）；仅在 `ssm_extratime_s < 5.0` 时由
+  runner 自动启用到 5.0s gap。
+
+### 测试
+
+- **165 tests**（85 legacy + 19 v0.4.1 + 61 stage2）
+- Stage 2 设计基线冻结于 `docs/development/v0.4.1-stage2-design.md`
+- 门禁：Ruff / mypy / compileall / format 全通过
+
+### v0.4.2 计划
+
+- SSM 不进入主 factorial 实验；主实验关闭 SSM 运行效率/排放/FCD 完整网格
+- 独立 safety experiment：针对性地定义 TTC/DRAC estimand 与采样规则
+- SUMO 上游最小复现提交
 
 `v0.4.0.post3` 不重跑 SUMO；它从冻结的 10,080-run raw XML 修正 post2
 遗漏的跨解析器观测窗错配，并重新生成受影响的 run-level、聚合数据、图表与

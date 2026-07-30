@@ -273,7 +273,7 @@ different compatibility boundaries:
 
 | Version axis | Value | Meaning |
 |---|---|---|
-| Release/package | `v0.4.0.post3` | Corrected analysis-window data release |
+| Release/package | `v0.4.1` | Measurement toolchain release (subgroup, THW, sensitivity, free-flow) |
 | Experiment config | `v0.4.0` | Published 10,080-run experimental design |
 | Simulation pipeline | `v0.4.0.post1` | Frozen raw simulation provenance |
 | Analysis | `v0.4.0.post3` | Warmup-aligned edgeData and SSM extreme-time reanalysis |
@@ -706,11 +706,12 @@ docs/
 | v0.6.0 | TraCI-based dynamic traffic control |
 | v0.7.0 | CACC communication degradation, including packet loss and latency |
 
-v0.4.1 does not include an automatic rerun of the 10,080-run grid. Its pilot
-must first verify requested/realized penetration treatments, independent SUMO
-randomness, `withInternal=true` exposure matching, trajectory retention volume
-and model-specific reference runs. Any subsequent full experiment is a new
-versioned dataset and must not overwrite v0.4.0/post3.
+v0.4.1 delivers the measurement toolchain. Its micro-pilot Level 1 (10 runs)
+passed; Level 2 factorial pilot (48 runs, extratime=1.0+merge) was completed as
+a calibration run with documented SSM memory limitations in mixed traffic. The
+v0.4.0 10,080-run grid was not re-run. v0.4.2 will explore a redesigned
+experiment structure with SSM disabled in the main factorial and a separate
+safety experiment design.
 
 ---
 

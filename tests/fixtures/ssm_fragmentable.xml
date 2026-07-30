@@ -1,0 +1,8 @@
+<SSMLog>
+    <conflict begin="0.0" end="10.0" ego="veh0" foe="veh1">
+        <minTTC time="5.0" position="0,0" type="2" value="2.5" speed="20.0"/>
+    </conflict>
+    <conflict begin="12.0" end="20.0" ego="veh0" foe="veh1">
+        <minTTC time="15.0" position="0,0" type="2" value="1.5" speed="20.0"/>
+    </conflict>
+</SSMLog>

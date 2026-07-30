@@ -80,7 +80,7 @@ python3 -m scripts.results.visualization \
 
 ## 当前版本
 
-**v0.4.1 发布**（2026-07-29）
+**v0.4.1 发布**（2026-07-30）
 
 ### 阶段 2 交付
 - HV/CAV 子群拆分（detector/edgeData/SSM/vehroute/lanechange/stderr + FCD headway）
@@ -88,7 +88,7 @@ python3 -m scripts.results.visualization \
 - schema=2 writer/aggregate 路由（`--schema-version` 必填）
 - SSM 敏感性 CLI（none/greedy/sorted_greedy dedup）
 - 自由流参考测量
-- 61 个 stage2 测试（总 165）
+- 63 个 stage2 测试（总 167）
 
 ### 阶段 0 交付
 - cav_count 双 seed 网格（新 run_id 格式 `s2_IDM_v120_c060_as01_ss101`）
@@ -110,7 +110,7 @@ python3 -m scripts.results.visualization \
 - PreparedRun.fcd_path
 
 ### 测试基线
-- 165 tests passed（85 legacy + 19 v0.4.1 + 61 stage2）
+- 167 tests passed（85 legacy + 19 v0.4.1 + 63 stage2）
 - Ruff / mypy / compileall / format 全通过
 - dry-run: v0.4.0 10,080 / pilot 162 / smoke 1
 - aggregate 现已要求 --schema-version 参数

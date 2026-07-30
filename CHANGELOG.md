@@ -42,7 +42,7 @@ Level 2 bounded factorial pilot 因 SUMO SSM encounter-tracking 在混合交通�
 
 ### 测试
 
-- **165 tests**（85 legacy + 19 v0.4.1 + 61 stage2）
+- **167 tests**（85 legacy + 19 v0.4.1 + 63 stage2）
 - Stage 2 设计基线冻结于 `docs/development/v0.4.1-stage2-design.md`
 - 门禁：Ruff / mypy / compileall / format 全通过
 

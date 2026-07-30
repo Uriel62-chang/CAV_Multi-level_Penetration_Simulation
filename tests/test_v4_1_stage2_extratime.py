@@ -220,11 +220,24 @@ def test_fragment_merge_parser_default_disabled():
 
 def test_fragment_merge_parser_explicit_enabled():
     r = parse_ssm(
-        os.path.join(_FIXTURES, "ssm_minimal.xml"),
+        os.path.join(_FIXTURES, "ssm_fragmentable.xml"),
         warmup_period=0,
         ttc_threshold=3.0,
         drac_threshold=3.0,
         fragment_merge_gap_s=5.0,
     )
     assert r["parse_success"] is True
-    assert r["ssm_fragment_merged_count"] >= 0
+    assert r["ssm_fragment_merged_count"] == 1
+    assert r["ttc_conflict_event_count"] == 1
+
+
+def test_fragment_merge_parser_default_disabled_on_fragmentable():
+    r = parse_ssm(
+        os.path.join(_FIXTURES, "ssm_fragmentable.xml"),
+        warmup_period=0,
+        ttc_threshold=3.0,
+        drac_threshold=3.0,
+    )
+    assert r["parse_success"] is True
+    assert r["ssm_fragment_merged_count"] == 0
+    assert r["ttc_conflict_event_count"] == 2

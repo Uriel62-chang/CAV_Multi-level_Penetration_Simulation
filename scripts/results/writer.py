@@ -308,6 +308,27 @@ def _valid_subgroup_rows(rows: list[dict], run_id: str, spec: dict) -> bool:
         value = row["metric_value"]
         if not isinstance(value, (int, float)) or isinstance(value, bool) or math.isinf(value):
             return False
+        if math.isnan(value) and row["metric_name"] not in {
+            "mean_speed_m_s",
+            "speed_variance",
+            "unsafe_lc_gap_ratio",
+            "CO2_g_per_veh_km",
+            "NOx_mg_per_veh_km",
+            "PMx_mg_per_veh_km",
+            "fuel_g_per_veh_km",
+            "time_loss_s_per_veh_km",
+            "mean_lap_time_s",
+            "median_lap_time_s",
+            "p95_lap_time_s",
+            "lap_time_std_s",
+            "mean_lap_delay_s",
+            "p95_lap_delay_s",
+            "mean_thw_s",
+            "median_thw_s",
+            "p05_thw_s",
+            "thw_lt_1s_ratio",
+        }:
+            return False
     keys = {
         (
             row.get("metric_family"),
@@ -346,6 +367,15 @@ def _format_report_summary(report: dict) -> str:
     )
 
 
+def _manifest_structure_errors(manifest: dict) -> list[str]:
+    errors = []
+    if type(manifest.get("total")) is not int or manifest.get("total", 0) <= 0:
+        errors.append("manifest total must be a positive integer")
+    if not isinstance(manifest.get("results"), list):
+        errors.append("manifest results must be a list")
+    return errors
+
+
 def build_run_level_results(
     input_root: Path,
     output_dir: Path,
@@ -373,9 +403,7 @@ def build_run_level_results(
     schema_ver = manifest.get("schema_version", "1")
     results_value = manifest.get("results")
     total_value = manifest.get("total")
-    manifest_structure_valid = (
-        isinstance(results_value, list) and type(total_value) is int and total_value > 0
-    )
+    manifest_structure_valid = not _manifest_structure_errors(manifest)
     manifest_results = results_value if isinstance(results_value, list) else []
 
     expected_total = total_value if type(total_value) is int else 0
@@ -677,8 +705,12 @@ def main():
     pipeline_version = args.pipeline_version or manifest_version
 
     if args.dry_run:
-        total = manifest.get("total", 0)
-        results = manifest.get("results", [])
+        errors = _manifest_structure_errors(manifest)
+        if errors:
+            print(f"[ERROR] {'; '.join(errors)}")
+            sys.exit(1)
+        total = manifest["total"]
+        results = manifest["results"]
         sim_ok = sum(1 for r in results if r.get("status") == "SUCCESS")
         print(f"[DRY RUN] {total} runs in manifest, {sim_ok} simulation SUCCESS")
         return

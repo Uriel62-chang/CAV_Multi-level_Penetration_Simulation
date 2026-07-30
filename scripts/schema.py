@@ -303,6 +303,14 @@ def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
         "total_fuel_kg",
         "total_time_loss_s",
     }
+    strictly_positive = {
+        "step_length_s",
+        "simulation_end_s",
+        "ssm_capture_ttc_threshold_s",
+        "ssm_capture_drac_threshold_mps2",
+        "total_vehicle_km",
+        "non_internal_edge_vehicle_km",
+    }
     nullable = {"requested_pcav"}
     nullable_nan = {
         "min_ttc_s",
@@ -347,8 +355,14 @@ def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
                 errors.append(f"summary {key} must be a non-negative int")
         elif not isinstance(value, (int, float)) or isinstance(value, bool):
             errors.append(f"summary {key} must be numeric")
-        elif not math.isfinite(float(value)) and key not in nullable_nan:
+        elif math.isinf(float(value)):
+            errors.append(f"summary {key} must not be infinite")
+        elif math.isnan(float(value)) and key not in nullable_nan:
             errors.append(f"summary {key} must be finite")
         elif key in finite_nonnegative and float(value) < 0:
             errors.append(f"summary {key} must be non-negative")
+        elif key in strictly_positive and float(value) <= 0:
+            errors.append(f"summary {key} must be positive")
+        elif key in {"pCAV", "requested_pcav", "realized_pcav"} and not 0 <= float(value) <= 1:
+            errors.append(f"summary {key} must be within [0, 1]")
     return errors

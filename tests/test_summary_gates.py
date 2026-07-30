@@ -3,6 +3,8 @@
 import json
 import math
 
+import pytest
+
 from scripts.schema import SUMMARY_REQUIRED_KEYS, validate_summary_contract
 
 
@@ -76,6 +78,26 @@ def test_summary_contract_rejects_invalid_identity_count_and_exposure():
     assert "summary total_vehicle_km must be finite" in errors
     assert "summary total_CO2_kg must be finite" in errors
     assert "summary non_internal_edge_vehicle_km must be non-negative" in errors
+
+
+def test_summary_contract_rejects_infinity_zero_exposure_and_invalid_ranges():
+    summary = _legacy_summary()
+    summary.update(
+        {
+            "min_ttc_s": math.inf,
+            "mean_speed_m_s": math.inf,
+            "total_vehicle_km": 0.0,
+            "pCAV": 1.5,
+            "step_length_s": 0.0,
+        }
+    )
+
+    errors = validate_summary_contract(summary, "1")
+    assert "summary min_ttc_s must not be infinite" in errors
+    assert "summary mean_speed_m_s must not be infinite" in errors
+    assert "summary total_vehicle_km must be positive" in errors
+    assert "summary pCAV must be within [0, 1]" in errors
+    assert "summary step_length_s must be positive" in errors
 
 
 def test_writer_summary_read_rejects_missing_core_field(tmp_path):
@@ -175,6 +197,41 @@ def test_subgroup_gate_rejects_missing_identity_and_metric_value():
     assert not _valid_subgroup_rows([{"run_id": "run-1", "metric_family": "capacity"}], "run-1", {})
 
 
+def test_subgroup_gate_rejects_nan_for_nonnullable_metric():
+    from scripts.results.writer import _expected_subgroup_keys, _valid_subgroup_rows
+
+    spec = {
+        "scenario": "scenario_0",
+        "model": "IDM",
+        "requested_pcav": None,
+        "cav_count": 5,
+        "vehicle_count": 10,
+        "seed": 1,
+        "sumo_seed": 101,
+    }
+    rows = [
+        {
+            "run_id": "run-1",
+            "scenario": "scenario_0",
+            "model": "IDM",
+            "requested_pcav": None,
+            "realized_pcav": 0.5,
+            "cav_count": 5,
+            "hv_count": 5,
+            "vehN": 10,
+            "assignment_seed": 1,
+            "sumo_seed": 101,
+            "metric_family": family,
+            "group_dimension": dimension,
+            "group_value": value,
+            "metric_name": metric,
+            "metric_value": math.nan,
+        }
+        for family, dimension, value, metric in _expected_subgroup_keys(False)
+    ]
+    assert not _valid_subgroup_rows(rows, "run-1", spec)
+
+
 def test_writer_manifest_duplicate_never_closes_complete_gate(tmp_path):
     from scripts.results.writer import build_run_level_results
 
@@ -210,3 +267,34 @@ def test_writer_manifest_requires_explicit_nonzero_total_and_results(tmp_path):
 
     assert report["manifest_structure_valid"] is False
     assert report["complete"] is False
+
+
+def test_writer_dry_run_rejects_manifest_missing_total_and_results(tmp_path, monkeypatch):
+    import sys
+
+    from scripts.results import writer
+
+    path = tmp_path / "manifest.json"
+    path.write_text(
+        json.dumps(
+            {"pipeline_version": "v0.4.0.post1", "schema_version": "1", "config_sha256": "a" * 64}
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "writer",
+            "--input-root",
+            str(tmp_path),
+            "--output-dir",
+            str(tmp_path / "out"),
+            "--manifest",
+            str(path),
+            "--dry-run",
+        ],
+    )
+    with pytest.raises(SystemExit) as exc:
+        writer.main()
+    assert exc.value.code == 1

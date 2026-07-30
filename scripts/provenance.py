@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import platform
 import shutil
@@ -11,6 +12,24 @@ import sys
 from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
+
+
+def canonical_json_bytes(data: object) -> bytes:
+    """Return canonical UTF-8 JSON bytes suitable for content hashing."""
+    return json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+
+
+def atomic_write_bytes(path: str | Path, data: bytes) -> None:
+    """Atomically replace *path* after flushing the temporary file to disk."""
+    output_path = Path(path)
+    temp_path = output_path.with_suffix(output_path.suffix + ".tmp")
+    with temp_path.open("wb") as stream:
+        stream.write(data)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temp_path, output_path)
 
 
 def sha256_file(path: str | Path) -> str:

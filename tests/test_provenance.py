@@ -1,7 +1,28 @@
 import hashlib
 import json
 
-from scripts.provenance import collect_provenance, sha256_file
+from scripts.provenance import (
+    atomic_write_bytes,
+    canonical_json_bytes,
+    collect_provenance,
+    sha256_file,
+)
+
+
+def test_canonical_json_bytes_are_stable_utf8():
+    assert canonical_json_bytes({"z": "中文", "a": [2, 1]}) == (
+        b'{"a":[2,1],"z":"\xe4\xb8\xad\xe6\x96\x87"}'
+    )
+
+
+def test_atomic_write_bytes_replaces_existing_content(tmp_path):
+    path = tmp_path / "frozen.json"
+    path.write_bytes(b"old")
+
+    atomic_write_bytes(path, b"new")
+
+    assert path.read_bytes() == b"new"
+    assert not path.with_suffix(".json.tmp").exists()
 
 
 def test_sha256_file(tmp_path):

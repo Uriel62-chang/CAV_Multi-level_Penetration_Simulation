@@ -6,8 +6,8 @@ from collections import defaultdict
 # 镜像判定：方向相反且 min(较短时长) 覆盖比 ≥ 阈值
 _MIRROR_OVERLAP_RATIO = 0.8
 
-# extratime=1.0 后置同向碎片合并间隔 (s)
-_FRAGMENT_MERGE_GAP_S = 5.0
+# extratime=1.0 后置同向碎片合并间隔 (s)，默认 0 禁用
+_FRAGMENT_MERGE_GAP_S = 0.0
 
 
 def _overlap_ratio(a_begin: float, a_end: float, b_begin: float, b_end: float) -> float:
@@ -20,7 +20,7 @@ def _overlap_ratio(a_begin: float, a_end: float, b_begin: float, b_end: float) -
     return overlap / min(duration_a, duration_b)
 
 
-def _merge_fragments(records):
+def _merge_fragments(records, gap_s=5.0):
     """按有向 (ego, foe) 合并 ≤5s 间隙的同向碎片。
 
     Returns (merged_records, fragments_absorbed).
@@ -41,7 +41,7 @@ def _merge_fragments(records):
                 current = dict(rec)
                 continue
             gap = rec["begin"] - current["end"]
-            if gap <= _FRAGMENT_MERGE_GAP_S:
+            if gap <= gap_s:
                 current["end"] = max(current["end"], rec["end"])
                 if rec.get("min_ttc") is not None and (
                     current.get("min_ttc") is None or rec["min_ttc"] < current["min_ttc"]
@@ -73,6 +73,7 @@ def parse_ssm(
     warmup_period: float = 600.0,
     ttc_threshold: float = 3.0,
     drac_threshold: float = 3.0,
+    fragment_merge_gap_s: float = 0.0,
 ):
     """解析 SUMO SSM 输出 XML。
 
@@ -167,7 +168,10 @@ def parse_ssm(
 
     valid_count = len(parsed)
 
-    parsed, fragment_merged = _merge_fragments(parsed)
+    if fragment_merge_gap_s > 0:
+        parsed, fragment_merged = _merge_fragments(parsed, gap_s=fragment_merge_gap_s)
+    else:
+        fragment_merged = 0
 
     # ── 第二步：按车辆对分组，组内一对一匹配镜像 ──
     groups = defaultdict(list)
@@ -285,6 +289,7 @@ def parse_ssm_subgroup(
     warmup_period: float = 600.0,
     ttc_threshold: float = 3.0,
     drac_threshold: float = 3.0,
+    fragment_merge_gap_s: float = 0.0,
 ) -> dict:
     all_result = _make_default_all_result()
 
@@ -385,7 +390,10 @@ def parse_ssm_subgroup(
 
     valid_count = len(parsed)
 
-    parsed, fragment_merged = _merge_fragments(parsed)
+    if fragment_merge_gap_s > 0:
+        parsed, fragment_merged = _merge_fragments(parsed, gap_s=fragment_merge_gap_s)
+    else:
+        fragment_merged = 0
 
     groups = defaultdict(list)
     for idx, rec in enumerate(parsed):

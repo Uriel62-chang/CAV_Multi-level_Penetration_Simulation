@@ -498,7 +498,15 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
     ssm_file = run_dir / "ssm_compact.xml"
     if not ssm_file.exists():
         ssm_file = run_dir / "ssm.xml"
-    ssm = parse_ssm_subgroup(str(ssm_file), type_map, warmup, ttc_threshold=3.0, drac_threshold=3.0)
+    merge_gap = 5.0 if spec.ssm_extratime_s < 5.0 else 0.0
+    ssm = parse_ssm_subgroup(
+        str(ssm_file),
+        type_map,
+        warmup,
+        ttc_threshold=3.0,
+        drac_threshold=3.0,
+        fragment_merge_gap_s=merge_gap,
+    )
 
     # Lanechange
     lc_path = run_dir / "lanechange.xml"

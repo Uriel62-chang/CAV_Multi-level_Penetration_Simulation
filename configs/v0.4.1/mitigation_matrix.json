@@ -14,7 +14,7 @@
   "simulation_end": 3600,
   "warmup": 600,
   "step_length": 0.1,
-  "detector_frequency": 300,
+  "detector_frequency": 120,
   "edge_data_frequency": 300,
   "loops": 300,
   "ssm_capture_ttc_threshold_s": 5.0,

@@ -245,6 +245,7 @@ class ExperimentConfig:
             "step_length",
             "ssm_capture_ttc_threshold_s",
             "ssm_capture_drac_threshold_mps2",
+            "ssm_extratime_s",
         ):
             if not math.isfinite(getattr(self, name)):
                 raise ValueError(f"{name} must be finite, got {getattr(self, name)}")
@@ -300,6 +301,10 @@ class ExperimentConfig:
             self.ssm_range_m <= 0 or not math.isfinite(self.ssm_range_m)
         ):
             raise ValueError(f"ssm_range_m must be positive and finite, got {self.ssm_range_m}")
+        if self.ssm_extratime_s <= 0 or not math.isfinite(self.ssm_extratime_s):
+            raise ValueError(
+                f"ssm_extratime_s must be positive and finite, got {self.ssm_extratime_s}"
+            )
 
     def _validate_requested_pcav_mode(self) -> None:
         _require_nonempty_unique("pcav_levels", self.pcav_levels)

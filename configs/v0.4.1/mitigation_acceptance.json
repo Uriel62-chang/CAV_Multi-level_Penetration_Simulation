@@ -1,7 +1,7 @@
 {
   "acceptance_version": "v0.4.1-mitigation-ff-acceptance-2",
   "design": "extratime=1.0 fragment-merge fidelity acceptance",
-  "total_conditions": 32,
+  "total_conditions": 48,
   "max_failures": 0,
   "zero_baseline_rule": "when baseline event_count == 0, mitigation must also be 0 (exact); relative error gate is skipped",
   "gates": {

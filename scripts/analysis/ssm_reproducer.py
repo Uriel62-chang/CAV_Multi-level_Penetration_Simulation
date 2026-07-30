@@ -46,6 +46,16 @@ _REQUIRED_CASE_KEYS = {
     "with_internal",
 }
 
+_SSM_DEVICE_OPTIONS = {
+    "--device.ssm.probability",
+    "--device.ssm.file",
+    "--device.ssm.measures",
+    "--device.ssm.thresholds",
+    "--device.ssm.range",
+    "--device.ssm.trajectories",
+    "--device.ssm.extratime",
+}
+
 
 def create_attempt_directory(output_root: str | Path, case_id: str) -> Path:
     """Create one exclusive, monotonically numbered diagnostic attempt."""
@@ -96,18 +106,71 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _expected_evidence_paths(root: Path, run_dir: Path) -> list[Path]:
-    """List the immutable inputs and raw outputs that make an attempt auditable."""
-    return [
+def _evidence_profile(
+    root: Path, run_dir: Path, ssm_enabled: bool
+) -> tuple[list[Path], list[Path]]:
+    """List required evidence and explicit intentional absences for one A/B arm."""
+    expected = [
         root / "raw" / "frozen_case.json",
+        root / "raw" / "ab_descriptor.json",
         run_dir / "run_spec.json",
         run_dir / "routes.rou.xml",
-        run_dir / "ssm.xml",
         run_dir / "fcd.xml.gz",
         run_dir / "stderr.log",
         run_dir / "stdout.log",
         root / "raw" / "rss_samples.jsonl",
     ]
+    ssm_path = run_dir / "ssm.xml"
+    if ssm_enabled:
+        expected.insert(3, ssm_path)
+        return expected, []
+    return expected, [ssm_path]
+
+
+def _without_ssm_device_options(command: list) -> list:
+    """Remove every SUMO SSM device option and its value from a command."""
+    result = []
+    index = 0
+    while index < len(command):
+        if command[index] in _SSM_DEVICE_OPTIONS:
+            index += 2
+        else:
+            result.append(command[index])
+            index += 1
+    return result
+
+
+def build_diagnostic_command(
+    prepared, network_file: str, spec, sumo_command: str, ssm_enabled: bool
+) -> list:
+    """Build an A/B diagnostic command; the B arm never configures an SSM device."""
+    command = build_sumo_command_v4_1(prepared, network_file, spec, sumo_command)
+    return command if ssm_enabled else _without_ssm_device_options(command)
+
+
+def normalize_non_ssm_command(command: list, run_dir: Path) -> tuple:
+    """Normalize an arm command for an A/B equality assertion outside SSM/options paths."""
+    normalized = _without_ssm_device_options(command)
+    prefix = str(run_dir)
+    return tuple(
+        argument.replace(prefix, "<RUN_DIR>") if isinstance(argument, str) else argument
+        for argument in normalized
+    )
+
+
+def build_ab_descriptor(
+    case: dict, case_sha: str, network_sha: str, ssm_enabled: bool, sample_period_s: float
+) -> dict:
+    """Freeze the common treatment and the single A/B switch before SUMO starts."""
+    return {
+        "schema_version": 1,
+        "arm_id": "ssm_on" if ssm_enabled else "ssm_off",
+        "case_id": case["case_id"],
+        "case_sha256": case_sha,
+        "network_sha256": network_sha,
+        "ssm_enabled": ssm_enabled,
+        "rss_sample_period_s": sample_period_s,
+    }
 
 
 def _stop_process(process) -> dict | None:
@@ -171,6 +234,7 @@ def summarize_ssm_evidence(ssm_path: str | Path, warmup: float, expected_ttc: st
         else "zero-event control failed"
     )
     return {
+        "ssm_enabled": True,
         "ssm_sha256": sha256_file(path) if path.exists() else None,
         "ssm_size_bytes": path.stat().st_size if path.exists() else 0,
         "ssm_raw_record_count": parsed["ssm_raw_record_count"],
@@ -186,10 +250,13 @@ def run_case(
     sumo_command: str = "sumo",
     sample_period_s: float = 1.0,
     timeout_s: float = 7200.0,
+    ssm_enabled: bool = True,
 ) -> dict:
     """Execute exactly one frozen case; raw inputs/outputs and derived report are separate."""
     if sample_period_s <= 0 or timeout_s <= 0:
         raise ValueError("sample_period_s and timeout_s must be positive")
+    if not isinstance(ssm_enabled, bool):
+        raise ValueError("ssm_enabled must be bool")
     case = load_case(case_path)
     root = create_attempt_directory(output_root, str(case["case_id"]))
     raw_dir = root / "raw"
@@ -199,7 +266,7 @@ def run_case(
     network_file = str(case["network_file"])
     process = None
     run_dir = raw_dir / "run"
-    expected = _expected_evidence_paths(root, run_dir)
+    expected, intentionally_absent = _evidence_profile(root, run_dir, ssm_enabled)
     terminal_status = "FAILED"
     failure_stage = "setup"
     evidence: dict | None = None
@@ -209,11 +276,17 @@ def run_case(
     rss_peak_kb = 0
     rss_sample_count = 0
     cleanup_error: dict | None = None
+    ab_descriptor_sha: str | None = None
 
     try:
         raw_dir.mkdir(parents=True)
         atomic_write_bytes(raw_dir / "frozen_case.json", canonical_json_bytes(case))
         network_sha = sha256_file(network_file)
+        ab_descriptor = build_ab_descriptor(
+            case, case_sha, network_sha, ssm_enabled, sample_period_s
+        )
+        ab_descriptor_sha = hashlib.sha256(canonical_json_bytes(ab_descriptor)).hexdigest()
+        atomic_write_bytes(raw_dir / "ab_descriptor.json", canonical_json_bytes(ab_descriptor))
         spec = RunSpec(
             scenario=str(case["scenario"]),
             model=str(case["model"]),
@@ -255,7 +328,7 @@ def run_case(
         run_dir.mkdir()
         write_run_spec(spec, run_dir)
         prepared = prepare_run(spec, run_dir, network_file)
-        command = build_sumo_command_v4_1(prepared, network_file, spec, sumo_command)
+        command = build_diagnostic_command(prepared, network_file, spec, sumo_command, ssm_enabled)
         provenance = collect_provenance({case["scenario"]: network_file}, sumo_command, command)
         atomic_write_bytes(
             root / "attempt_status.json",
@@ -264,6 +337,9 @@ def run_case(
                     "status": "RUNNING",
                     "attempt_id": root.name,
                     "case_sha256": case_sha,
+                    "ab_descriptor_sha256": ab_descriptor_sha,
+                    "arm_id": ab_descriptor["arm_id"],
+                    "ssm_enabled": ssm_enabled,
                     "git_commit": provenance.get("git_commit"),
                     "git_dirty": provenance.get("git_dirty"),
                     "started_at": started_at,
@@ -305,18 +381,26 @@ def run_case(
             raise FileNotFoundError(
                 "expected diagnostic evidence missing: " + ", ".join(evidence_files["missing"])
             )
-        failure_stage = "ssm_parse"
-        evidence = summarize_ssm_evidence(prepared.ssm_path, spec.warmup, str(case["expected_ttc"]))
-        if evidence["control_status"] != "pass":
-            failure_stage = "positive_control"
-            raise PositiveControlError(evidence["control_status"])
+        if ssm_enabled:
+            failure_stage = "ssm_parse"
+            evidence = summarize_ssm_evidence(
+                prepared.ssm_path, spec.warmup, str(case["expected_ttc"])
+            )
+            if evidence["control_status"] != "pass":
+                failure_stage = "positive_control"
+                raise PositiveControlError(evidence["control_status"])
+        else:
+            evidence = {"ssm_enabled": False, "status": "ssm_not_collected"}
 
         report = {
             "case_id": case["case_id"],
             "case_sha256": case_sha,
+            "ab_descriptor_sha256": ab_descriptor_sha,
+            "arm_id": "ssm_on" if ssm_enabled else "ssm_off",
             "network_sha256": network_sha,
             "command": command,
             "sample_period_s": sample_period_s,
+            "ssm_enabled": ssm_enabled,
             "wall_time_s": time.monotonic() - started,
             "return_code": sumo_return_code,
             "rss_peak_kb": rss_peak_kb,
@@ -353,6 +437,8 @@ def run_case(
             "status": terminal_status,
             "attempt_id": root.name,
             "case_sha256": case_sha,
+            "ab_descriptor_sha256": ab_descriptor_sha,
+            "arm_id": "ssm_on" if ssm_enabled else "ssm_off",
             "started_at": started_at,
             "finished_at": _utc_now(),
             "wall_time_s": time.monotonic() - started,
@@ -362,9 +448,11 @@ def run_case(
             "sumo_return_code": sumo_return_code,
             "rss_peak_kb": rss_peak_kb,
             "rss_sample_count": rss_sample_count,
+            "ssm_enabled": ssm_enabled,
             "cleanup_error": cleanup_error,
             "evidence": inventory["files"],
             "expected_but_missing": inventory["missing"],
+            "intentionally_absent": [str(path.relative_to(root)) for path in intentionally_absent],
             "ssm": evidence,
             "provenance": provenance,
         }
@@ -383,8 +471,16 @@ def main() -> None:
     parser.add_argument("--sumo", default="sumo")
     parser.add_argument("--sample-period-s", type=float, default=1.0)
     parser.add_argument("--timeout-s", type=float, default=7200.0)
+    parser.add_argument("--ssm", choices=("on", "off"), default="on")
     args = parser.parse_args()
-    report = run_case(args.case, args.output_root, args.sumo, args.sample_period_s, args.timeout_s)
+    report = run_case(
+        args.case,
+        args.output_root,
+        args.sumo,
+        args.sample_period_s,
+        args.timeout_s,
+        ssm_enabled=args.ssm == "on",
+    )
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
 

@@ -6,7 +6,12 @@ from types import SimpleNamespace
 import pytest
 
 from scripts.analysis import ssm_reproducer
-from scripts.analysis.ssm_reproducer import load_case, summarize_ssm_evidence
+from scripts.analysis.ssm_reproducer import (
+    build_diagnostic_command,
+    load_case,
+    normalize_non_ssm_command,
+    summarize_ssm_evidence,
+)
 
 
 def test_attempt_directory_is_monotonic_and_non_reusable(tmp_path):
@@ -57,6 +62,56 @@ def test_summarize_ssm_evidence_marks_failed_positive_control(tmp_path):
     assert evidence["control_status"] == "positive-control failed"
 
 
+def test_ssm_off_command_removes_every_ssm_device_option(monkeypatch):
+    monkeypatch.setattr(
+        ssm_reproducer,
+        "build_sumo_command_v4_1",
+        lambda *_: [
+            "sumo",
+            "--device.ssm.probability",
+            "1.0",
+            "--device.ssm.file",
+            "/tmp/a/ssm.xml",
+            "--device.ssm.measures",
+            "TTC DRAC",
+            "--device.ssm.thresholds",
+            "5.0 3.0",
+            "--device.ssm.range",
+            "50.0",
+            "--device.ssm.trajectories",
+            "false",
+            "--device.ssm.extratime",
+            "5.0",
+            "--fcd-output",
+            "/tmp/a/fcd.xml.gz",
+        ],
+    )
+
+    command = build_diagnostic_command(None, "net.xml", None, "sumo", ssm_enabled=False)
+
+    assert not any(argument.startswith("--device.ssm") for argument in command)
+    assert command == ["sumo", "--fcd-output", "/tmp/a/fcd.xml.gz"]
+
+
+def test_normalized_non_ssm_commands_only_allow_ssm_and_attempt_path_differences():
+    on = [
+        "sumo",
+        "-r",
+        "/tmp/a/routes.rou.xml",
+        "--device.ssm.file",
+        "/tmp/a/ssm.xml",
+        "--device.ssm.range",
+        "50.0",
+        "--fcd-output",
+        "/tmp/a/fcd.xml.gz",
+    ]
+    off = ["sumo", "-r", "/tmp/b/routes.rou.xml", "--fcd-output", "/tmp/b/fcd.xml.gz"]
+
+    assert normalize_non_ssm_command(on, Path("/tmp/a")) == normalize_non_ssm_command(
+        off, Path("/tmp/b")
+    )
+
+
 def _case(tmp_path):
     network = tmp_path / "loop.net.xml"
     network.write_text("<net/>", encoding="utf-8")
@@ -88,7 +143,7 @@ def _case(tmp_path):
     }
 
 
-def _patch_run(monkeypatch, tmp_path, *, returncode=0, ssm_text="<ssmLog/>"):
+def _patch_run(monkeypatch, tmp_path, *, returncode=0, ssm_text="<ssmLog/>", emit_ssm=True):
     case = _case(tmp_path)
     monkeypatch.setattr(ssm_reproducer, "load_case", lambda _: case)
     monkeypatch.setattr(
@@ -128,7 +183,8 @@ def _patch_run(monkeypatch, tmp_path, *, returncode=0, ssm_text="<ssmLog/>"):
             # The output locations are encoded in the open file handles passed by run_case.
             stdout_path = Path(_kwargs["stdout"].name)
             run_dir = stdout_path.parent
-            (run_dir / "ssm.xml").write_text(ssm_text, encoding="utf-8")
+            if emit_ssm:
+                (run_dir / "ssm.xml").write_text(ssm_text, encoding="utf-8")
             (run_dir / "fcd.xml.gz").write_bytes(b"fcd")
             self.returncode = returncode
 
@@ -301,3 +357,19 @@ def test_interrupt_terminates_running_sumo_before_terminal_status(monkeypatch, t
 
     assert instances[0].terminated
     assert _terminal_status(output_root)["status"] == "INTERRUPTED"
+
+
+def test_ssm_off_marks_ssm_as_intentionally_absent_not_missing(monkeypatch, tmp_path):
+    _patch_run(monkeypatch, tmp_path, emit_ssm=False)
+    output_root = tmp_path / "out"
+
+    report = ssm_reproducer.run_case("unused", output_root, ssm_enabled=False)
+
+    status = _terminal_status(output_root)
+    assert status["status"] == "SUCCESS"
+    assert status["arm_id"] == "ssm_off"
+    assert status["ab_descriptor_sha256"]
+    assert "raw/ab_descriptor.json" in status["evidence"]
+    assert status["intentionally_absent"] == ["raw/run/ssm.xml"]
+    assert "raw/run/ssm.xml" not in status["expected_but_missing"]
+    assert report["ssm"] == {"ssm_enabled": False, "status": "ssm_not_collected"}

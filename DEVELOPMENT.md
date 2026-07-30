@@ -146,11 +146,11 @@
 
 ### D-013：SSM-on/off 最小复现先冻结设计，后实现与运行
 
-- **状态**：Proposed，待提交与 Reviewer 复核
+- **状态**：Implemented，待独立提交与 Reviewer 复核
 - **适用范围**：`docs/development/v0.4.1-post1-ssm-ab-design.md`；后续诊断实现与 A/B attempt
 - **决定**：以已冻结的 s2 CACC/v120/c120/as00/ss102 treatment 为两臂公共输入；A 保持 SSM，B 仅移除 SSM device。SSM-off 的 `ssm.xml` 是意图性缺失，状态机必须显式记录，不得伪装成零事件或证据缺失。
 - **原因**：当前 s2/s3 对照支持关联但不识别原因；先隔离 SSM device 才能形成可解释的 upstream 最小复现。
-- **当前代价**：A/B state/missing-file 契约、实现、回归、独立提交与 Reviewer 复核完成前，不再运行任何诊断。
+- **当前代价**：实现已冻结 A/B descriptor（case/network SHA、arm、RSS 周期）、SSM-only command 差异和 B 臂的 intentional absence；完整验证、独立提交与 Reviewer 复核完成前，不再运行任何诊断。
 
 ---
 

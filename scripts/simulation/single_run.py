@@ -96,14 +96,10 @@ def prepare_run(
     network_file: str,
     detector_frequency: int = DEFAULT_DETECTOR_FREQ,
     loops: int = 300,
+    *,
+    frozen_routes_dir: Path | None = None,
 ) -> PreparedRun:
-    """准备一次 SUMO 仿真的所有输入文件
-
-    在 run_dir 下生成：
-      routes.rou.xml          车流定义
-      additional.add.xml      检测器 + edgeData 附加配置
-    返回 PreparedRun 含所有输出路径。
-    """
+    """"""
     validate_analysis_windows(
         spec.warmup,
         spec.detector_frequency,
@@ -149,24 +145,36 @@ def prepare_run(
     emissions_CAV_path = run_dir / "emissions_CAV.xml"
 
     # ── 生成车流 ──
-    vehicle_type_map = generate_flow(
-        spec.vehicle_count,
-        spec.pcav,
-        spec.loops,
-        spec.seed,
-        str(route_path),
-        spec.model,
-        edge_count=edge_count,
-        edge_length=edge_length,
-        scenario=net_scenario,
-        num_lanes=num_lanes,
-        edge_ids=edge_ids,
-        bottleneck_edge_ids=net_meta.get("bottleneck_edge_ids"),
-    )
+    if frozen_routes_dir is not None:
+        import shutil as _shutil
 
-    # ── 写入车辆类型映射 ──
-    type_map_path = run_dir / "vehicle_type_map.json"
-    atomic_write_json(type_map_path, vehicle_type_map)
+        type_map_path = run_dir / "vehicle_type_map.json"
+        for src_name in ("routes.rou.xml", "vehicle_type_map.json"):
+            src = frozen_routes_dir / src_name
+            dst = run_dir / src_name
+            if not src.exists():
+                raise FileNotFoundError(f"frozen {src_name} not found: {src}")
+            _shutil.copy2(src, dst)
+            if sha256_file(str(src)) != sha256_file(str(dst)):
+                raise ValueError(f"frozen {src_name} SHA mismatch after copy")
+        vehicle_type_map = json.loads(type_map_path.read_text(encoding="utf-8"))
+    else:
+        vehicle_type_map = generate_flow(
+            spec.vehicle_count,
+            spec.pcav,
+            spec.loops,
+            spec.seed,
+            str(route_path),
+            spec.model,
+            edge_count=edge_count,
+            edge_length=edge_length,
+            scenario=net_scenario,
+            num_lanes=num_lanes,
+            edge_ids=edge_ids,
+            bottleneck_edge_ids=net_meta.get("bottleneck_edge_ids"),
+        )
+        type_map_path = run_dir / "vehicle_type_map.json"
+        atomic_write_json(type_map_path, vehicle_type_map)
 
     # ── 生成附加文件（检测器 + edgeData 合并） ──
     if spec.schema_version == "2":

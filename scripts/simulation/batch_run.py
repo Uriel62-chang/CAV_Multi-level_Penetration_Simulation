@@ -724,6 +724,7 @@ async def run_sumo_process(
     pipeline_version: str,
     timeout_s: float | None,
     resume: bool,
+    frozen_inputs_root: Path | None = None,
 ) -> SimulationResult:
     """执行单次 SUMO 仿真，返回 SimulationResult"""
     global _active_processes, _shutting_down
@@ -784,7 +785,12 @@ async def run_sumo_process(
             )
 
         # 准备 run 目录
-        prepared = prepare_run(spec, run_dir, network_file)
+        prepared = prepare_run(
+            spec,
+            run_dir,
+            network_file,
+            frozen_routes_dir=frozen_inputs_root / spec.run_id if frozen_inputs_root else None,
+        )
         run_spec_sha256 = spec.sha256()
         if spec.pipeline_version == "v0.4.1":
             cmd = build_sumo_command_v4_1(prepared, network_file, spec, sumo_command)
@@ -1048,6 +1054,7 @@ async def sumo_worker(
     results: list,
     progress: dict,
     total: int,
+    frozen_inputs_root: Path | None = None,
 ) -> None:
     """Worker 协程：循环从队列取 RunSpec → 执行 SUMO → 直到收到 None"""
     global _shutting_down
@@ -1069,6 +1076,7 @@ async def sumo_worker(
             pipeline_version=pipeline_version,
             timeout_s=timeout_s,
             resume=resume,
+            frozen_inputs_root=frozen_inputs_root,
         )
         results.append(result)
 
@@ -1122,6 +1130,7 @@ async def run_batch(
     pipeline_version: str,
     timeout_s: float | None,
     resume: bool,
+    frozen_inputs_root: Path | None = None,
 ) -> list[SimulationResult]:
     """asyncio Queue + N worker 调度器"""
     global _shutting_down
@@ -1157,6 +1166,7 @@ async def run_batch(
                 results=results,
                 progress=progress,
                 total=total,
+                frozen_inputs_root=frozen_inputs_root,
             )
         )
         for i in range(sumo_processes)
@@ -1189,6 +1199,9 @@ def main():
         "--sumo-processes", type=int, default=4, help="同时运行的 SUMO 进程数 (默认: 4)"
     )
     parser.add_argument("--output-root", default="raw", help="独立 run 目录根路径 (默认: raw/)")
+    parser.add_argument(
+        "--frozen-inputs", default=None, help="冻结输入源目录 (复制 routes+type_map)"
+    )
     parser.add_argument(
         "--timeout", type=float, default=None, help="单次 SUMO 最大允许时间 (s)，默认 7200"
     )
@@ -1467,6 +1480,7 @@ def main():
                 pipeline_version=resolved_config.pipeline_version,
                 timeout_s=args.timeout,
                 resume=args.resume,
+                frozen_inputs_root=Path(args.frozen_inputs) if args.frozen_inputs else None,
             )
         )
     except KeyboardInterrupt:

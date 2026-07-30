@@ -9,6 +9,8 @@ SUMMARY_REQUIRED_KEYS: summary.json 必需字段（阶段二 parser 校验使用
 
 from __future__ import annotations
 
+import math
+
 # ═══════════════════════════════════════════════════════════════
 # v0.4.1 schema_version=2 列定义
 # ═══════════════════════════════════════════════════════════════
@@ -244,3 +246,74 @@ SUBGROUP_LONG_COLUMNS_V4_1 = [
     "metric_name",
     "metric_value",
 ]
+
+
+def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
+    """Return field-level schema errors; valid no-event extrema may be NaN."""
+    required = SUMMARY_REQUIRED_KEYS_V4_1 if schema_version == "2" else SUMMARY_REQUIRED_KEYS
+    errors = [f"summary missing required key: {key}" for key in required if key not in summary]
+    if errors:
+        return errors
+
+    string_keys = {"run_id", "scenario", "model", "det_xml"}
+    bool_keys = set(AUDIT_COLUMNS_V4_1 if schema_version == "2" else AUDIT_COLUMNS) | {
+        "with_internal"
+    }
+    integer_keys = {
+        "vehN",
+        "seed",
+        "cav_count",
+        "hv_count",
+        "assignment_seed",
+        "sumo_seed",
+        "detector_speed_window_count",
+        "ssm_raw_record_count",
+        "ssm_invalid_record_count",
+        "ssm_warmup_filtered_count",
+        "ssm_valid_record_count",
+        "ssm_mirrored_record_count",
+        "ssm_fragment_merged_count",
+        "ttc_conflict_event_count",
+        "ttc_affected_vehicle_count",
+        "drac_conflict_event_count",
+        "emergency_braking_count",
+        "emergency_braking_affected_vehicle_count",
+        "lane_change_count",
+        "unsafe_lc_gap_count",
+        "completed_lap_count",
+        "detector_frequency_s",
+        "edge_data_frequency_s",
+    }
+    required_finite = {
+        "pCAV",
+        "requested_pcav",
+        "realized_pcav",
+        "step_length_s",
+        "warmup_period_s",
+        "simulation_end_s",
+        "ssm_capture_ttc_threshold_s",
+        "ssm_capture_drac_threshold_mps2",
+        "total_vehicle_km",
+        "non_internal_edge_vehicle_km",
+    }
+    nullable = {"requested_pcav"}
+    for key in required:
+        value = summary[key]
+        if key in nullable and value is None:
+            continue
+        if key in string_keys:
+            if not isinstance(value, str) or (key != "det_xml" and not value):
+                errors.append(f"summary {key} must be a non-empty string")
+        elif key in bool_keys:
+            if type(value) is not bool:
+                errors.append(f"summary {key} must be bool")
+        elif key in integer_keys:
+            if type(value) is not int or value < 0:
+                errors.append(f"summary {key} must be a non-negative int")
+        elif not isinstance(value, (int, float)) or isinstance(value, bool):
+            errors.append(f"summary {key} must be numeric")
+        elif math.isinf(float(value)) or (
+            key in required_finite and not math.isfinite(float(value))
+        ):
+            errors.append(f"summary {key} must be finite")
+    return errors

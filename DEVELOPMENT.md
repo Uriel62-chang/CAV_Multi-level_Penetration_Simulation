@@ -126,6 +126,15 @@
 - **原因**：使原始 `run_spec.json` / `simulation_status.json` 可在不重写历史产物的前提下被 resume 验证，同时保证任一配置修改不会被误认作冻结配置。
 - **当前代价**：该单一已发布配置需保留显式识别器和回归探针。
 
+### D-011：summary 契约在 runner 与 writer 双层 fail-closed
+
+- **状态**：Active
+- **适用范围**：schema=1/2 summary、阶段二状态机、阶段三输出门禁
+- **背景**：仅依赖 parser audit flag 会让缺失 core 字段经 writer 默认 NaN 后被误标为 `data_quality=ok`。
+- **决定**：以 `schema.py` 的字段级契约在 runner 写状态前和 writer 读入时各校验一次；无事件极值可为 NaN，其余身份、计数、暴露量按字段规则验证。manifest 与 subgroup 也按唯一键集合闭合。
+- **原因**：将损坏/不完整产物隔离在生成和汇总两个边界，避免报告“完整”但缺少计划输出。
+- **当前代价**：新增 schema 字段时必须同步更新契约与 subgroup 预期键测试。
+
 ---
 
 ## 当前交接摘要

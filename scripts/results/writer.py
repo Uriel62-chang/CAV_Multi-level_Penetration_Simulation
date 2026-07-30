@@ -20,7 +20,12 @@ from pathlib import Path
 
 from scripts.provenance import sha256_file
 from scripts.run_spec import atomic_write_json
-from scripts.schema import RUN_LEVEL_COLUMNS, RUN_LEVEL_COLUMNS_V4_1, SUBGROUP_LONG_COLUMNS_V4_1
+from scripts.schema import (
+    RUN_LEVEL_COLUMNS,
+    RUN_LEVEL_COLUMNS_V4_1,
+    SUBGROUP_LONG_COLUMNS_V4_1,
+    validate_summary_contract,
+)
 
 
 def _recompute_rate(numerator, denominator, fallback=None):
@@ -41,9 +46,7 @@ def _recompute_rate(numerator, denominator, fallback=None):
     return n / d * 1000
 
 
-def _read_summary(
-    run_dir: Path, run_id: str, pipeline_version: str
-) -> tuple[dict | None, str | None]:
+def _read_summary(run_dir: Path, run_id: str, schema_ver: str) -> tuple[dict | None, str | None]:
     """读取 summary.json，返回 (data, error_reason)。error_reason 为 None 表示成功。"""
     sp = run_dir / "summary.json"
     if not sp.exists():
@@ -56,6 +59,9 @@ def _read_summary(
 
     if data.get("run_id") != run_id:
         return None, f"run_id mismatch: {data.get('run_id')} != {run_id}"
+    errors = validate_summary_contract(data, schema_ver)
+    if errors:
+        return None, "; ".join(errors)
 
     return data, None
 
@@ -186,14 +192,110 @@ def _atomic_write_csv(path: Path, rows: list[dict], columns: list[str]) -> None:
 
 
 def _completion_flags(
-    failed_count: int, non_ok_count: int, subgroup_excluded: int = 0
+    failed_count: int, non_ok_count: int, subgroup_excluded: int = 0, closure_ok: bool = True
 ) -> dict[str, bool]:
-    structurally_complete = failed_count == 0
+    structurally_complete = failed_count == 0 and closure_ok
     return {
         "structurally_complete": structurally_complete,
         "all_rows_valid": structurally_complete and non_ok_count == 0 and subgroup_excluded == 0,
         "complete": structurally_complete and non_ok_count == 0 and subgroup_excluded == 0,
     }
+
+
+def _expected_subgroup_keys(fcd_enabled: bool) -> set[tuple[str, str, str, str]]:
+    keys = set()
+    for value in ("HV", "CAV"):
+        keys.update(
+            ("capacity", "vehicle_type", value, metric)
+            for metric in (
+                "mean_flow_veh_h",
+                "max_flow_veh_h",
+                "mean_speed_m_s",
+                "speed_variance",
+                "window_count",
+            )
+        )
+        keys.update(
+            ("safety_eb", "vehicle_type", value, metric)
+            for metric in ("emergency_braking_count", "affected_vehicle_count")
+        )
+        keys.update(
+            ("lanechange", "vehicle_type", value, metric)
+            for metric in ("lane_change_count", "unsafe_lc_gap_count", "unsafe_lc_gap_ratio")
+        )
+        keys.update(
+            ("emissions", "vehicle_type", value, metric)
+            for metric in (
+                "total_CO2_kg",
+                "total_NOx_g",
+                "total_PMx_g",
+                "total_fuel_kg",
+                "CO2_g_per_veh_km",
+                "NOx_mg_per_veh_km",
+                "PMx_mg_per_veh_km",
+                "fuel_g_per_veh_km",
+            )
+        )
+        keys.update(
+            ("efficiency", "vehicle_type", value, metric)
+            for metric in (
+                "total_vehicle_km",
+                "non_internal_edge_vehicle_km",
+                "total_time_loss_s",
+                "time_loss_s_per_veh_km",
+                "completed_lap_count",
+                "mean_lap_time_s",
+                "median_lap_time_s",
+                "p95_lap_time_s",
+                "lap_time_std_s",
+            )
+        )
+        keys.update(
+            ("delay", "vehicle_type", value, metric)
+            for metric in ("mean_lap_delay_s", "p95_lap_delay_s")
+        )
+        if fcd_enabled:
+            keys.update(
+                ("headway", "vehicle_type", value, metric)
+                for metric in (
+                    "mean_thw_s",
+                    "median_thw_s",
+                    "p05_thw_s",
+                    "thw_lt_1s_ratio",
+                    "valid_thw_sample_count",
+                    "low_speed_excluded_count",
+                    "no_leader_count",
+                    "self_leader_count",
+                )
+            )
+    for value in ("HV-HV", "HV-CAV", "CAV-CAV"):
+        keys.update(
+            ("safety_ssm", "pair_type", value, metric)
+            for metric in ("ttc_event_count", "drac_event_count")
+        )
+    for value in ("f_HV_l_HV", "f_HV_l_CAV", "f_CAV_l_HV", "f_CAV_l_CAV"):
+        keys.update(
+            ("safety_ssm", "role_type", value, metric)
+            for metric in ("ttc_event_count", "drac_event_count")
+        )
+    return keys
+
+
+def _valid_subgroup_rows(rows: list[dict], run_id: str, fcd_enabled: bool) -> bool:
+    keys = {
+        (
+            row.get("metric_family"),
+            row.get("group_dimension"),
+            row.get("group_value"),
+            row.get("metric_name"),
+        )
+        for row in rows
+    }
+    return (
+        len(rows) == len(keys)
+        and all(row.get("run_id") == run_id for row in rows)
+        and keys == _expected_subgroup_keys(fcd_enabled)
+    )
 
 
 def _quality_counts(rows: list[dict]) -> dict[str, int]:
@@ -247,21 +349,27 @@ def build_run_level_results(
 
     expected_total = manifest.get("total", len(manifest_results))
     discovered = len(manifest_results)
+    manifest_total_matches = type(expected_total) is int and expected_total == discovered
 
     # ── 遍历所有 run ──
     success_rows = []
     failed_rows = []
     run_ids_seen = set()
     duplicates = 0
+    unique_entries = []
 
     for entry in manifest_results:
-        run_id = entry["run_id"]
+        run_id = entry.get("run_id") if isinstance(entry, dict) else None
+        if not isinstance(run_id, str) or not run_id:
+            duplicates += 1
+            continue
         run_dir = input_root / run_id
 
         if run_id in run_ids_seen:
             duplicates += 1
             continue
         run_ids_seen.add(run_id)
+        unique_entries.append(entry)
 
         sim_status = _read_sim_status(run_dir)
         parse_status = _read_parse_status(run_dir)
@@ -341,7 +449,7 @@ def build_run_level_results(
             continue
 
         # 读取 summary
-        summary, error = _read_summary(run_dir, run_id, pipeline_version)
+        summary, error = _read_summary(run_dir, run_id, schema_ver)
         if summary is None:
             failed_rows.append(
                 {
@@ -410,7 +518,7 @@ def build_run_level_results(
     subgroup_excluded = 0
     if schema_ver == "2":
         subgroup_rows = []
-        for entry in manifest_results:
+        for entry in unique_entries:
             run_id = entry["run_id"]
             run_dir = input_root / run_id
             parse_status = _read_parse_status(run_dir)
@@ -449,6 +557,12 @@ def build_run_level_results(
                 for line in subgroup_path.read_text(encoding="utf-8").strip().split("\n"):
                     if line.strip():
                         run_rows.append(json.loads(line))
+                spec_data = json.loads((run_dir / "run_spec.json").read_text(encoding="utf-8"))
+                if not _valid_subgroup_rows(
+                    run_rows, run_id, spec_data.get("fcd_profile") is not None
+                ):
+                    subgroup_excluded += 1
+                    continue
                 subgroup_rows.extend(run_rows)
             except Exception:
                 subgroup_excluded += 1
@@ -476,6 +590,7 @@ def build_run_level_results(
         "excluded_runs": len(failed_rows),
         "duplicate_run_ids": duplicates,
         "missing_run_ids": expected_total - discovered,
+        "manifest_total_matches": manifest_total_matches,
         "pipeline_version": pipeline_version,
     }
     report.update(
@@ -483,6 +598,9 @@ def build_run_level_results(
             failed_count=len(failed_rows),
             non_ok_count=quality_counts["quality_non_ok"],
             subgroup_excluded=subgroup_excluded,
+            closure_ok=(
+                manifest_total_matches and duplicates == 0 and len(success_rows) == expected_total
+            ),
         )
     )
     report_path = output_dir / "writer_report.json"

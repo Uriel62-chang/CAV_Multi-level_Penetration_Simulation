@@ -144,7 +144,7 @@
 - **阶段 0+1 已实现**：cav_count 双 seed 网格 + inactive-dimension 规范化；SUMO 命令注入 seed/SSM capture/FCD 输出；withInternal=true additional；writer `non_internal_edge_vehicle_km` 列名修正；进程退出轮询 + SIGINT→CANCELLED；CLI `--assignment-seeds`/`--sumo-seeds` 命名。
 - **阶段 2 完成**（2026-07-30，v0.4.1 发布）：HV/CAV 子群拆分；FCD physical THW；SSM pair/role provenance（D-006）；schema=2 runner/writer/aggregate；subgroup JSONL + SHA；自由流 artifact（D-008）；SSM sensitivity CLI；free-flow 测量；FCD numpy 内存方案（D-007）；net.json num_lanes fail-closed（D-009）；fragment merge（opt-in）；`--frozen-inputs`；per-run RSS；sim→parse→write→aggregate smoke。
 - **P1 第一批复核关闭**（`dad8a97`–`e8242fe`）：恢复 legacy config/resume、summary/subgroup 数值契约、writer manifest 闭合与 dry-run 门禁；原 annotated `v0.4.1` tag 已恢复为 `211782… → b16771e…`。整体发布门禁仍未关闭。
-- **P2 summary companion-field follow-up 已修复**：schema=1 summary 单独提供 optional whole-network TTC rate 而缺少 optional `non_internal_edge_vehicle_km` 时，契约返回字段级 companion-missing 错误，不再抛出 `KeyError`；待 Reviewer 定向复核。
+- **P2 summary companion-field 已由 Reviewer 关闭**（`9e742fc`）：schema=1 summary 单独提供 optional whole-network TTC rate 而缺少 optional `non_internal_edge_vehicle_km` 时，契约返回字段级 companion-missing 错误；NaN 与有限 rate 均不再抛出 `KeyError`。
 - **已验证**：191 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；micro-pilot Level 1 通过（10/10）；Level 2 bounded factorial pilot 完成（162 runs, failed original resource gate）；mitigation calibration 完成（48 runs with extratime=1.0+merge, failed simultaneous fidelity+RSS gates）。
 - **已提交**：阶段 2 从设计基线 `460f0e6` 到 v0.4.1 发布。
 
@@ -168,6 +168,7 @@
 - **v0.4.2**：分拆设计——主 factorial 关闭 SSM 运行效率/排放/FCD 完整网格；独立 safety experiment 专门定义 TTC/DRAC estimand。
 - **SUMO upstream**：s2 无事件但 RSS ~9 GiB 的 encounter-tracking 行为，制作最小复现提交。
 - **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针。
+- **P2（非阻塞）**：runner 同时遇到 summary contract 与 subgroup invariant error 时仅保留前者，丢弃后者；后续应保留并报告全部独立错误。本提交不处理该实现问题。
 - **暂缓**：S8 冻结输入、PreparedRun.fcd_path → 1.post1。
 
 ### 重要约束

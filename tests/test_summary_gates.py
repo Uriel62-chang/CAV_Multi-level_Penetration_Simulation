@@ -100,6 +100,29 @@ def test_summary_contract_rejects_infinity_zero_exposure_and_invalid_ranges():
     assert "summary step_length_s must be positive" in errors
 
 
+def test_summary_nan_requires_an_empty_companion_measure():
+    summary = _legacy_summary()
+    summary.update(
+        {
+            "ttc_conflict_event_count": 1,
+            "min_ttc_s": math.nan,
+            "drac_conflict_event_count": 1,
+            "max_drac_mps2": math.nan,
+            "lane_change_count": 1,
+            "unsafe_lc_gap_ratio": math.nan,
+            "completed_lap_count": 1,
+            "mean_lap_time_s": math.nan,
+            "CO2_g_per_veh_km": math.nan,
+        }
+    )
+    errors = validate_summary_contract(summary, "1")
+    assert "summary min_ttc_s may be NaN only when ttc_conflict_event_count=0" in errors
+    assert "summary max_drac_mps2 may be NaN only when drac_conflict_event_count=0" in errors
+    assert "summary unsafe_lc_gap_ratio may be NaN only when lane_change_count=0" in errors
+    assert "summary mean_lap_time_s may be NaN only when completed_lap_count=0" in errors
+    assert "summary CO2_g_per_veh_km may be NaN only when total_vehicle_km=0" in errors
+
+
 def test_writer_summary_read_rejects_missing_core_field(tmp_path):
     from scripts.results.writer import _read_summary
 
@@ -182,7 +205,21 @@ def test_subgroup_gate_checks_unique_expected_keys_not_only_row_count():
             "group_dimension": dimension,
             "group_value": value,
             "metric_name": metric,
-            "metric_value": 0.0,
+            "metric_value": (
+                0
+                if metric
+                in {
+                    "window_count",
+                    "ttc_event_count",
+                    "drac_event_count",
+                    "emergency_braking_count",
+                    "affected_vehicle_count",
+                    "lane_change_count",
+                    "unsafe_lc_gap_count",
+                    "completed_lap_count",
+                }
+                else 0.0
+            ),
         }
         for family, dimension, value, metric in expected
     ]
@@ -232,6 +269,44 @@ def test_subgroup_gate_rejects_nan_for_nonnullable_metric():
     assert not _valid_subgroup_rows(rows, "run-1", spec)
 
 
+def test_subgroup_gate_rejects_negative_counts_exposure_and_emissions():
+    from scripts.results.writer import _expected_subgroup_keys, _valid_subgroup_rows
+
+    spec = {
+        "scenario": "scenario_0",
+        "model": "IDM",
+        "requested_pcav": None,
+        "cav_count": 5,
+        "vehicle_count": 10,
+        "seed": 1,
+        "sumo_seed": 101,
+    }
+    rows = [
+        {
+            "run_id": "run-1",
+            "scenario": "scenario_0",
+            "model": "IDM",
+            "requested_pcav": None,
+            "realized_pcav": 0.5,
+            "cav_count": 5,
+            "hv_count": 5,
+            "vehN": 10,
+            "assignment_seed": 1,
+            "sumo_seed": 101,
+            "metric_family": family,
+            "group_dimension": dimension,
+            "group_value": value,
+            "metric_name": metric,
+            "metric_value": 0,
+        }
+        for family, dimension, value, metric in _expected_subgroup_keys(False)
+    ]
+    for row in rows:
+        if row["metric_name"] in {"total_vehicle_km", "ttc_event_count", "total_CO2_kg"}:
+            row["metric_value"] = -1
+    assert not _valid_subgroup_rows(rows, "run-1", spec)
+
+
 def test_writer_manifest_duplicate_never_closes_complete_gate(tmp_path):
     from scripts.results.writer import build_run_level_results
 
@@ -278,6 +353,46 @@ def test_writer_dry_run_rejects_manifest_missing_total_and_results(tmp_path, mon
     path.write_text(
         json.dumps(
             {"pipeline_version": "v0.4.0.post1", "schema_version": "1", "config_sha256": "a" * 64}
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "writer",
+            "--input-root",
+            str(tmp_path),
+            "--output-dir",
+            str(tmp_path / "out"),
+            "--manifest",
+            str(path),
+            "--dry-run",
+        ],
+    )
+    with pytest.raises(SystemExit) as exc:
+        writer.main()
+    assert exc.value.code == 1
+
+
+@pytest.mark.parametrize(
+    "results", [[{"run_id": "run-1"}], [{"run_id": "run-1"}, {"run_id": "run-1"}]]
+)
+def test_writer_dry_run_requires_manifest_coverage_closure(tmp_path, monkeypatch, results):
+    import sys
+
+    from scripts.results import writer
+
+    path = tmp_path / "manifest.json"
+    path.write_text(
+        json.dumps(
+            {
+                "pipeline_version": "v0.4.0.post1",
+                "schema_version": "1",
+                "config_sha256": "a" * 64,
+                "total": 2,
+                "results": results,
+            }
         ),
         encoding="utf-8",
     )

@@ -304,9 +304,59 @@ def _valid_subgroup_rows(rows: list[dict], run_id: str, spec: dict) -> bool:
         any(row[field] != expected_identity[field] for field in expected_identity) for row in rows
     ):
         return False
+    group_values = {
+        (row["metric_family"], row["group_dimension"], row["group_value"], row["metric_name"]): row[
+            "metric_value"
+        ]
+        for row in rows
+    }
+    count_metrics = {
+        "window_count",
+        "ttc_event_count",
+        "drac_event_count",
+        "emergency_braking_count",
+        "affected_vehicle_count",
+        "lane_change_count",
+        "unsafe_lc_gap_count",
+        "completed_lap_count",
+        "valid_thw_sample_count",
+        "low_speed_excluded_count",
+        "no_leader_count",
+        "self_leader_count",
+    }
+    nonnegative_metrics = count_metrics | {
+        "mean_flow_veh_h",
+        "max_flow_veh_h",
+        "total_CO2_kg",
+        "total_NOx_g",
+        "total_PMx_g",
+        "total_fuel_kg",
+        "total_vehicle_km",
+        "non_internal_edge_vehicle_km",
+        "total_time_loss_s",
+        "CO2_g_per_veh_km",
+        "NOx_mg_per_veh_km",
+        "PMx_mg_per_veh_km",
+        "fuel_g_per_veh_km",
+        "time_loss_s_per_veh_km",
+        "mean_thw_s",
+        "median_thw_s",
+        "p05_thw_s",
+        "thw_lt_1s_ratio",
+    }
     for row in rows:
         value = row["metric_value"]
         if not isinstance(value, (int, float)) or isinstance(value, bool) or math.isinf(value):
+            return False
+        if row["metric_name"] in count_metrics and (type(value) is not int or value < 0):
+            return False
+        if row["metric_name"] in nonnegative_metrics and not math.isnan(value) and value < 0:
+            return False
+        if (
+            row["metric_name"] in {"unsafe_lc_gap_ratio", "thw_lt_1s_ratio"}
+            and not math.isnan(value)
+            and not 0 <= value <= 1
+        ):
             return False
         if math.isnan(value) and row["metric_name"] not in {
             "mean_speed_m_s",
@@ -328,6 +378,32 @@ def _valid_subgroup_rows(rows: list[dict], run_id: str, spec: dict) -> bool:
             "p05_thw_s",
             "thw_lt_1s_ratio",
         }:
+            return False
+        group = (row["metric_family"], row["group_dimension"], row["group_value"])
+        prerequisites = {
+            "unsafe_lc_gap_ratio": "lane_change_count",
+            "mean_lap_time_s": "completed_lap_count",
+            "median_lap_time_s": "completed_lap_count",
+            "p95_lap_time_s": "completed_lap_count",
+            "lap_time_std_s": "completed_lap_count",
+            "mean_lap_delay_s": "completed_lap_count",
+            "p95_lap_delay_s": "completed_lap_count",
+            "CO2_g_per_veh_km": "total_vehicle_km",
+            "NOx_mg_per_veh_km": "total_vehicle_km",
+            "PMx_mg_per_veh_km": "total_vehicle_km",
+            "fuel_g_per_veh_km": "total_vehicle_km",
+            "time_loss_s_per_veh_km": "total_vehicle_km",
+            "mean_thw_s": "valid_thw_sample_count",
+            "median_thw_s": "valid_thw_sample_count",
+            "p05_thw_s": "valid_thw_sample_count",
+            "thw_lt_1s_ratio": "valid_thw_sample_count",
+        }
+        required_count = prerequisites.get(row["metric_name"])
+        if (
+            math.isnan(value)
+            and required_count
+            and group_values.get((*group, required_count), 0) > 0
+        ):
             return False
     keys = {
         (
@@ -373,6 +449,21 @@ def _manifest_structure_errors(manifest: dict) -> list[str]:
         errors.append("manifest total must be a positive integer")
     if not isinstance(manifest.get("results"), list):
         errors.append("manifest results must be a list")
+    elif manifest.get("total") != len(manifest["results"]):
+        errors.append("manifest total must equal results length")
+    else:
+        run_ids = []
+        for entry in manifest["results"]:
+            if (
+                not isinstance(entry, dict)
+                or not isinstance(entry.get("run_id"), str)
+                or not entry["run_id"]
+            ):
+                errors.append("manifest results entries require a non-empty run_id")
+                break
+            run_ids.append(entry["run_id"])
+        if len(run_ids) != len(set(run_ids)):
+            errors.append("manifest results run_id values must be unique")
     return errors
 
 

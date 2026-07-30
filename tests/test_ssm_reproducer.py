@@ -1,9 +1,23 @@
 import json
+import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from scripts.analysis import ssm_reproducer
 from scripts.analysis.ssm_reproducer import load_case, summarize_ssm_evidence
+
+
+def test_attempt_directory_is_monotonic_and_non_reusable(tmp_path):
+    from scripts.analysis.ssm_reproducer import create_attempt_directory
+
+    first = create_attempt_directory(tmp_path, "diag")
+    second = create_attempt_directory(tmp_path, "diag")
+
+    assert first.name == "attempt-001"
+    assert second.name == "attempt-002"
+    assert not (first / "attempt_status.json").exists()
 
 
 def test_frozen_s2_and_s3_cases_only_differ_by_scenario():
@@ -41,3 +55,195 @@ def test_summarize_ssm_evidence_marks_failed_positive_control(tmp_path):
 
     assert evidence["ttc_event_count"] == 0
     assert evidence["control_status"] == "positive-control failed"
+
+
+def _case(tmp_path):
+    network = tmp_path / "loop.net.xml"
+    network.write_text("<net/>", encoding="utf-8")
+    (tmp_path / "net.json").write_text("{}", encoding="utf-8")
+    return {
+        "case_id": "diag",
+        "expected_ttc": "positive",
+        "scenario": "scenario_3",
+        "network_file": str(network),
+        "model": "CACC",
+        "vehicle_count": 2,
+        "cav_count": 2,
+        "assignment_seed": 0,
+        "sumo_seed": 102,
+        "simulation_end": 10,
+        "warmup": 1,
+        "step_length": 0.1,
+        "detector_frequency": 1,
+        "edge_data_frequency": 1,
+        "loops": 1,
+        "ssm_capture_ttc_threshold_s": 5.0,
+        "ssm_capture_drac_threshold_mps2": 3.0,
+        "ssm_range_m": 50.0,
+        "ssm_trajectories": False,
+        "ssm_extratime_s": 5.0,
+        "fcd_profile": "1s",
+        "fcd_max_leader_distance_m": 4000,
+        "with_internal": True,
+    }
+
+
+def _patch_run(monkeypatch, tmp_path, *, returncode=0, ssm_text="<ssmLog/>"):
+    case = _case(tmp_path)
+    monkeypatch.setattr(ssm_reproducer, "load_case", lambda _: case)
+    monkeypatch.setattr(
+        ssm_reproducer, "collect_provenance", lambda *_: {"git_commit": "abc", "git_dirty": False}
+    )
+
+    def prepare(spec, run_dir, _network):
+        paths = SimpleNamespace(
+            run_dir=run_dir,
+            route_path=run_dir / "routes.rou.xml",
+            ssm_path=run_dir / "ssm.xml",
+            stdout_path=run_dir / "stdout.log",
+            stderr_path=run_dir / "stderr.log",
+        )
+        paths.route_path.write_text("<routes/>", encoding="utf-8")
+        return paths
+
+    monkeypatch.setattr(ssm_reproducer, "prepare_run", prepare)
+    monkeypatch.setattr(ssm_reproducer, "build_sumo_command_v4_1", lambda *_: ["fake-sumo"])
+    if ssm_text == "not xml":
+        monkeypatch.setattr(
+            ssm_reproducer,
+            "summarize_ssm_evidence",
+            lambda *_: (_ for _ in ()).throw(ValueError("invalid SSM XML")),
+        )
+    else:
+        monkeypatch.setattr(
+            ssm_reproducer,
+            "summarize_ssm_evidence",
+            lambda *_: {"ttc_event_count": 1, "control_status": "pass"},
+        )
+
+    class Process:
+        pid = None
+
+        def __init__(self, *_args, **_kwargs):
+            # The output locations are encoded in the open file handles passed by run_case.
+            stdout_path = Path(_kwargs["stdout"].name)
+            run_dir = stdout_path.parent
+            (run_dir / "ssm.xml").write_text(ssm_text, encoding="utf-8")
+            (run_dir / "fcd.xml.gz").write_bytes(b"fcd")
+            self.returncode = returncode
+
+        def poll(self):
+            return self.returncode
+
+        def terminate(self):
+            self.returncode = -15
+
+        def kill(self):
+            self.returncode = -9
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+    monkeypatch.setattr(ssm_reproducer.subprocess, "Popen", Process)
+    return case
+
+
+def _terminal_status(output_root):
+    return json.loads((output_root / "diag" / "attempt-001" / "attempt_status.json").read_text())
+
+
+def test_nonzero_sumo_closes_failed_attempt_without_report(monkeypatch, tmp_path):
+    _patch_run(monkeypatch, tmp_path, returncode=7)
+    output_root = tmp_path / "out"
+
+    with pytest.raises(subprocess.CalledProcessError):
+        ssm_reproducer.run_case("unused", output_root)
+
+    status = _terminal_status(output_root)
+    assert status["status"] == "FAILED"
+    assert status["failure_stage"] == "sumo"
+    assert status["sumo_return_code"] == 7
+    assert status["expected_but_missing"] == []
+    assert not (output_root / "diag" / "attempt-001" / "report").exists()
+
+
+def test_ssm_parse_failure_closes_failed_attempt(monkeypatch, tmp_path):
+    _patch_run(monkeypatch, tmp_path, ssm_text="not xml")
+    output_root = tmp_path / "out"
+
+    with pytest.raises(ValueError, match="invalid SSM XML"):
+        ssm_reproducer.run_case("unused", output_root)
+
+    status = _terminal_status(output_root)
+    assert status["status"] == "FAILED"
+    assert status["failure_stage"] == "ssm_parse"
+    assert status["exception_type"]
+
+
+def test_report_write_failure_closes_report_failed_attempt(monkeypatch, tmp_path):
+    _patch_run(monkeypatch, tmp_path)
+    output_root = tmp_path / "out"
+    original_write = ssm_reproducer.atomic_write_bytes
+
+    def fail_report(path, data):
+        if Path(path).name == "diagnostic_report.json":
+            raise OSError("disk full")
+        original_write(path, data)
+
+    monkeypatch.setattr(ssm_reproducer, "atomic_write_bytes", fail_report)
+
+    with pytest.raises(OSError, match="disk full"):
+        ssm_reproducer.run_case("unused", output_root)
+
+    status = _terminal_status(output_root)
+    assert status["status"] == "REPORT_FAILED"
+    assert status["failure_stage"] == "report"
+
+
+def test_timeout_closes_attempt_and_keeps_incremental_rss(monkeypatch, tmp_path):
+    _patch_run(monkeypatch, tmp_path)
+    output_root = tmp_path / "out"
+
+    class SlowProcess:
+        pid = None
+        returncode = None
+
+        def __init__(self, *_args, **_kwargs):
+            self.returncode = None
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            self.returncode = -15
+
+        def kill(self):
+            self.returncode = -9
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+    monkeypatch.setattr(ssm_reproducer.subprocess, "Popen", SlowProcess)
+
+    with pytest.raises(TimeoutError):
+        ssm_reproducer.run_case("unused", output_root, sample_period_s=0.001, timeout_s=0.001)
+
+    attempt = output_root / "diag" / "attempt-001"
+    status = _terminal_status(output_root)
+    assert status["status"] == "TIMEOUT"
+    assert status["failure_stage"] == "sumo"
+    assert (attempt / "raw" / "rss_samples.jsonl").read_bytes()
+
+
+def test_terminal_status_write_preserves_original_and_status_errors(monkeypatch, tmp_path):
+    original_error = ValueError("SSM parse failed")
+
+    def fail_status(*_args):
+        raise OSError("status volume unavailable")
+
+    monkeypatch.setattr(ssm_reproducer, "atomic_write_bytes", fail_status)
+
+    with pytest.raises(ValueError, match="SSM parse failed") as caught:
+        ssm_reproducer.write_attempt_terminal_status(tmp_path, {}, original_error)
+
+    assert isinstance(caught.value.__cause__, OSError)

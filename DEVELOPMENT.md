@@ -137,12 +137,20 @@
 
 ### D-012：SSM 诊断证据使用不可复用 attempt，而非 case 根目录
 
-- **状态**：Implemented，Reviewer 补正待独立提交与复核（不得作为规范诊断）
+- **状态**：Implemented，Reviewer 复核通过
 - **适用范围**：`scripts/analysis/ssm_reproducer.py`、`configs/v0.4.1/ssm_reproducer_s[2|3].json`
 - **背景**：case 根目录复用会混淆不同代码基线与失败尝试；dirty tree 的观察不能替代规范证据。
 - **决定**：每次诊断写入 `case_id/attempt-###/{raw,report}`；启动前原子写 RUNNING，finally 写终态、错误与存在文件 SHA/缺失清单；仅完整成功且控制条件满足时生成派生 report。
 - **原因**：使失败、超时、解析和报告异常均可审计，防止覆盖或倒灌追认。
-- **当前代价**：在独立提交、完整回归和 Reviewer 复核前，不运行任何规范 s3 attempt；s2 始终禁用。
+- **当前代价**：规范 s3 positive-control 与 s2 zero-event attempt 均已闭合；后续诊断由 D-013 门禁约束。
+
+### D-013：SSM-on/off 最小复现先冻结设计，后实现与运行
+
+- **状态**：Proposed，待提交与 Reviewer 复核
+- **适用范围**：`docs/development/v0.4.1-post1-ssm-ab-design.md`；后续诊断实现与 A/B attempt
+- **决定**：以已冻结的 s2 CACC/v120/c120/as00/ss102 treatment 为两臂公共输入；A 保持 SSM，B 仅移除 SSM device。SSM-off 的 `ssm.xml` 是意图性缺失，状态机必须显式记录，不得伪装成零事件或证据缺失。
+- **原因**：当前 s2/s3 对照支持关联但不识别原因；先隔离 SSM device 才能形成可解释的 upstream 最小复现。
+- **当前代价**：A/B state/missing-file 契约、实现、回归、独立提交与 Reviewer 复核完成前，不再运行任何诊断。
 
 ---
 

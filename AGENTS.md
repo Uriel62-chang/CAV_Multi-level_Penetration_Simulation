@@ -88,7 +88,7 @@ python3 -m scripts.results.visualization \
 - schema=2 writer/aggregate 路由（`--schema-version` 必填）
 - SSM 敏感性 CLI（none/greedy/sorted_greedy dedup）
 - 自由流参考测量
-- 65 个 stage2 测试（总 169）
+- 66 个 stage2 测试（总 170）
 
 ### 阶段 0 交付
 - cav_count 双 seed 网格（新 run_id 格式 `s2_IDM_v120_c060_as01_ss101`）
@@ -110,7 +110,7 @@ python3 -m scripts.results.visualization \
 - PreparedRun.fcd_path
 
 ### 测试基线
-- 169 tests passed（85 legacy + 19 v0.4.1 + 65 stage2）
+- 170 tests passed（85 legacy + 19 v0.4.1 + 66 stage2）
 - Ruff / mypy / compileall / format 全通过
 - dry-run: v0.4.0 10,080 / pilot 162 / smoke 1
 - aggregate 现已要求 --schema-version 参数

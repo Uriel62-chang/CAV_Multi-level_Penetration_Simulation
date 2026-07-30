@@ -252,10 +252,19 @@ def test_runner_never_marks_contract_invalid_summary_success(tmp_path, monkeypat
         encoding="utf-8",
     )
     monkeypatch.setattr("scripts.parsing.runner.parse_run_outputs", lambda *_: {"run_id": "run-1"})
+    monkeypatch.setattr(
+        "scripts.parsing.runner._validate_invariants", lambda _: ["independent invariant failure"]
+    )
 
     result = parse_one_run(run_dir, spec.pipeline_version)
     assert result["status"] == "INVALID_DATA"
     assert "summary missing required key" in result["error_message"]
+    assert "independent invariant failure" in result["error_message"]
+    stored_errors = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))[
+        "_invariant_errors"
+    ]
+    assert stored_errors[:-1] == validate_summary_contract({"run_id": "run-1"}, "1")
+    assert stored_errors[-1] == "independent invariant failure"
 
 
 def test_subgroup_gate_checks_unique_expected_keys_not_only_row_count():

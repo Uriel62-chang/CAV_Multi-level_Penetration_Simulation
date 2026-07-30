@@ -322,7 +322,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
             _rss_sampler.join(timeout=1.0)
 
         contract_errors = validate_summary_contract(summary, spec.schema_version)
-        errors = contract_errors + (errors if not contract_errors else [])
+        errors = contract_errors + errors
         if errors:
             summary["_invariant_errors"] = errors
             atomic_write_json(summary_path, summary)

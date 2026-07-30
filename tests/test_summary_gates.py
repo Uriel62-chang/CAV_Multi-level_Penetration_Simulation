@@ -5,7 +5,7 @@ import math
 
 import pytest
 
-from scripts.schema import SUMMARY_REQUIRED_KEYS, validate_summary_contract
+from scripts.schema import SUMMARY_NAN_RULES, SUMMARY_REQUIRED_KEYS, validate_summary_contract
 
 
 def _legacy_summary():
@@ -116,11 +116,11 @@ def test_summary_nan_requires_an_empty_companion_measure():
         }
     )
     errors = validate_summary_contract(summary, "1")
-    assert "summary min_ttc_s may be NaN only when ttc_conflict_event_count=0" in errors
-    assert "summary max_drac_mps2 may be NaN only when drac_conflict_event_count=0" in errors
-    assert "summary unsafe_lc_gap_ratio may be NaN only when lane_change_count=0" in errors
-    assert "summary mean_lap_time_s may be NaN only when completed_lap_count=0" in errors
-    assert "summary CO2_g_per_veh_km may be NaN only when total_vehicle_km=0" in errors
+    assert "summary min_ttc_s may be NaN only when ttc_conflict_event_count<=0" in errors
+    assert "summary max_drac_mps2 may be NaN only when drac_conflict_event_count<=0" in errors
+    assert "summary unsafe_lc_gap_ratio may be NaN only when lane_change_count<=0" in errors
+    assert "summary mean_lap_time_s may be NaN only when completed_lap_count<=0" in errors
+    assert "summary CO2_g_per_veh_km may be NaN only when total_vehicle_km<=0" in errors
 
 
 def test_summary_rates_require_exposure_and_bad_types_return_errors():
@@ -133,16 +133,66 @@ def test_summary_rates_require_exposure_and_bad_types_return_errors():
         }
     )
     errors = validate_summary_contract(summary, "1")
-    assert "summary ttc_events_per_1000_veh_km may be NaN only when total_vehicle_km=0" in errors
+    assert "summary ttc_events_per_1000_veh_km may be NaN only when total_vehicle_km<=0" in errors
     assert (
-        "summary emergency_brakes_per_1000_veh_km may be NaN only when total_vehicle_km=0" in errors
+        "summary emergency_brakes_per_1000_veh_km may be NaN only when total_vehicle_km<=0"
+        in errors
     )
-    assert "summary lane_changes_per_1000_veh_km may be NaN only when total_vehicle_km=0" in errors
+    assert "summary lane_changes_per_1000_veh_km may be NaN only when total_vehicle_km<=0" in errors
 
     summary["ttc_conflict_event_count"] = "bad"
     assert validate_summary_contract(summary, "1") == [
         "summary ttc_conflict_event_count must be a non-negative int"
     ]
+
+
+def test_summary_nan_rule_table_is_complete_and_respects_thresholds():
+    assert set(SUMMARY_NAN_RULES) == {
+        "min_ttc_s",
+        "max_drac_mps2",
+        "mean_speed_m_s",
+        "detector_mean_speed_temporal_variance",
+        "unsafe_lc_gap_ratio",
+        "mean_lap_time_s",
+        "median_lap_time_s",
+        "p95_lap_time_s",
+        "lap_time_std_s",
+        "mean_lap_delay_s",
+        "p95_lap_delay_s",
+        "ttc_events_per_1000_veh_km",
+        "emergency_brakes_per_1000_veh_km",
+        "lane_changes_per_1000_veh_km",
+        "CO2_g_per_veh_km",
+        "NOx_mg_per_veh_km",
+        "PMx_mg_per_veh_km",
+        "fuel_g_per_veh_km",
+        "time_loss_s_per_veh_km",
+        "whole_network_ttc_events_per_1000_non_internal_edge_veh_km",
+    }
+    summary = _legacy_summary()
+    summary.update(
+        {
+            "detector_speed_window_count": 2,
+            "mean_speed_m_s": math.nan,
+            "detector_mean_speed_temporal_variance": math.nan,
+            "completed_lap_count": 1,
+            "mean_lap_delay_s": math.nan,
+            "non_internal_edge_vehicle_km": 1.0,
+            "whole_network_ttc_events_per_1000_non_internal_edge_veh_km": math.nan,
+        }
+    )
+    assert len(validate_summary_contract(summary, "1")) == 4
+    assert (
+        validate_summary_contract(
+            {
+                **_legacy_summary(),
+                "detector_speed_window_count": 1,
+                "detector_mean_speed_temporal_variance": math.nan,
+            },
+            "1",
+        )
+        == []
+    )
 
 
 def test_writer_summary_read_rejects_missing_core_field(tmp_path):
@@ -245,6 +295,12 @@ def test_subgroup_gate_checks_unique_expected_keys_not_only_row_count():
         }
         for family, dimension, value, metric in expected
     ]
+    assert _valid_subgroup_rows(rows, "run-1", spec)
+    for row in rows:
+        if row["metric_family"] == "capacity" and row["metric_name"] == "window_count":
+            row["metric_value"] = 1
+        if row["metric_family"] == "capacity" and row["metric_name"] == "speed_variance":
+            row["metric_value"] = math.nan
     assert _valid_subgroup_rows(rows, "run-1", spec)
     rows[-1] = dict(rows[0])
     assert not _valid_subgroup_rows(rows, "run-1", spec)

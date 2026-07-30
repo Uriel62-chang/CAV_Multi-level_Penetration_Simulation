@@ -27,6 +27,28 @@ from scripts.schema import (
     validate_summary_contract,
 )
 
+# metric -> (companion family, companion metric, maximum value allowing NaN)
+SUBGROUP_NAN_RULES = {
+    "mean_speed_m_s": ("capacity", "window_count", 0),
+    "speed_variance": ("capacity", "window_count", 1),
+    "unsafe_lc_gap_ratio": ("lanechange", "lane_change_count", 0),
+    "mean_lap_time_s": ("efficiency", "completed_lap_count", 0),
+    "median_lap_time_s": ("efficiency", "completed_lap_count", 0),
+    "p95_lap_time_s": ("efficiency", "completed_lap_count", 0),
+    "lap_time_std_s": ("efficiency", "completed_lap_count", 0),
+    "mean_lap_delay_s": ("efficiency", "completed_lap_count", 0),
+    "p95_lap_delay_s": ("efficiency", "completed_lap_count", 0),
+    "CO2_g_per_veh_km": ("efficiency", "total_vehicle_km", 0),
+    "NOx_mg_per_veh_km": ("efficiency", "total_vehicle_km", 0),
+    "PMx_mg_per_veh_km": ("efficiency", "total_vehicle_km", 0),
+    "fuel_g_per_veh_km": ("efficiency", "total_vehicle_km", 0),
+    "time_loss_s_per_veh_km": ("efficiency", "total_vehicle_km", 0),
+    "mean_thw_s": ("headway", "valid_thw_sample_count", 0),
+    "median_thw_s": ("headway", "valid_thw_sample_count", 0),
+    "p05_thw_s": ("headway", "valid_thw_sample_count", 0),
+    "thw_lt_1s_ratio": ("headway", "valid_thw_sample_count", 0),
+}
+
 
 def _recompute_rate(numerator, denominator, fallback=None):
     """由原始分子/分母重算比率；二者不可用时回退到旧预计算值。"""
@@ -358,53 +380,14 @@ def _valid_subgroup_rows(rows: list[dict], run_id: str, spec: dict) -> bool:
             and not 0 <= value <= 1
         ):
             return False
-        if math.isnan(value) and row["metric_name"] not in {
-            "mean_speed_m_s",
-            "speed_variance",
-            "unsafe_lc_gap_ratio",
-            "CO2_g_per_veh_km",
-            "NOx_mg_per_veh_km",
-            "PMx_mg_per_veh_km",
-            "fuel_g_per_veh_km",
-            "time_loss_s_per_veh_km",
-            "mean_lap_time_s",
-            "median_lap_time_s",
-            "p95_lap_time_s",
-            "lap_time_std_s",
-            "mean_lap_delay_s",
-            "p95_lap_delay_s",
-            "mean_thw_s",
-            "median_thw_s",
-            "p05_thw_s",
-            "thw_lt_1s_ratio",
-        }:
+        if math.isnan(value) and row["metric_name"] not in SUBGROUP_NAN_RULES:
             return False
         group = (row["group_dimension"], row["group_value"])
-        prerequisites = {
-            "mean_speed_m_s": ("capacity", "window_count"),
-            "speed_variance": ("capacity", "window_count"),
-            "unsafe_lc_gap_ratio": ("lanechange", "lane_change_count"),
-            "mean_lap_time_s": ("efficiency", "completed_lap_count"),
-            "median_lap_time_s": ("efficiency", "completed_lap_count"),
-            "p95_lap_time_s": ("efficiency", "completed_lap_count"),
-            "lap_time_std_s": ("efficiency", "completed_lap_count"),
-            "mean_lap_delay_s": ("efficiency", "completed_lap_count"),
-            "p95_lap_delay_s": ("efficiency", "completed_lap_count"),
-            "CO2_g_per_veh_km": ("efficiency", "total_vehicle_km"),
-            "NOx_mg_per_veh_km": ("efficiency", "total_vehicle_km"),
-            "PMx_mg_per_veh_km": ("efficiency", "total_vehicle_km"),
-            "fuel_g_per_veh_km": ("efficiency", "total_vehicle_km"),
-            "time_loss_s_per_veh_km": ("efficiency", "total_vehicle_km"),
-            "mean_thw_s": ("headway", "valid_thw_sample_count"),
-            "median_thw_s": ("headway", "valid_thw_sample_count"),
-            "p05_thw_s": ("headway", "valid_thw_sample_count"),
-            "thw_lt_1s_ratio": ("headway", "valid_thw_sample_count"),
-        }
-        prerequisite = prerequisites.get(row["metric_name"])
+        prerequisite = SUBGROUP_NAN_RULES.get(row["metric_name"])
         if (
             math.isnan(value)
             and prerequisite
-            and group_values.get((prerequisite[0], *group, prerequisite[1]), 0) > 0
+            and group_values.get((prerequisite[0], *group, prerequisite[1]), 0) > prerequisite[2]
         ):
             return False
     keys = {

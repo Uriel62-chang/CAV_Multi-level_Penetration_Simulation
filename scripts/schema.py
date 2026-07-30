@@ -247,6 +247,33 @@ SUBGROUP_LONG_COLUMNS_V4_1 = [
     "metric_value",
 ]
 
+# metric -> (companion field, maximum companion value for which NaN is valid)
+SUMMARY_NAN_RULES = {
+    "min_ttc_s": ("ttc_conflict_event_count", 0),
+    "max_drac_mps2": ("drac_conflict_event_count", 0),
+    "mean_speed_m_s": ("detector_speed_window_count", 0),
+    "detector_mean_speed_temporal_variance": ("detector_speed_window_count", 1),
+    "unsafe_lc_gap_ratio": ("lane_change_count", 0),
+    "mean_lap_time_s": ("completed_lap_count", 0),
+    "median_lap_time_s": ("completed_lap_count", 0),
+    "p95_lap_time_s": ("completed_lap_count", 0),
+    "lap_time_std_s": ("completed_lap_count", 0),
+    "mean_lap_delay_s": ("completed_lap_count", 0),
+    "p95_lap_delay_s": ("completed_lap_count", 0),
+    "ttc_events_per_1000_veh_km": ("total_vehicle_km", 0),
+    "emergency_brakes_per_1000_veh_km": ("total_vehicle_km", 0),
+    "lane_changes_per_1000_veh_km": ("total_vehicle_km", 0),
+    "CO2_g_per_veh_km": ("total_vehicle_km", 0),
+    "NOx_mg_per_veh_km": ("total_vehicle_km", 0),
+    "PMx_mg_per_veh_km": ("total_vehicle_km", 0),
+    "fuel_g_per_veh_km": ("total_vehicle_km", 0),
+    "time_loss_s_per_veh_km": ("total_vehicle_km", 0),
+    "whole_network_ttc_events_per_1000_non_internal_edge_veh_km": (
+        "non_internal_edge_vehicle_km",
+        0,
+    ),
+}
+
 
 def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
     """Return field-level schema errors; valid no-event extrema may be NaN."""
@@ -312,34 +339,13 @@ def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
         "non_internal_edge_vehicle_km",
     }
     nullable = {"requested_pcav"}
-    nullable_nan = {
-        "min_ttc_s",
-        "max_drac_mps2",
-        "mean_speed_m_s",
-        "detector_mean_speed_temporal_variance",
-        "unsafe_lc_gap_ratio",
-        "mean_lap_time_s",
-        "median_lap_time_s",
-        "p95_lap_time_s",
-        "lap_time_std_s",
-        "ttc_events_per_1000_veh_km",
-        "whole_network_ttc_events_per_1000_non_internal_edge_veh_km",
-        "emergency_brakes_per_1000_veh_km",
-        "lane_changes_per_1000_veh_km",
-        "CO2_g_per_veh_km",
-        "NOx_mg_per_veh_km",
-        "PMx_mg_per_veh_km",
-        "fuel_g_per_veh_km",
-        "time_loss_s_per_veh_km",
-        "mean_lap_delay_s",
-        "p95_lap_delay_s",
-    }
     keys_to_validate = list(required)
-    if (
-        "non_internal_edge_vehicle_km" in summary
-        and "non_internal_edge_vehicle_km" not in keys_to_validate
+    for optional_key in (
+        "non_internal_edge_vehicle_km",
+        "whole_network_ttc_events_per_1000_non_internal_edge_veh_km",
     ):
-        keys_to_validate.append("non_internal_edge_vehicle_km")
+        if optional_key in summary and optional_key not in keys_to_validate:
+            keys_to_validate.append(optional_key)
     for key in keys_to_validate:
         value = summary[key]
         if key in nullable and value is None:
@@ -357,7 +363,7 @@ def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
             errors.append(f"summary {key} must be numeric")
         elif math.isinf(float(value)):
             errors.append(f"summary {key} must not be infinite")
-        elif math.isnan(float(value)) and key not in nullable_nan:
+        elif math.isnan(float(value)) and key not in SUMMARY_NAN_RULES:
             errors.append(f"summary {key} must be finite")
         elif key in finite_nonnegative and float(value) < 0:
             errors.append(f"summary {key} must be non-negative")
@@ -367,35 +373,7 @@ def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
             errors.append(f"summary {key} must be within [0, 1]")
     if errors:
         return errors
-    for metric, count in (
-        ("min_ttc_s", "ttc_conflict_event_count"),
-        ("max_drac_mps2", "drac_conflict_event_count"),
-        ("unsafe_lc_gap_ratio", "lane_change_count"),
-        ("mean_lap_time_s", "completed_lap_count"),
-        ("median_lap_time_s", "completed_lap_count"),
-        ("p95_lap_time_s", "completed_lap_count"),
-        ("lap_time_std_s", "completed_lap_count"),
-    ):
-        if (
-            summary[count] > 0
-            and isinstance(summary[metric], (int, float))
-            and math.isnan(summary[metric])
-        ):
-            errors.append(f"summary {metric} may be NaN only when {count}=0")
-    for metric in (
-        "CO2_g_per_veh_km",
-        "NOx_mg_per_veh_km",
-        "PMx_mg_per_veh_km",
-        "fuel_g_per_veh_km",
-        "time_loss_s_per_veh_km",
-        "ttc_events_per_1000_veh_km",
-        "emergency_brakes_per_1000_veh_km",
-        "lane_changes_per_1000_veh_km",
-    ):
-        if (
-            summary["total_vehicle_km"] > 0
-            and isinstance(summary[metric], (int, float))
-            and math.isnan(summary[metric])
-        ):
-            errors.append(f"summary {metric} may be NaN only when total_vehicle_km=0")
+    for metric, (companion, max_value) in SUMMARY_NAN_RULES.items():
+        if metric in summary and math.isnan(summary[metric]) and summary[companion] > max_value:
+            errors.append(f"summary {metric} may be NaN only when {companion}<={max_value}")
     return errors

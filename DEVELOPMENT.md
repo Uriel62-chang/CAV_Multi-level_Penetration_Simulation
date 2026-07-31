@@ -68,15 +68,15 @@
 - **已考虑的替代方案**：只对显式 timeout 轮询，默认仍 `wait()`（不解决默认无限等待）。
 - **当前代价**：最多约 0.5 秒的退出检测延迟；mock Process 类需添加 `returncode` 属性。
 
-### D-005：S8 冻结输入推迟到 1.post1
+### D-005：S8 冻结输入推迟到 1.post1（Partially implemented，仅剩 fcd_path）
 
-- **状态**：Deferred（部分完成：环路距离校验已在阶段 2 实现）
+- **状态**：Partially implemented（阶段 2 已实现主体；唯一剩余项 `PreparedRun.fcd_path` 推迟到 1.post1；2026-07-31 依 Reviewer 复检 P1-6 更新本体）
 - **决策提交**：`59c1b17`
 - **适用范围**：frozen_inputs、canonical_json_bytes、atomic_write_bytes、--acceptance CLI、PreparedRun.fcd_path
-- **重新评估触发条件**：阶段 1.post1 开始
+- **重新评估触发条件**：阶段 1.post1 开始（仅剩余项 fcd_path）
 - **背景**：冻结输入是实现 provenance 可追溯性的独立功能，不影响 raw 生成核心路径。
-- **决定**：推迟到阶段 1.post1。阶段 1 解除门禁条件改为 S1–S7, S9, S10。
-- **当前代价**：暂无 frozen_inputs 目录、非 resume 覆盖保护和 fcd_path 字段。
+- **决定**：阶段 2 已实现 `frozen_inputs` 目录（frozen acceptance 输入对）、`canonical_json_bytes`（scripts/provenance.py:14）、`atomic_write_bytes`（scripts/provenance.py:22）、`--acceptance` CLI（scripts/simulation/batch_run.py:629/1240）与非 resume 覆盖保护；唯一剩余项 `PreparedRun.fcd_path` 推迟到 1.post1。
+- **当前代价**：仅缺 `PreparedRun.fcd_path` 字段；无其他未交付组件。
 
 ### D-006：SSM role 按 measure 独立保留极值来源
 
@@ -190,6 +190,7 @@
 - **证据归档（Developer 预检）**：候选规范 A/B archive 为 `raw/diagnostics/ssm_reproducer_ab_s2_arms/`，`EVIDENCE_INVENTORY.sha256=30407e6c57bc8eae0f7a387247bc4d1d6aba59c4853debffa493d22ca73c6fef`；本地 SUMO issue 包为 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/`，包级 inventory SHA 为 `d966f1b90dc682c762dd574a5a76d4cf112bb11eb7a7c805dac9bd487119e870`（2026-07-31 核验时因 ISSUE_DRAFT 笔误修正重新生成，见下条）。均未对外提交，且 archive、inventory、issue 包待正式 Reviewer 核验。
 - **v0.4.1.post1 证据独立核验（2026-07-31，Developer 预检，非正式 Reviewer）**：A/B 数值（ssm_off 48,532 KiB → ssm_on 9,340,844 KiB，差值 9,292,312 KiB = 8.86 GiB，192.47×）、两臂非 SSM 命令逐参数等价（且 FCD/vehroute/performance/emissions/lanechange 数值内容逐字节一致，差异仅元数据，SSM device 不改变该零事件 case 的轨迹）、现象一 s2/s3 对照（9,315,592 vs 937,252 KiB，≈9.94×）、三处 inventory（arms 54/54、post1 52/52、issue 包 14/14）均独立复算/复校验通过。修正 ISSUE_DRAFT 现象二量级笔误（"~1.37 MiB/s" → 实测 40–42 s 段 ≈1.3 GiB/s，即 ≈1.37e6 KiB/s，样例 41.1→42.1 s 增长 7,545,324→8,914,604 KiB），issue 包 `INVENTORY.sha256` 已同步重新生成（14/14 校验通过）。
 - **正式 Reviewer 复核（2026-07-31）**：三处 inventory 完整性（54/54、52/52、14/14，SHA 30407e6c…/95f12b12…/d966f1b9…）与设计所引用数值（R1–R4、8.8618 GiB、192.47×）已获正式背书；v0.4.2 分拆设计获 6 项 P1（safety 子集规则占位、双 seed 统计单位、配对静态验收、SSM 窗口上界、资源预算非可执行、S8 状态反证）与 3 项 P2，**未获实现阶段背书**，维持 proposed for review；S8 反证确认 `PreparedRun.fcd_path` 为唯一未实现项。
+- **正式 Reviewer 复检（2026-07-31）**：P1-1~P1-5 与三项原 P2 确认关闭；P1-6（D-005 决策正文仍标 Deferred）与两项新 P2（AGENTS.md/DEVELOPMENT.md 技术-治理状态未统一、网格/预算门禁时点冲突）已于同日修订；**待再次复检后决定是否背书**。
 - **已验证**：212 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；A/B 命令等价与 B 臂 intentional-absence 回归通过。
 - **已提交**：`7ea2e08`、`f675717`（D-012）；`7145a2d`（D-013 设计）；`6a5d772`、`ad95058`（A/B 实现和命令等价回归）。
 - **主线回归交接（2026-07-31，`47e72c5`）**：v0.4.1 确认为未发布内部里程碑（GitHub 最新 v0.4.0.post3，tag 已删）；跳号发布决定；B 线（SSM 内存诊断）宣告结束，降级为 REPORT/README 提示信息；v0.4.2 为唯一开发主线（设计→实现→数据→结论四环节对齐）；主线纪律约束生效。
@@ -217,7 +218,7 @@
   - **第一步动作（2026-07-31 定）**：起草 v0.4.2 分拆设计文档（版本化，参考 `docs/development/v0.4.1-post1-ssm-ab-design.md` 的冻结设计写法）。设计输入：① A 线四环节对齐问题清单；② SSM 内存成本约束 + s2 零事件结论；③ 主 factorial 与 safety experiment 分离；④ 发布治理（跳号、tag 已删、成果归属）；⑤ 采集成本预算（按实测单价：SSM-off ~48.5 MiB/run、~46–92 s/run、raw 输出 ~20 MB/run）。
 - **B 线收尾（已定，待 v0.4.2 发布时落地）**：SSM 全量采集内存成本（9,292,312 KiB/run，零事件 case）作为提示性信息写入 REPORT/README——属可接受的额外成本（v0.4.0 以 74 次 OOM 重跑兜底），受硬件配置影响，不作进一步改进。
 - **SUMO upstream（可选开源贡献）**：先由正式 Reviewer 核验本地 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md`、archive 与 inventory；获用户另行授权后才可对外提交。issue 只报告 SSM device-on/off 关联、零事件输出和可复现 RSS 差异（已含现象二/三及 GiB 修正）。
-- **发布治理（v0.4.2 发布前）**：本地 `v0.4.1` tag 已删（2026-07-31）；release notes 显式说明跳号原因（pilot 未过门禁、诊断未闭合）并列明 v0.4.1 全部工程成果归属；AGENTS.md/DEVELOPMENT.md 版本状态已同步（本次提交）。
+- **发布治理（v0.4.2 发布前）**：本地 `v0.4.1` tag 已删（2026-07-31）；release notes 显式说明跳号原因（pilot 未过门禁；D-012–D-015 技术证据已闭合、治理状态未闭合）并列明 v0.4.1 全部工程成果归属；AGENTS.md/DEVELOPMENT.md 版本状态已同步（本次提交）。
 - **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针。
 - **非阻塞工程遗留（随 v0.4.2 顺带处理，不单独立项）**：① `scripts/config.py:50-51` `SSM_TTC_THRESHOLD_S=3.0`/`SSM_DRAC_THRESHOLD_MPS2=3.0` 与 RunSpec 传入的 5.0/3.0 构成阈值双源，v0.4.2 重定 estimand 时应统一为单一来源；② `scripts/config.py:59-64` `FREE_FLOW_LAP_TIME_S` 残留表（含 98.8）已被 D-008 自由流 artifact 取代，应废弃（不得恢复硬编码 fallback）；③ `scripts/parsing/ssm.py:7,10` `_MIRROR_OVERLAP_RATIO=0.8`/`_FRAGMENT_MERGE_GAP_S=0.0` 不可配置，v0.4.2 若改 dedup/merge 规则需参数化。风险可控（post1 领域分组先例 + 基线护栏：10,080 run ID / legacy hash / dry-run / 85+ tests）。
 - **暂缓**：S8 剩余项 `PreparedRun.fcd_path` → 1.post1（`canonical_json_bytes`、`atomic_write_bytes`、`--acceptance` 已在阶段 2 实现，见 P1-6 复核）。

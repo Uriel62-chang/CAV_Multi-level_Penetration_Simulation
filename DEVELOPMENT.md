@@ -190,6 +190,7 @@
 - **证据归档（Developer 预检）**：候选规范 A/B archive 为 `raw/diagnostics/ssm_reproducer_ab_s2_arms/`，`EVIDENCE_INVENTORY.sha256=30407e6c57bc8eae0f7a387247bc4d1d6aba59c4853debffa493d22ca73c6fef`；本地 SUMO issue 包为 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/`，包级 inventory SHA 为 `a675321473eb4d6efabbef593a363bd7ceb8b6985b97a0fbe497cdef5739e8d9`。均未对外提交，且 archive、inventory、issue 包待正式 Reviewer 核验。
 - **已验证**：212 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；A/B 命令等价与 B 臂 intentional-absence 回归通过。
 - **已提交**：`7ea2e08`、`f675717`（D-012）；`7145a2d`（D-013 设计）；`6a5d772`、`ad95058`（A/B 实现和命令等价回归）。
+- **主线回归交接（2026-07-31，`47e72c5`）**：v0.4.1 确认为未发布内部里程碑（GitHub 最新 v0.4.0.post3，tag 已删）；跳号发布决定；B 线（SSM 内存诊断）宣告结束，降级为 REPORT/README 提示信息；v0.4.2 为唯一开发主线（设计→实现→数据→结论四环节对齐）；主线纪律约束生效。
 
 ### 当前状态
 
@@ -211,10 +212,12 @@
 ### 待处理
 
 - **v0.4.2（主线，下一发布目标，跳号发布）**：分拆设计——主 factorial 关闭 SSM 运行效率/排放/FCD 完整网格；独立 safety experiment 专门定义 TTC/DRAC estimand。设计骨架：在「设计 → 实现 → 数据 → 结论」四环节对齐 v0.4.0 遗留 A 线问题（观测窗、SSM 事件与暴露量空间范围、pCAV 离散化、seed 语义、统计口径）；SSM 内存成本（~8.86 GiB/run）作为已验证约束写入采集成本预算，不再推进 B 线；s2 零事件为阈值下可信观测（已由 A/B + flush 证据确认）。
+  - **第一步动作（2026-07-31 定）**：起草 v0.4.2 分拆设计文档（版本化，参考 `docs/development/v0.4.1-post1-ssm-ab-design.md` 的冻结设计写法）。设计输入：① A 线四环节对齐问题清单；② SSM 内存成本约束 + s2 零事件结论；③ 主 factorial 与 safety experiment 分离；④ 发布治理（跳号、tag 已删、成果归属）；⑤ 采集成本预算（按实测单价：SSM-off ~48.5 MiB/run、~46–92 s/run、raw 输出 ~20 MB/run）。
 - **B 线收尾（已定，待 v0.4.2 发布时落地）**：SSM 全量采集内存成本（9,292,312 KiB/run，零事件 case）作为提示性信息写入 REPORT/README——属可接受的额外成本（v0.4.0 以 74 次 OOM 重跑兜底），受硬件配置影响，不作进一步改进。
 - **SUMO upstream（可选开源贡献）**：先由正式 Reviewer 核验本地 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md`、archive 与 inventory；获用户另行授权后才可对外提交。issue 只报告 SSM device-on/off 关联、零事件输出和可复现 RSS 差异（已含现象二/三及 GiB 修正）。
 - **发布治理（v0.4.2 发布前）**：本地 `v0.4.1` tag 已删（2026-07-31）；release notes 显式说明跳号原因（pilot 未过门禁、诊断未闭合）并列明 v0.4.1 全部工程成果归属；AGENTS.md/DEVELOPMENT.md 版本状态已同步（本次提交）。
 - **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针。
+- **非阻塞工程遗留（随 v0.4.2 顺带处理，不单独立项）**：① `scripts/config.py:50-51` `SSM_TTC_THRESHOLD_S=3.0`/`SSM_DRAC_THRESHOLD_MPS2=3.0` 与 RunSpec 传入的 5.0/3.0 构成阈值双源，v0.4.2 重定 estimand 时应统一为单一来源；② `scripts/config.py:59-64` `FREE_FLOW_LAP_TIME_S` 残留表（含 98.8）已被 D-008 自由流 artifact 取代，应废弃（不得恢复硬编码 fallback）；③ `scripts/parsing/ssm.py:7,10` `_MIRROR_OVERLAP_RATIO=0.8`/`_FRAGMENT_MERGE_GAP_S=0.0` 不可配置，v0.4.2 若改 dedup/merge 规则需参数化。风险可控（post1 领域分组先例 + 基线护栏：10,080 run ID / legacy hash / dry-run / 85+ tests）。
 - **暂缓**：S8 冻结输入、PreparedRun.fcd_path → 1.post1。
 
 ### 重要约束

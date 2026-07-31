@@ -111,8 +111,7 @@ python3 -m scripts.results.visualization \
 - CLI `--assignment-seeds` / `--sumo-seeds` 命名
 
 ### 推迟到 1.post1
-- S8 冻结输入（canonical_json_bytes, atomic_write_bytes, --acceptance）
-- PreparedRun.fcd_path
+- S8 剩余项：PreparedRun.fcd_path（canonical_json_bytes、atomic_write_bytes、--acceptance 已在阶段 2 实现）
 
 ### 测试基线
 - 170 tests passed（85 legacy + 19 v0.4.1 + 66 stage2）

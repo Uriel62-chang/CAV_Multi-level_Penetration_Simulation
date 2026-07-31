@@ -1,11 +1,14 @@
 # 开发文档
 
-> 新参与者应先阅读：
+> 新 Developer、Improver 或 Reviewer 应先阅读：
 > 1. README.md
-> 2. 本文档（关键决策 + 交接摘要）
-> 3. AGENTS.md（项目约定、CLI 入口）
-> 4. `docs/development/v0.4.1-stage2-design.md`（当前阶段批准基线）
-> 5. `git log --oneline -10`
+> 2. DEVELOPMENT.md
+> 3. 当前阶段任务、用户授权与运行门禁
+> 4. 相关关键决策（尤其 D-012–D-015）
+> 5. 本文“当前交接摘要”
+> 6. 最近相关 Git 提交（至少 `git log --oneline -15`）
+> 7. AGENTS.md（项目约定、CLI 入口）及
+>    `docs/development/v0.4.1-stage2-design.md`（批准基线）
 >
 > 补充材料（Git 忽略，本地可用时参考）：
 > `docs/internal/releases/v0.4.1.md`（完整开发计划）、

@@ -181,11 +181,12 @@
 ### 已完成
 
 - **阶段 0+1 已实现**：cav_count 双 seed 网格 + inactive-dimension 规范化；SUMO 命令注入 seed/SSM capture/FCD 输出；withInternal=true additional；writer `non_internal_edge_vehicle_km` 列名修正；进程退出轮询 + SIGINT→CANCELLED；CLI `--assignment-seeds`/`--sumo-seeds` 命名。
-- **阶段 2 完成**（2026-07-30，v0.4.1 发布）：HV/CAV 子群拆分；FCD physical THW；SSM pair/role provenance（D-006）；schema=2 runner/writer/aggregate；subgroup JSONL + SHA；自由流 artifact（D-008）；SSM sensitivity CLI；free-flow 测量；FCD numpy 内存方案（D-007）；net.json num_lanes fail-closed（D-009）；fragment merge（opt-in）；`--frozen-inputs`；per-run RSS；sim→parse→write→aggregate smoke。
+- **阶段 2 完成**（2026-07-30，**v0.4.1 内部里程碑，未对外发布**）：HV/CAV 子群拆分；FCD physical THW；SSM pair/role provenance（D-006）；schema=2 runner/writer/aggregate；subgroup JSONL + SHA；自由流 artifact（D-008）；SSM sensitivity CLI；free-flow 测量；FCD numpy 内存方案（D-007）；net.json num_lanes fail-closed（D-009）；fragment merge（opt-in）；`--frozen-inputs`；per-run RSS；sim→parse→write→aggregate smoke。
 - **P1 第一批复核关闭**（`dad8a97`–`e8242fe`）：恢复 legacy config/resume、summary/subgroup 数值契约、writer manifest 闭合与 dry-run 门禁；原 annotated `v0.4.1` tag 已恢复为 `211782… → b16771e…`。整体发布门禁仍未关闭。
 - **P2 summary companion-field 已由 Reviewer 关闭**（`9e742fc`）：schema=1 summary 单独提供 optional whole-network TTC rate 而缺少 optional `non_internal_edge_vehicle_km` 时，契约返回字段级 companion-missing 错误；NaN 与有限 rate 均不再抛出 `KeyError`。
 - **P2 runner 错误聚合已由 Reviewer 关闭**（`c35f7fe`）：summary contract 与既有 invariant 同时失败时，runner 会按稳定顺序保留两类独立错误，并写入 `_invariant_errors` / `parse_status.error_message`。
 - **v0.4.1.post1 诊断产物（Developer 预检）**：D-012 attempt 状态机已生成 s3 positive-control、s2 zero-event 与 s2 SSM-on/off A/B 的闭合 attempt。A/B 为 clean `ad95058`，同一冻结 treatment、相同非 SSM 命令/descriptor；SSM-off peak RSS 48,532 KiB，SSM-on 9,340,844 KiB，差 9,292,312 KiB（192.47×），SSM-on 仍为 0 raw / 0 TTC / 0 DRAC。上述运行结果尚待独立 Reviewer 会话正式核验。
+- **v0.4.1.post1 诊断收尾（2026-07-31）**：本地 `ISSUE_DRAFT.md` 已补充现象二（s2/s3 跨 case 对照，明确标注非受控对比）与现象三（`trajectories=false` 未阻止内存增长，标注为推断级提问），并修正原有 GiB 换算错误（9,292,312 KiB = 8.86 GiB，非 9.29 GiB）；`INVENTORY.sha256` 已同步重新生成，14 个文件校验通过。issue 包仍待正式 Reviewer 核验 + 用户授权后才可对外提交。
 - **证据归档（Developer 预检）**：候选规范 A/B archive 为 `raw/diagnostics/ssm_reproducer_ab_s2_arms/`，`EVIDENCE_INVENTORY.sha256=30407e6c57bc8eae0f7a387247bc4d1d6aba59c4853debffa493d22ca73c6fef`；本地 SUMO issue 包为 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/`，包级 inventory SHA 为 `a675321473eb4d6efabbef593a363bd7ceb8b6985b97a0fbe497cdef5739e8d9`。均未对外提交，且 archive、inventory、issue 包待正式 Reviewer 核验。
 - **已验证**：212 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；A/B 命令等价与 B 臂 intentional-absence 回归通过。
 - **已提交**：`7ea2e08`、`f675717`（D-012）；`7145a2d`（D-013 设计）；`6a5d772`、`ad95058`（A/B 实现和命令等价回归）。
@@ -195,6 +196,7 @@
 - **当前分支**：`main`
 - **本文档最后更新**：参见 `git log -1 --oneline -- DEVELOPMENT.md`
 - **最近稳定提交**：`ad9505809eb918152d071e992993840f95883f0c`
+- **版本发布状态**：GitHub 最新公开版本 v0.4.0.post3；v0.4.1 为本地内部里程碑（未 push、tag 已删）；**v0.4.2 为下一发布目标（跳号发布）**
 - **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-31
 - **可运行入口**：
   ```bash
@@ -208,9 +210,10 @@
 
 ### 待处理
 
-- **v0.4.2**：分拆设计——主 factorial 关闭 SSM 运行效率/排放/FCD 完整网格；独立 safety experiment 专门定义 TTC/DRAC estimand。
-- **SUMO upstream**：先由正式 Reviewer 核验本地 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md`、archive 与 inventory；获用户另行授权后才可对外提交。issue 只报告 SSM device-on/off 关联、零事件输出和可复现 RSS 差异。
-- **诊断运行门禁**：上游反馈或新、版本化设计获批前，不再运行任何诊断；不得修改原证据或提交外部 issue。dirty `31fc13b` 的 s3 成功仅为开发观察，首次失败 attempt 不可验证、不得引用。
+- **v0.4.2（主线，下一发布目标，跳号发布）**：分拆设计——主 factorial 关闭 SSM 运行效率/排放/FCD 完整网格；独立 safety experiment 专门定义 TTC/DRAC estimand。设计骨架：在「设计 → 实现 → 数据 → 结论」四环节对齐 v0.4.0 遗留 A 线问题（观测窗、SSM 事件与暴露量空间范围、pCAV 离散化、seed 语义、统计口径）；SSM 内存成本（~8.86 GiB/run）作为已验证约束写入采集成本预算，不再推进 B 线；s2 零事件为阈值下可信观测（已由 A/B + flush 证据确认）。
+- **B 线收尾（已定，待 v0.4.2 发布时落地）**：SSM 全量采集内存成本（9,292,312 KiB/run，零事件 case）作为提示性信息写入 REPORT/README——属可接受的额外成本（v0.4.0 以 74 次 OOM 重跑兜底），受硬件配置影响，不作进一步改进。
+- **SUMO upstream（可选开源贡献）**：先由正式 Reviewer 核验本地 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md`、archive 与 inventory；获用户另行授权后才可对外提交。issue 只报告 SSM device-on/off 关联、零事件输出和可复现 RSS 差异（已含现象二/三及 GiB 修正）。
+- **发布治理（v0.4.2 发布前）**：本地 `v0.4.1` tag 已删（2026-07-31）；release notes 显式说明跳号原因（pilot 未过门禁、诊断未闭合）并列明 v0.4.1 全部工程成果归属；AGENTS.md/DEVELOPMENT.md 版本状态已同步（本次提交）。
 - **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针。
 - **暂缓**：S8 冻结输入、PreparedRun.fcd_path → 1.post1。
 
@@ -222,6 +225,7 @@
 - **自由流约束**：不得恢复硬编码 98.8 fallback；artifact 的 SUMO 完整版本、scenario net SHA、HV/当前 model 有限正圈时必须全部匹配。
 - **修改前验证**：`ExperimentConfig.sha256() == 178dfcef...`；旧 pipeline dry-run 10,080；RunSpec legacy hash 不变；涉及 schema=2 时额外运行 pilot 162 dry-run 和定向完整性探针。
 - **Reviewer 边界**：正式 Reviewer 是用户指定的独立 Codex 会话；任何内部静态预检不构成正式 Reviewer 复核，Reviewer 不直接修改代码。
+- **主线纪律（2026-07-31 起）**：SSM 内存诊断为 B 线，不再推进（门禁维持：不再运行任何诊断，不得修改原证据或提交外部 issue，除非新版本化设计获批）；开发投入集中在 v0.4.2「设计 → 实现 → 数据 → 结论」对齐；提交任何文档/代码前先检查是否服务于 A 线或发布治理，避免再次偏离主线。
 
 ---
 

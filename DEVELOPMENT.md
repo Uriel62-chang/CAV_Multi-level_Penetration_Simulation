@@ -16,6 +16,8 @@
 >
 > 阶段 2 批准基线已受 Git 跟踪；实现或审查不得用聊天记录覆盖其函数契约、校验矩阵和验收探针。
 
+> **Reviewer 保留声明**：本文档由 Developer 维护，Reviewer 可将其用作项目状态与证据路径索引。尚未经独立 Reviewer 会话核验的 archive、inventory、A/B 对照及 upstream issue 包内容，不因纳入本文档而自动获得 Reviewer 背书；正式审查结论以独立 Reviewer 报告为准。
+
 ---
 
 ## 关键决策
@@ -140,7 +142,7 @@
 
 ### D-012：SSM 诊断证据使用不可复用 attempt，而非 case 根目录
 
-- **状态**：Implemented，Reviewer 复核通过
+- **状态**：Implemented；s3/s2 运行结果为 Developer 预检，正式 Reviewer 复核待完成
 - **适用范围**：`scripts/analysis/ssm_reproducer.py`、`configs/v0.4.1/ssm_reproducer_s[2|3].json`
 - **背景**：case 根目录复用会混淆不同代码基线与失败尝试；dirty tree 的观察不能替代规范证据。
 - **决定**：每次诊断写入 `case_id/attempt-###/{raw,report}`；启动前原子写 RUNNING，finally 写终态、错误与存在文件 SHA/缺失清单；仅完整成功且控制条件满足时生成派生 report。
@@ -149,7 +151,7 @@
 
 ### D-013：SSM-on/off 最小复现先冻结设计，后实现与运行
 
-- **状态**：Implemented；A/B attempt 已闭合，独立 Reviewer 只读核对通过
+- **状态**：Implemented；A/B attempt 已闭合，运行结果与 archive/inventory 为 Developer 预检，正式 Reviewer 复核待完成
 - **适用范围**：`docs/development/v0.4.1-post1-ssm-ab-design.md`；后续诊断实现与 A/B attempt
 - **决定**：以已冻结的 s2 CACC/v120/c120/as00/ss102 treatment 为两臂公共输入；A 保持 SSM，B 仅移除 SSM device。SSM-off 的 `ssm.xml` 是意图性缺失，状态机必须显式记录，不得伪装成零事件或证据缺失。
 - **原因**：当前 s2/s3 对照支持关联但不识别原因；先隔离 SSM device 才能形成可解释的 upstream 最小复现。
@@ -183,8 +185,8 @@
 - **P1 第一批复核关闭**（`dad8a97`–`e8242fe`）：恢复 legacy config/resume、summary/subgroup 数值契约、writer manifest 闭合与 dry-run 门禁；原 annotated `v0.4.1` tag 已恢复为 `211782… → b16771e…`。整体发布门禁仍未关闭。
 - **P2 summary companion-field 已由 Reviewer 关闭**（`9e742fc`）：schema=1 summary 单独提供 optional whole-network TTC rate 而缺少 optional `non_internal_edge_vehicle_km` 时，契约返回字段级 companion-missing 错误；NaN 与有限 rate 均不再抛出 `KeyError`。
 - **P2 runner 错误聚合已由 Reviewer 关闭**（`c35f7fe`）：summary contract 与既有 invariant 同时失败时，runner 会按稳定顺序保留两类独立错误，并写入 `_invariant_errors` / `parse_status.error_message`。
-- **v0.4.1.post1 诊断闭环**：D-012 attempt 状态机已实现并关闭 s3 positive-control、s2 zero-event 与 s2 SSM-on/off A/B。A/B 为 clean `ad95058`，同一冻结 treatment、相同非 SSM 命令/descriptor；SSM-off peak RSS 48,532 KiB，SSM-on 9,340,844 KiB，差 9,292,312 KiB（192.47×），SSM-on 仍为 0 raw / 0 TTC / 0 DRAC。
-- **证据归档**：规范 A/B archive 为 `raw/diagnostics/ssm_reproducer_ab_s2_arms/`，`EVIDENCE_INVENTORY.sha256=30407e6c57bc8eae0f7a387247bc4d1d6aba59c4853debffa493d22ca73c6fef`；本地 SUMO issue 包为 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/`，包级 inventory SHA 为 `a675321473eb4d6efabbef593a363bd7ceb8b6985b97a0fbe497cdef5739e8d9`。均未对外提交。
+- **v0.4.1.post1 诊断产物（Developer 预检）**：D-012 attempt 状态机已生成 s3 positive-control、s2 zero-event 与 s2 SSM-on/off A/B 的闭合 attempt。A/B 为 clean `ad95058`，同一冻结 treatment、相同非 SSM 命令/descriptor；SSM-off peak RSS 48,532 KiB，SSM-on 9,340,844 KiB，差 9,292,312 KiB（192.47×），SSM-on 仍为 0 raw / 0 TTC / 0 DRAC。上述运行结果尚待独立 Reviewer 会话正式核验。
+- **证据归档（Developer 预检）**：候选规范 A/B archive 为 `raw/diagnostics/ssm_reproducer_ab_s2_arms/`，`EVIDENCE_INVENTORY.sha256=30407e6c57bc8eae0f7a387247bc4d1d6aba59c4853debffa493d22ca73c6fef`；本地 SUMO issue 包为 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/`，包级 inventory SHA 为 `a675321473eb4d6efabbef593a363bd7ceb8b6985b97a0fbe497cdef5739e8d9`。均未对外提交，且 archive、inventory、issue 包待正式 Reviewer 核验。
 - **已验证**：212 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；A/B 命令等价与 B 臂 intentional-absence 回归通过。
 - **已提交**：`7ea2e08`、`f675717`（D-012）；`7145a2d`（D-013 设计）；`6a5d772`、`ad95058`（A/B 实现和命令等价回归）。
 
@@ -207,8 +209,8 @@
 ### 待处理
 
 - **v0.4.2**：分拆设计——主 factorial 关闭 SSM 运行效率/排放/FCD 完整网格；独立 safety experiment 专门定义 TTC/DRAC estimand。
-- **SUMO upstream**：审阅并在需要时提交本地 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md`；只报告 SSM device-on/off 关联、零事件输出和可复现 RSS 差异。
-- **诊断运行门禁**：上游反馈或新、版本化设计获批前，不再运行任何诊断；dirty `31fc13b` 的 s3 成功仅为开发观察，首次失败 attempt 不可验证、不得引用。
+- **SUMO upstream**：先由正式 Reviewer 核验本地 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md`、archive 与 inventory；获用户另行授权后才可对外提交。issue 只报告 SSM device-on/off 关联、零事件输出和可复现 RSS 差异。
+- **诊断运行门禁**：上游反馈或新、版本化设计获批前，不再运行任何诊断；不得修改原证据或提交外部 issue。dirty `31fc13b` 的 s3 成功仅为开发观察，首次失败 attempt 不可验证、不得引用。
 - **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针。
 - **暂缓**：S8 冻结输入、PreparedRun.fcd_path → 1.post1。
 

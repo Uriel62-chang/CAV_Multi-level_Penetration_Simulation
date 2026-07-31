@@ -146,11 +146,28 @@
 
 ### D-013：SSM-on/off 最小复现先冻结设计，后实现与运行
 
-- **状态**：Implemented，待独立提交与 Reviewer 复核
+- **状态**：Implemented；A/B attempt 已闭合，独立 Reviewer 只读核对通过
 - **适用范围**：`docs/development/v0.4.1-post1-ssm-ab-design.md`；后续诊断实现与 A/B attempt
 - **决定**：以已冻结的 s2 CACC/v120/c120/as00/ss102 treatment 为两臂公共输入；A 保持 SSM，B 仅移除 SSM device。SSM-off 的 `ssm.xml` 是意图性缺失，状态机必须显式记录，不得伪装成零事件或证据缺失。
 - **原因**：当前 s2/s3 对照支持关联但不识别原因；先隔离 SSM device 才能形成可解释的 upstream 最小复现。
-- **当前代价**：实现已冻结 A/B descriptor（case/network SHA、arm、RSS 周期）、SSM-only command 差异和 B 臂的 intentional absence；Reviewer 命令等价回归补正待独立提交与复核，完成前不再运行任何诊断。
+- **当前代价**：实现已冻结 A/B descriptor（case/network SHA、arm、RSS 周期）、SSM-only command 差异和 B 臂的 intentional absence。两臂已在 clean `ad95058` 闭合；上游反馈或新设计获批前，不再运行任何诊断。
+
+### D-014：SSM A/B 结论只表述为 device-on/off 关联
+
+- **状态**：Active
+- **适用范围**：SUMO upstream issue、README/report 后续解释、v0.4.2 safety 设计
+- **背景**：冻结 s2 A/B 中，仅启用 SSM device 时 sampled peak RSS 从 48,532 KiB 增至 9,340,844 KiB；SSM-on 最终仍为 0 raw record / 0 TTC / 0 DRAC。
+- **决定**：可表述“在该冻结工况与 SUMO 1.27.1 中，启用 SSM device 与约 9.29 GiB 额外 sampled peak RSS 相关”；不得称为内存泄漏或断言具体 SUMO 内部数据结构。
+- **原因**：A/B 隔离了 device 配置因素，但单个 treatment 不能识别更细的内部机制或普适性。
+- **当前代价**：上游 issue 只询问该行为是否为预期 encounter tracking；不追认 v0.4.1 pilot 成功，资源门禁失败保持有效。
+
+### D-015：SSM 诊断证据使用显式 arm 目录与非自包含 inventory
+
+- **状态**：Active
+- **适用范围**：`raw/diagnostics/ssm_reproducer_ab_s2_arms/`、SUMO upstream issue 包
+- **决定**：A/B archive 固定为 `ssm_off/attempt-001` 与 `ssm_on/attempt-001`，避免同 case_id 的目录碰撞；`EVIDENCE_INVENTORY.sha256` 明确排除自身及其他 inventory 文件。
+- **原因**：两臂 case_id 相同，平铺复制会覆盖/混淆 evidence；将 inventory 自身纳入其 SHA 列表会产生无意义的自包含条目。
+- **当前代价**：已有平铺 `raw/diagnostics/ssm_reproducer_ab_s2/` 不作为规范 archive，也不删除以保留操作审计痕迹。
 
 ---
 
@@ -163,16 +180,17 @@
 - **P1 第一批复核关闭**（`dad8a97`–`e8242fe`）：恢复 legacy config/resume、summary/subgroup 数值契约、writer manifest 闭合与 dry-run 门禁；原 annotated `v0.4.1` tag 已恢复为 `211782… → b16771e…`。整体发布门禁仍未关闭。
 - **P2 summary companion-field 已由 Reviewer 关闭**（`9e742fc`）：schema=1 summary 单独提供 optional whole-network TTC rate 而缺少 optional `non_internal_edge_vehicle_km` 时，契约返回字段级 companion-missing 错误；NaN 与有限 rate 均不再抛出 `KeyError`。
 - **P2 runner 错误聚合已由 Reviewer 关闭**（`c35f7fe`）：summary contract 与既有 invariant 同时失败时，runner 会按稳定顺序保留两类独立错误，并写入 `_invariant_errors` / `parse_status.error_message`。
-- **v0.4.1.post1 已启动**：仅补强 acceptance/input 冻结、SHA 追溯与 SSM 最小复现诊断；canonical frozen pair 已接入非 dry-run v0.4.1 batch 的 `--acceptance`、manifest 与 resume 防覆盖闭环。已冻结 s2/s3 CACC 全 CAV `as00/ss102` 对照 case；attempt 证据状态机尚未完成，s2 禁止运行。
-- **D-012 待复核实现**：attempt 目录以 `mkdir` 排他递增；启动 SUMO 前持久化 RUNNING（case SHA、git commit/dirty、开始时间）；finally 闭合 SUCCESS/FAILED/TIMEOUT/INTERRUPTED/REPORT_FAILED，并清点 frozen case、RunSpec、route、SSM、FCD、stdout/stderr、RSS 的 size/SHA 和缺失项。仅 SUMO=0、证据完整、SSM 汇总成功且 positive control 通过才写 report。首轮 Reviewer 发现并已补正 setup 半成品盘点与 SIGINT 子进程收束；回归覆盖 timeout、SUMO nonzero、SSM parse、report write、setup failure、SIGINT 和状态写入双错误。尚未运行 s2/s3 case。
-- **已验证**：207 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；micro-pilot Level 1 通过（10/10）；Level 2 bounded factorial pilot 完成（162 runs, failed original resource gate）；mitigation calibration 完成（48 runs with extratime=1.0+merge, failed simultaneous fidelity+RSS gates）。
-- **已提交**：阶段 2 从设计基线 `460f0e6` 到 v0.4.1 发布。
+- **v0.4.1.post1 诊断闭环**：D-012 attempt 状态机已实现并关闭 s3 positive-control、s2 zero-event 与 s2 SSM-on/off A/B。A/B 为 clean `ad95058`，同一冻结 treatment、相同非 SSM 命令/descriptor；SSM-off peak RSS 48,532 KiB，SSM-on 9,340,844 KiB，差 9,292,312 KiB（192.47×），SSM-on 仍为 0 raw / 0 TTC / 0 DRAC。
+- **证据归档**：规范 A/B archive 为 `raw/diagnostics/ssm_reproducer_ab_s2_arms/`，`EVIDENCE_INVENTORY.sha256=30407e6c57bc8eae0f7a387247bc4d1d6aba59c4853debffa493d22ca73c6fef`；本地 SUMO issue 包为 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/`，包级 inventory SHA 为 `a675321473eb4d6efabbef593a363bd7ceb8b6985b97a0fbe497cdef5739e8d9`。均未对外提交。
+- **已验证**：212 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；A/B 命令等价与 B 臂 intentional-absence 回归通过。
+- **已提交**：`7ea2e08`、`f675717`（D-012）；`7145a2d`（D-013 设计）；`6a5d772`、`ad95058`（A/B 实现和命令等价回归）。
 
 ### 当前状态
 
 - **当前分支**：`main`
 - **本文档最后更新**：参见 `git log -1 --oneline -- DEVELOPMENT.md`
-- **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-30
+- **最近稳定提交**：`ad9505809eb918152d071e992993840f95883f0c`
+- **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-31
 - **可运行入口**：
   ```bash
   .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.1/smoke_v4_1.json --output-root /tmp/smoke --sumo-processes 1
@@ -186,8 +204,8 @@
 ### 待处理
 
 - **v0.4.2**：分拆设计——主 factorial 关闭 SSM 运行效率/排放/FCD 完整网格；独立 safety experiment 专门定义 TTC/DRAC estimand。
-- **SUMO upstream**：s2 无事件但 RSS ~9 GiB 的 encounter-tracking 行为，制作最小复现提交。
-- **SSM repro（阻塞）**：D-012 Reviewer 补正待独立提交与复核；dirty `31fc13b` 的 s3 成功仅为开发观察，首次失败尝试不可验证、不得引用。完成 clean D-012 提交的规范 s3 attempt 且 positive-control pass 前，不得运行 s2。
+- **SUMO upstream**：审阅并在需要时提交本地 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md`；只报告 SSM device-on/off 关联、零事件输出和可复现 RSS 差异。
+- **诊断运行门禁**：上游反馈或新、版本化设计获批前，不再运行任何诊断；dirty `31fc13b` 的 s3 成功仅为开发观察，首次失败 attempt 不可验证、不得引用。
 - **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针。
 - **暂缓**：S8 冻结输入、PreparedRun.fcd_path → 1.post1。
 
@@ -198,6 +216,7 @@
 - **schema=2 完整性约束**：detector 必须覆盖 net.json 指定的全部 lane，且每个 lane 同时存在 all/HV/CAV；net.json 异常不得回退单车道。subgroup JSONL 必须存在、非空且 SHA 与 parse_status 一致。
 - **自由流约束**：不得恢复硬编码 98.8 fallback；artifact 的 SUMO 完整版本、scenario net SHA、HV/当前 model 有限正圈时必须全部匹配。
 - **修改前验证**：`ExperimentConfig.sha256() == 178dfcef...`；旧 pipeline dry-run 10,080；RunSpec legacy hash 不变；涉及 schema=2 时额外运行 pilot 162 dry-run 和定向完整性探针。
+- **Reviewer 边界**：正式 Reviewer 是用户指定的独立 Codex 会话；任何内部静态预检不构成正式 Reviewer 复核，Reviewer 不直接修改代码。
 
 ---
 

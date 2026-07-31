@@ -2,7 +2,7 @@
 
 > A reproducible SUMO experiment platform for evaluating how CAV penetration and car-following control affect **observed flow, safety, emissions, and reference-relative lap time** under different road constraints.
 
-`SUMO 1.27.1` · `Python 3.10+` · `10,080 simulations` · `v0.4.1`
+`SUMO 1.27.1` · `Python 3.10+` · `10,080 simulations` · `v0.4.0.post3`
 
 [Key Findings](#key-findings) ·
 [Scenario Design](#scenario-design) ·
@@ -273,7 +273,7 @@ different compatibility boundaries:
 
 | Version axis | Value | Meaning |
 |---|---|---|
-| Release/package | `v0.4.1` | Measurement toolchain release (subgroup, THW, sensitivity, free-flow) |
+| Release/package | `v0.4.0.post3` (public); v0.4.1 toolchain = internal milestone, ships with v0.4.2 | Measurement toolchain (subgroup, THW, sensitivity, free-flow) |
 | Experiment config | `v0.4.0` | Published 10,080-run experimental design |
 | Simulation pipeline | `v0.4.0.post1` | Frozen raw simulation provenance |
 | Analysis | `v0.4.0.post3` | Warmup-aligned edgeData and SSM extreme-time reanalysis |
@@ -412,7 +412,7 @@ The parser pipeline provides:
 ```text
 10,080 / 10,080  simulations completed
 2,016 / 2,016    aggregated groups with n_valid = 5
-85 / 85          automated tests passed
+212 / 212          automated tests passed
 0                duplicate run IDs
 0                parser failures
 0                invariant violations
@@ -480,7 +480,7 @@ python -m compileall -q scripts tests
 Expected result:
 
 ```text
-85 passed
+212 passed
 ```
 
 ### Run one simulation
@@ -678,17 +678,17 @@ docs/
 - Across-seed means and standard deviations are equal-weight descriptive
   summaries of assignment runs, not pooled exposure ratios, confidence
   intervals or significance tests.
-- Emission and safety metrics are not yet separated into HV and CAV sub-populations.
+- The v0.4.0 results are not separated into HV and CAV sub-populations; v0.4.1 adds subgroup tooling (detector/edgeData/SSM/vehroute/lanechange/stderr + `parsing/metrics.py`), but no subgroup-based grid data has been produced yet.
 - The absence of detected TTC conflicts in s2 applies only to the current `TTC < 3.0 s` threshold and tested parameter grid.
 - ACC is supported by earlier project versions but is not part of the formal v0.4.0 comparison.
-- TTC events have not yet been independently reproduced using FCD or TraCI trajectories.
+- TTC events have not yet been independently reproduced from FCD or TraCI trajectories; v0.4.1 provides the trajectory-validation tooling (FCD physical THW) but no new safety grid has been run.
 - SSM mirror deduplication is an analysis heuristic: opposite-direction records
   for the same vehicle pair are matched one-to-one when their encounter
   intervals overlap by at least 80% of the shorter duration. SUMO provides no
   shared event ID for deterministic pairing, so dense consecutive encounters
   may still be over- or under-deduplicated; absolute event counts should not be
   interpreted as exact physical conflict totals.
-- The free-flow lap baseline should be extended with an additional CACC single-vehicle comparison.
+- v0.4.1 adds model-specific free-flow references (HV/IDM/CACC) as validated artifacts (D-008); the v0.4.0 baseline table itself remains as published.
 - Automated tests cover parsers, experiment configuration, RunSpec integrity,
   provenance, simulation state transitions, resume validation, result writing,
   aggregation, network metadata and representative SUMO pipelines. Regular CI

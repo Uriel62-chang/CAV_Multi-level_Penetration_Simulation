@@ -75,7 +75,7 @@
 - **适用范围**：frozen_inputs、canonical_json_bytes、atomic_write_bytes、--acceptance CLI、PreparedRun.fcd_path
 - **重新评估触发条件**：阶段 1.post1 开始（仅剩余项 fcd_path）
 - **背景**：冻结输入是实现 provenance 可追溯性的独立功能，不影响 raw 生成核心路径。
-- **决定**：阶段 2 已实现 `frozen_inputs` 目录（frozen acceptance 输入对）、`canonical_json_bytes`（scripts/provenance.py:14）、`atomic_write_bytes`（scripts/provenance.py:22）、`--acceptance` CLI（scripts/simulation/batch_run.py:629/1240）与非 resume 覆盖保护；唯一剩余项 `PreparedRun.fcd_path` 推迟到 1.post1。
+- **决定**：阶段 2 已实现 `frozen_inputs` 目录（frozen acceptance 输入对，`prepare_post1_frozen_inputs` 入口 scripts/simulation/batch_run.py:625）、`canonical_json_bytes`（scripts/provenance.py:17）、`atomic_write_bytes`（scripts/provenance.py:24）、`--acceptance` CLI（scripts/simulation/batch_run.py:1240）与非 resume 覆盖保护；唯一剩余项 `PreparedRun.fcd_path` 推迟到 1.post1。
 - **当前代价**：仅缺 `PreparedRun.fcd_path` 字段；无其他未交付组件。
 
 ### D-006：SSM role 按 measure 独立保留极值来源

@@ -16,7 +16,7 @@ DEDUP_MAP = {
 }
 
 
-def _dedup_none(xml_path, warmup, ttc_th, drac_th):
+def _dedup_none(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
     """No dedup: count all valid records directly."""
     import xml.etree.ElementTree as ET
 
@@ -35,10 +35,11 @@ def _dedup_none(xml_path, warmup, ttc_th, drac_th):
 
     for conflict in root.findall("conflict"):
         try:
+            begin = float(conflict.get("begin", "0"))
             end = float(conflict.get("end", "0"))
         except (ValueError, TypeError):
             continue
-        if end <= warmup:
+        if end <= warmup or (simulation_end is not None and begin >= simulation_end):
             continue
 
         ego = conflict.get("ego", "")
@@ -59,7 +60,7 @@ def _dedup_none(xml_path, warmup, ttc_th, drac_th):
                 etime = float(elem.get("time", "0"))
             except (ValueError, TypeError):
                 continue
-            if etime < warmup:
+            if etime < warmup or (simulation_end is not None and etime >= simulation_end):
                 continue
             if not compare(val, threshold):
                 continue
@@ -85,9 +86,9 @@ def _dedup_none(xml_path, warmup, ttc_th, drac_th):
     )
 
 
-def _dedup_current(xml_path, warmup, ttc_th, drac_th):
+def _dedup_current(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
     """Current greedy one-to-one dedup (same as parse_ssm)."""
-    result = parse_ssm(xml_path, warmup, ttc_th, drac_th)
+    result = parse_ssm(xml_path, warmup, ttc_th, drac_th, simulation_end=simulation_end)
     return (
         result["ttc_conflict_event_count"],
         result["drac_conflict_event_count"],
@@ -97,7 +98,7 @@ def _dedup_current(xml_path, warmup, ttc_th, drac_th):
     )
 
 
-def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th):
+def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
     """Sorted greedy: sort records by (begin,end,ego,foe,minTTC,maxDRAC) before dedup."""
     import xml.etree.ElementTree as ET
     from collections import defaultdict
@@ -115,7 +116,7 @@ def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th):
             end = float(conflict.get("end", "0"))
         except (ValueError, TypeError):
             continue
-        if end <= warmup:
+        if end <= warmup or (simulation_end is not None and begin >= simulation_end):
             continue
         ego = conflict.get("ego", "")
         foe = conflict.get("foe", "")
@@ -127,7 +128,7 @@ def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th):
             try:
                 min_ttc_val = float(me.get("value", ""))
                 t = float(me.get("time", "0"))
-                if t >= warmup:
+                if warmup <= t and (simulation_end is None or t < simulation_end):
                     min_ttc_time = t
                 else:
                     min_ttc_val = None
@@ -141,7 +142,7 @@ def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th):
             try:
                 max_drac_val = float(mde.get("value", ""))
                 t = float(mde.get("time", "0"))
-                if t >= warmup:
+                if warmup <= t and (simulation_end is None or t < simulation_end):
                     max_drac_time = t
                 else:
                     max_drac_val = None
@@ -299,7 +300,9 @@ def run_sensitivity(input_root, output_dir, analysis_config_path):
                 continue
             func = _DEDUP_FUNCS[method]
             for th in ttc_thresholds:
-                ttc_cnt, _, min_ttc, _, ttc_veh = func(ssm_path, spec.warmup, th, 9999)
+                ttc_cnt, _, min_ttc, _, ttc_veh = func(
+                    ssm_path, spec.warmup, th, 9999, simulation_end=spec.simulation_end
+                )
                 rows.append(
                     {
                         "run_id": run_id,
@@ -314,7 +317,9 @@ def run_sensitivity(input_root, output_dir, analysis_config_path):
                     }
                 )
             for th in drac_thresholds:
-                _, drac_cnt, _, max_drac, _ = func(ssm_path, spec.warmup, 9999, th)
+                _, drac_cnt, _, max_drac, _ = func(
+                    ssm_path, spec.warmup, 9999, th, simulation_end=spec.simulation_end
+                )
                 rows.append(
                     {
                         "run_id": run_id,

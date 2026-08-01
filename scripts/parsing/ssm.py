@@ -74,6 +74,7 @@ def parse_ssm(
     ttc_threshold: float = 3.0,
     drac_threshold: float = 3.0,
     fragment_merge_gap_s: float = 0.0,
+    simulation_end: float | None = None,
 ):
     """解析 SUMO SSM 输出 XML。
 
@@ -124,7 +125,7 @@ def parse_ssm(
             invalid += 1
             continue
 
-        if end <= warmup_period:
+        if end <= warmup_period or (simulation_end is not None and begin >= simulation_end):
             warmup_filtered += 1
             continue
 
@@ -138,7 +139,9 @@ def parse_ssm(
             try:
                 ttc_val = float(min_ttc_elem.get("value", ""))
                 ttc_time = float(min_ttc_elem.get("time", str(begin)))
-                if ttc_time < warmup_period:
+                if ttc_time < warmup_period or (
+                    simulation_end is not None and ttc_time >= simulation_end
+                ):
                     ttc_val = None
             except (ValueError, TypeError):
                 ttc_val = None
@@ -150,7 +153,9 @@ def parse_ssm(
             try:
                 drac_val = float(max_drac_elem.get("value", ""))
                 drac_time = float(max_drac_elem.get("time", str(begin)))
-                if drac_time < warmup_period:
+                if drac_time < warmup_period or (
+                    simulation_end is not None and drac_time >= simulation_end
+                ):
                     drac_val = None
             except (ValueError, TypeError):
                 drac_val = None
@@ -290,6 +295,7 @@ def parse_ssm_subgroup(
     ttc_threshold: float = 3.0,
     drac_threshold: float = 3.0,
     fragment_merge_gap_s: float = 0.0,
+    simulation_end: float | None = None,
 ) -> dict:
     all_result = _make_default_all_result()
 
@@ -330,7 +336,7 @@ def parse_ssm_subgroup(
             invalid += 1
             continue
 
-        if end <= warmup_period:
+        if end <= warmup_period or (simulation_end is not None and begin >= simulation_end):
             warmup_filtered += 1
             continue
 
@@ -346,7 +352,9 @@ def parse_ssm_subgroup(
                 ttc_val = float(min_ttc_elem.get("value", ""))
                 ttc_time = float(min_ttc_elem.get("time", str(begin)))
                 ttc_type_code = int(min_ttc_elem.get("type", "0"))
-                if ttc_time < warmup_period:
+                if ttc_time < warmup_period or (
+                    simulation_end is not None and ttc_time >= simulation_end
+                ):
                     ttc_val = None
                     ttc_type_code = None
             except (ValueError, TypeError):
@@ -362,7 +370,9 @@ def parse_ssm_subgroup(
                 drac_val = float(max_drac_elem.get("value", ""))
                 drac_time = float(max_drac_elem.get("time", str(begin)))
                 drac_type_code = int(max_drac_elem.get("type", "0"))
-                if drac_time < warmup_period:
+                if drac_time < warmup_period or (
+                    simulation_end is not None and drac_time >= simulation_end
+                ):
                     drac_val = None
                     drac_type_code = None
             except (ValueError, TypeError):

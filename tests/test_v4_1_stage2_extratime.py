@@ -323,6 +323,7 @@ def test_runner_merge_gap_when_extratime_reduced(tmp_path):
         ttc_threshold=3.0,
         drac_threshold=3.0,
         fragment_merge_gap_s=0.0,
+        simulation_end=None,
     ):
         captured_gap.append(fragment_merge_gap_s)
         return _original(
@@ -422,6 +423,7 @@ def test_runner_merge_gap_default_disabled(tmp_path):
         ttc_threshold=3.0,
         drac_threshold=3.0,
         fragment_merge_gap_s=0.0,
+        simulation_end=None,
     ):
         captured_gap.append(fragment_merge_gap_s)
         return _original(

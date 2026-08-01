@@ -536,6 +536,7 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
             ttc_threshold=3.0,
             drac_threshold=3.0,
             fragment_merge_gap_s=merge_gap,
+            simulation_end=spec.simulation_end,
         )
 
     # Lanechange

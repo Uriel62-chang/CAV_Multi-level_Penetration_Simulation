@@ -117,8 +117,8 @@ def plot_observed_peak_summary(observed_peaks: list, output_dir: str):
         linestyle="None",
         label="Grid Maximum",
     )
-    plt.title("Requested CAV Penetration vs Maximum Observed Flow", fontsize=20)
-    plt.xlabel("Requested CAV Penetration Rate (%)", fontsize=15)
+    plt.title("CAV Penetration vs Maximum Observed Flow", fontsize=20)
+    plt.xlabel("CAV Penetration Rate (%)", fontsize=15)
     plt.ylabel("Maximum Observed Flow in Tested Grid (veh/h)", fontsize=15)
     plt.ylim(0, grid_maximum * 1.1)
     for x, y in zip(cav_percentages, observed_peak_values, strict=True):
@@ -235,9 +235,9 @@ def chart_observed_peak_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
         ax.grid(True, alpha=0.3)
         ax.xaxis.set_major_formatter(mticker.FormatStrFormatter("%d%%"))
         ax.tick_params(labelbottom=True)  # 所有面板显示 x 轴刻度
-    axes[2].set_xlabel("Requested CAV Penetration Rate", fontsize=11)
-    axes[3].set_xlabel("Requested CAV Penetration Rate", fontsize=11)
-    fig.suptitle("Requested CAV Penetration vs Maximum Observed Flow", fontsize=14)
+    axes[2].set_xlabel("CAV Penetration Rate", fontsize=11)
+    axes[3].set_xlabel("CAV Penetration Rate", fontsize=11)
+    fig.suptitle("CAV Penetration vs Maximum Observed Flow", fontsize=14)
     path = out_dir / "chart_capacity.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -349,10 +349,10 @@ def chart_delay_v4(df: pd.DataFrame, out_dir: Path) -> None:
         ax.grid(True, alpha=0.3)
         ax.xaxis.set_major_formatter(mticker.FormatStrFormatter("%d%%"))
         ax.tick_params(labelbottom=True)  # 所有面板显示 x 轴刻度
-    axes[2].set_xlabel("Requested CAV Penetration Rate", fontsize=11)
-    axes[3].set_xlabel("Requested CAV Penetration Rate", fontsize=11)
+    axes[2].set_xlabel("CAV Penetration Rate", fontsize=11)
+    axes[3].set_xlabel("CAV Penetration Rate", fontsize=11)
     fig.suptitle(
-        "Lap-Time Difference From Fixed Reference vs Requested CAV Penetration (vehN=120)",
+        "Lap-Time Difference From Fixed Reference vs CAV Penetration (vehN=120)",
         fontsize=14,
     )
     path = out_dir / "chart_delay.png"

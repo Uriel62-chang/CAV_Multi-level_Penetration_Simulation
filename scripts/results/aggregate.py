@@ -174,7 +174,10 @@ def aggregate(input_csv: Path, output_csv: Path, schema_ver: str) -> pd.DataFram
         "realized_pcav",
         (grouped["vehN"] * grouped["pCAV"]).round() / grouped["vehN"],
     )
-    grouped.insert(6, "flow_valid_run_count", grouped["n_valid"])
+    # P1-1：输出 seed_scope（设计要求的统计单位说明）
+    if schema_ver == "2":
+        grouped.insert(6, "seed_scope", "vehicle_type_assignment")
+    grouped.insert(7, "flow_valid_run_count", grouped["n_valid"])
     # P0-3：双 seed 统计单位——assignment 水平数、sumo 水平数、组合数、有效 n
     if seed_stats is not None:
         grouped = grouped.merge(

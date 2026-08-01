@@ -766,7 +766,10 @@ def _stderr_tail(path: Path, limit: int = 4000) -> str:
 
 
 def _missing_required_outputs(run_dir: Path, spec: RunSpec) -> list[str]:
-    names = ["ssm.xml", "lanechange.xml", "performance.xml", "emissions.xml", "vehroute.xml"]
+    # P0-4：v0.4.2 主 factorial（ssm_enabled=False）不要求 ssm.xml（意图性缺失）
+    names = ["lanechange.xml", "performance.xml", "emissions.xml", "vehroute.xml"]
+    if not (getattr(spec, "pipeline_version", "") == "v0.4.2" and not spec.ssm_enabled):
+        names.append("ssm.xml")
     if spec.fcd_profile is not None:
         names.append("fcd.xml.gz")
     if getattr(spec, "schema_version", "1") == "2":
@@ -1066,8 +1069,8 @@ async def run_sumo_process(
             "stderr_tail": _stderr_tail(prepared.stderr_path),
             "sumo_peak_rss_kb": _max_rss_kb,
         }
-        # v0.4.1: 记录冻结输入哈希供 resume 校验
-        if status == "SUCCESS" and spec.pipeline_version == "v0.4.1":
+        # v0.4.1/v0.4.2: 记录冻结输入哈希供 resume 校验（P0-4 覆盖 v0.4.2）
+        if status == "SUCCESS" and spec.pipeline_version in ("v0.4.1", "v0.4.2"):
             status_data["route_file_sha256"] = sha256_file(str(prepared.route_path))
             type_map_path = prepared.vehicle_type_map_path or (run_dir / "vehicle_type_map.json")
             if type_map_path.exists():

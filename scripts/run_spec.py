@@ -411,7 +411,13 @@ class RunSpec:
         object.__setattr__(
             spec, "experiment_role", str(data.get("experiment_role", "main_factorial"))
         )
-        object.__setattr__(spec, "ssm_enabled", bool(data.get("ssm_enabled", False)))
+        # P0-6：显式布尔解析（"false"/"0"/"" → False），避免 bool("false")=True
+        raw_ssm_enabled = data.get("ssm_enabled", False)
+        if isinstance(raw_ssm_enabled, str):
+            ssm_enabled = raw_ssm_enabled.strip().lower() in ("1", "true", "yes")
+        else:
+            ssm_enabled = bool(raw_ssm_enabled)
+        object.__setattr__(spec, "ssm_enabled", ssm_enabled)
         object.__setattr__(
             spec, "analysis_ttc_threshold_s", float(data.get("analysis_ttc_threshold_s", 3.0))
         )
@@ -431,8 +437,25 @@ class RunSpec:
         object.__setattr__(
             spec, "ssm_fragment_merge_gap_s", float(data.get("ssm_fragment_merge_gap_s", 0.0))
         )
+        # P0-6：反序列化后显式校验（frozen 对象 setattr 绕过 __post_init__）
         if spec.experiment_role not in ("main_factorial", "safety"):
             raise ValueError(f"invalid experiment_role: {spec.experiment_role}")
+        if spec.analysis_ttc_threshold_s <= 0 or not spec._finite(spec.analysis_ttc_threshold_s):
+            raise ValueError("analysis_ttc_threshold_s must be positive and finite")
+        if spec.analysis_drac_threshold_mps2 <= 0 or not spec._finite(
+            spec.analysis_drac_threshold_mps2
+        ):
+            raise ValueError("analysis_drac_threshold_mps2 must be positive and finite")
+        if spec.ssm_dedup_method not in (
+            "none",
+            "greedy_one_to_one_80pct",
+            "sorted_greedy_80pct",
+        ):
+            raise ValueError(f"invalid ssm_dedup_method: {spec.ssm_dedup_method!r}")
+        if not (0 < spec.ssm_mirror_overlap_ratio <= 1):
+            raise ValueError("ssm_mirror_overlap_ratio must be in (0, 1]")
+        if spec.ssm_fragment_merge_gap_s < 0 or not spec._finite(spec.ssm_fragment_merge_gap_s):
+            raise ValueError("ssm_fragment_merge_gap_s must be non-negative and finite")
         return spec
 
     @classmethod

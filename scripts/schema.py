@@ -165,7 +165,7 @@ AUDIT_COLUMNS = [
 # v0.4.1 schema_version=2 审计字段
 # ═══════════════════════════════════════════════════════════════
 
-AUDIT_COLUMNS_V4_1 = AUDIT_COLUMNS + ["fcd_parse_success"]
+AUDIT_COLUMNS_V4_1 = AUDIT_COLUMNS + ["fcd_parse_success", "ssm_not_collected"]
 
 # v0.4.1 schema_version=2 核心 run-level CSV 列 (64 列)
 RUN_LEVEL_COLUMNS_V4_1 = (

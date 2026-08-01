@@ -76,6 +76,7 @@ def parse_ssm(
     fragment_merge_gap_s: float = 0.0,
     simulation_end: float | None = None,
     mirror_overlap_ratio: float = 0.8,
+    dedup_method: str = "greedy_one_to_one_80pct",
 ):
     """解析 SUMO SSM 输出 XML。
 
@@ -188,6 +189,9 @@ def parse_ssm(
     keep = [True] * len(parsed)
     mirrored = 0
 
+    # P0-6：dedup_method="none" 时跳过镜像去重
+    if dedup_method == "none":
+        groups = {}
     for pair, entries in groups.items():
         # 分为 A→B 和 B→A 两个方向
         forward = [(i, r) for i, r in entries if r["ego"] == pair[0] and r["foe"] == pair[1]]
@@ -298,6 +302,7 @@ def parse_ssm_subgroup(
     fragment_merge_gap_s: float = 0.0,
     simulation_end: float | None = None,
     mirror_overlap_ratio: float = 0.8,
+    dedup_method: str = "greedy_one_to_one_80pct",
 ) -> dict:
     all_result = _make_default_all_result()
 
@@ -415,6 +420,9 @@ def parse_ssm_subgroup(
     keep = [True] * len(parsed)
     mirrored = 0
 
+    # P0-6：dedup_method="none" 时跳过镜像去重
+    if dedup_method == "none":
+        groups = {}
     for pair, entries in groups.items():
         forward = [(i, r) for i, r in entries if r["ego"] == pair[0] and r["foe"] == pair[1]]
         reverse = [(i, r) for i, r in entries if r["ego"] == pair[1] and r["foe"] == pair[0]]

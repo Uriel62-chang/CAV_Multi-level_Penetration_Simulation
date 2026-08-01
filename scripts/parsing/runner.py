@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from scripts.provenance import sha256_file
-from scripts.run_spec import PIPELINE_V4_1, atomic_write_json, load_run_spec
+from scripts.run_spec import PIPELINE_V4_1, PIPELINE_V4_2, atomic_write_json, load_run_spec
 from scripts.schema import validate_summary_contract
 from scripts.simulation.single_run import load_network_meta, parse_run_outputs
 
@@ -298,7 +298,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
 
         # ── 解析 ──
         net_file = network_file or spec.network_file
-        if spec.schema_version == "2" and spec.pipeline_version == PIPELINE_V4_1:
+        if spec.schema_version == "2" and spec.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2):
             core, subgroup, errors = _parse_one_run_v4_1(run_dir, spec, net_file)
             summary = core
             import json as _json
@@ -534,11 +534,13 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
             ttc_th = spec.analysis_ttc_threshold_s
             drac_th = spec.analysis_drac_threshold_mps2
             overlap = spec.ssm_mirror_overlap_ratio
+            dedup = spec.ssm_dedup_method
         else:
             merge_gap = 5.0 if spec.ssm_extratime_s < 5.0 else 0.0
             ttc_th = 3.0
             drac_th = 3.0
             overlap = 0.8
+            dedup = "greedy_one_to_one_80pct"
         ssm = parse_ssm_subgroup(
             str(ssm_file),
             type_map,
@@ -548,6 +550,7 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
             fragment_merge_gap_s=merge_gap,
             simulation_end=spec.simulation_end,
             mirror_overlap_ratio=overlap,
+            dedup_method=dedup,
         )
 
     # Lanechange

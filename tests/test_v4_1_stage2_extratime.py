@@ -325,6 +325,7 @@ def test_runner_merge_gap_when_extratime_reduced(tmp_path):
         fragment_merge_gap_s=0.0,
         simulation_end=None,
         mirror_overlap_ratio=0.8,
+        dedup_method="greedy_one_to_one_80pct",
     ):
         captured_gap.append(fragment_merge_gap_s)
         return _original(
@@ -426,6 +427,7 @@ def test_runner_merge_gap_default_disabled(tmp_path):
         fragment_merge_gap_s=0.0,
         simulation_end=None,
         mirror_overlap_ratio=0.8,
+        dedup_method="greedy_one_to_one_80pct",
     ):
         captured_gap.append(fragment_merge_gap_s)
         return _original(

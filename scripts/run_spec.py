@@ -18,6 +18,7 @@ from scripts.provenance import sha256_file
 # pipeline 版本常量
 PIPELINE_V4_0_POST1 = "v0.4.0.post1"
 PIPELINE_V4_1 = "v0.4.1"
+PIPELINE_V4_2 = "v0.4.2"
 
 # ── run_id 生成 ──
 
@@ -168,6 +169,10 @@ class RunSpec:
 
     # 阶段 1 新增：FCD output
     fcd_profile: str | None = None
+
+    # v0.4.2 新增：experiment role 与 SSM 启用状态（P0-1）
+    experiment_role: str = "main_factorial"  # main_factorial | safety
+    ssm_enabled: bool = False  # 主 factorial 关闭 SSM，safety 开启；ssm.xml 意图性缺失时 False
     fcd_max_leader_distance_m: float | None = None
 
     def __post_init__(self) -> None:
@@ -179,8 +184,8 @@ class RunSpec:
                 raise ValueError(
                     f"cav_count={self.cav_count} out of range [0, {self.vehicle_count}]"
                 )
-        # v0.4.1 模式下校验 pcav 与 cav_count 一致性
-        if self.pipeline_version == PIPELINE_V4_1:
+        # v0.4.1 / v0.4.2 模式下校验 pcav 与 cav_count 一致性
+        if self.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2):
             expected = (self.cav_count or 0) / self.vehicle_count
             if abs(self.pcav - expected) > 1e-9:
                 raise ValueError(
@@ -189,10 +194,10 @@ class RunSpec:
                 )
         if self.requested_pcav is None and self.pipeline_version == PIPELINE_V4_0_POST1:
             object.__setattr__(self, "requested_pcav", self.pcav)
-        if self.pipeline_version == PIPELINE_V4_1 and self.sumo_seed < 0:
+        if self.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2) and self.sumo_seed < 0:
             raise ValueError(f"sumo_seed must be non-negative, got {self.sumo_seed}")
-        # 阶段 1 新增字段校验（v0.4.1 only）
-        if self.pipeline_version == PIPELINE_V4_1:
+        # 阶段 1 新增字段校验（v0.4.1 / v0.4.2）
+        if self.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2):
             if self.ssm_capture_ttc_threshold_s <= 0 or not self._finite(
                 self.ssm_capture_ttc_threshold_s
             ):
@@ -214,6 +219,15 @@ class RunSpec:
                     self.fcd_max_leader_distance_m
                 ):
                     raise ValueError("fcd_max_leader_distance_m must be positive and finite")
+        # v0.4.2 新增：experiment_role 校验
+        if self.pipeline_version == PIPELINE_V4_2 and self.experiment_role not in (
+            "main_factorial",
+            "safety",
+        ):
+            raise ValueError(
+                f"experiment_role must be 'main_factorial' or 'safety', "
+                f"got {self.experiment_role!r}"
+            )
 
     @staticmethod
     def _finite(val: float) -> bool:
@@ -267,6 +281,18 @@ class RunSpec:
             result["with_internal"] = self.with_internal
             result["fcd_profile"] = self.fcd_profile
             result["fcd_max_leader_distance_m"] = self.fcd_max_leader_distance_m
+        if self.pipeline_version == PIPELINE_V4_2:
+            result["sumo_seed"] = self.sumo_seed
+            result["ssm_capture_ttc_threshold_s"] = self.ssm_capture_ttc_threshold_s
+            result["ssm_capture_drac_threshold_mps2"] = self.ssm_capture_drac_threshold_mps2
+            result["ssm_range_m"] = self.ssm_range_m
+            result["ssm_trajectories"] = self.ssm_trajectories
+            result["ssm_extratime_s"] = self.ssm_extratime_s
+            result["with_internal"] = self.with_internal
+            result["fcd_profile"] = self.fcd_profile
+            result["fcd_max_leader_distance_m"] = self.fcd_max_leader_distance_m
+            result["experiment_role"] = self.experiment_role
+            result["ssm_enabled"] = self.ssm_enabled
         return result
 
     @classmethod
@@ -275,6 +301,8 @@ class RunSpec:
         pv = data.get("pipeline_version", PIPELINE_V4_0_POST1)
         if pv == PIPELINE_V4_1:
             return cls._from_dict_v4_1(data)
+        if pv == PIPELINE_V4_2:
+            return cls._from_dict_v4_2(data)
         if pv == PIPELINE_V4_0_POST1:
             return cls._from_dict_legacy(data)
         raise ValueError(f"unsupported pipeline_version: {pv}")
@@ -340,6 +368,23 @@ class RunSpec:
             fcd_profile=_optional_str(data, "fcd_profile"),
             fcd_max_leader_distance_m=_optional_float(data, "fcd_max_leader_distance_m"),
         )
+
+    @classmethod
+    def _from_dict_v4_2(cls, data: dict) -> RunSpec:
+        """v0.4.2 run_spec：v4_1 全部字段 + experiment_role/ssm_enabled。"""
+        required = _LEGACY_TO_DICT_KEYS | _V4_1_EXTRA_KEYS
+        missing = sorted(required - data.keys())
+        if missing:
+            raise ValueError(f"v0.4.2 run_spec.json missing fields: {', '.join(missing)}")
+
+        spec = cls._from_dict_v4_1(data)
+        object.__setattr__(
+            spec, "experiment_role", str(data.get("experiment_role", "main_factorial"))
+        )
+        object.__setattr__(spec, "ssm_enabled", bool(data.get("ssm_enabled", False)))
+        if spec.experiment_role not in ("main_factorial", "safety"):
+            raise ValueError(f"invalid experiment_role: {spec.experiment_role}")
+        return spec
 
     @classmethod
     def _from_dict_legacy(cls, data: dict) -> RunSpec:
@@ -507,13 +552,20 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
 
     required_files = [
         run_dir / "routes.rou.xml",
-        run_dir / "ssm.xml",
         run_dir / "lanechange.xml",
         run_dir / "performance.xml",
         run_dir / "emissions.xml",
         run_dir / "vehroute.xml",
     ]
-    if spec.pipeline_version == PIPELINE_V4_1:
+    # SSM 输出：v0.4.2 主 factorial 为意图性缺失（ssm_enabled=False），safety 要求存在
+    if spec.pipeline_version == PIPELINE_V4_2 and not spec.ssm_enabled:
+        if (run_dir / "ssm.xml").exists():
+            return False
+        if (run_dir / "ssm_compact.xml").exists():
+            return False
+    else:
+        required_files.append(run_dir / "ssm.xml")
+    if spec.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2):
         required_files.append(run_dir / "vehicle_type_map.json")
         if spec.fcd_profile is not None:
             required_files.append(run_dir / "fcd.xml.gz")
@@ -565,7 +617,7 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
         if stored_hash:
             if sha256_file(run_dir / file_name) != stored_hash:
                 return False
-        elif spec.pipeline_version == PIPELINE_V4_1:
+        elif spec.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2):
             return False
 
     return True

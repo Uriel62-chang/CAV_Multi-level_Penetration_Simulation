@@ -479,6 +479,40 @@ def build_sumo_command_v4_1(
     return cmd
 
 
+def _without_ssm_device_options(cmd: list) -> list:
+    """移除全部 --device.ssm.* 选项及其值，返回新列表（P0-1 主 factorial SSM-off）。"""
+    out: list = []
+    i = 0
+    while i < len(cmd):
+        arg = cmd[i]
+        if arg.startswith("--device.ssm.") or arg == "--device.ssm":
+            # 跳过该选项；若下一项不是选项，则一并跳过（选项值）
+            i += 1
+            if i < len(cmd) and not cmd[i].startswith("-"):
+                i += 1
+            continue
+        out.append(arg)
+        i += 1
+    return out
+
+
+def build_sumo_command_v4_2(
+    prepared: PreparedRun,
+    network_file: str,
+    spec,
+    sumo_command: str = "sumo",
+) -> list:
+    """v0.4.2 SUMO 命令行：v4_1 基础 + experiment_role/ssm_enabled 控制。
+
+    - 主 factorial（ssm_enabled=False）：不注入任何 --device.ssm.*，ssm.xml 意图性缺失；
+    - safety（ssm_enabled=True）：与 v4_1 相同，注入 SSM capture。
+    """
+    cmd = build_sumo_command_v4_1(prepared, network_file, spec, sumo_command=sumo_command)
+    if not spec.ssm_enabled:
+        cmd = _without_ssm_device_options(cmd)
+    return cmd
+
+
 # ═══════════════════════════════════════════════════════════════════
 # 单次仿真（CLI 入口 + 完整解析管线）
 # ═══════════════════════════════════════════════════════════════════

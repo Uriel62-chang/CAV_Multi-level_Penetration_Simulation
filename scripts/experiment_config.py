@@ -19,6 +19,7 @@ from scripts.config import (
 
 PIPELINE_V4_1 = "v0.4.1"
 PIPELINE_V4_0_POST1 = "v0.4.0.post1"
+PIPELINE_V4_2 = "v0.4.2"
 SEED_SCOPE = "vehicle_type_assignment"
 GRID_MODE_REQUESTED_PCAV = "requested_pcav"
 GRID_MODE_CAV_COUNT = "cav_count"
@@ -258,6 +259,10 @@ class ExperimentConfig:
                 raise ValueError(
                     f"stage 1 only supports ssm_measures='TTC DRAC', got {self.ssm_measures!r}"
                 )
+        if self.pipeline_version == PIPELINE_V4_2 and self.schema_version != "2":
+            raise ValueError(
+                f"v0.4.2 pipeline requires schema_version=2, got {self.schema_version}"
+            )
         _require_nonempty_unique("scenarios", self.scenarios)
         _require_nonempty_unique("models", self.models)
         if self.warmup < 0 or self.warmup >= self.simulation_end:
@@ -283,7 +288,7 @@ class ExperimentConfig:
                 f"fcd_max_leader_distance_m must be finite, got {self.fcd_max_leader_distance_m}"
             )
         # pipeline 白名单
-        allowed_pipelines = {"v0.4.0.post1", "v0.4.1"}
+        allowed_pipelines = {"v0.4.0.post1", "v0.4.1", "v0.4.2"}
         if self.pipeline_version not in allowed_pipelines:
             raise ValueError(
                 f"unsupported pipeline_version: {self.pipeline_version!r}, "

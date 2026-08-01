@@ -37,6 +37,7 @@ from scripts.experiment_config import load_experiment_config, validate_analysis_
 from scripts.provenance import collect_provenance, freeze_input_pair, sha256_file
 from scripts.run_spec import (
     PIPELINE_V4_1,
+    PIPELINE_V4_2,
     RunSpec,
     SimulationResult,
     atomic_write_json,
@@ -46,6 +47,7 @@ from scripts.run_spec import (
 from scripts.simulation.single_run import (
     build_sumo_command,
     build_sumo_command_v4_1,
+    build_sumo_command_v4_2,
     prepare_run,
 )
 
@@ -571,9 +573,9 @@ def _validate_cav_count_specs(
             raise RuntimeError(f"Invalid sumo_seed: {s.sumo_seed}")
         if s.seed_scope != "vehicle_type_assignment":
             raise RuntimeError(f"Invalid seed_scope: {s.seed_scope}")
-        if s.pipeline_version != PIPELINE_V4_1:
+        if s.pipeline_version not in (PIPELINE_V4_1, PIPELINE_V4_2):
             raise RuntimeError(
-                f"Expected pipeline_version={PIPELINE_V4_1}, got {s.pipeline_version}"
+                f"Expected pipeline_version={PIPELINE_V4_1} or {PIPELINE_V4_2}, got {s.pipeline_version}"
             )
 
         s_vn = s.vehicle_count
@@ -664,7 +666,9 @@ def validate_path_safety(output_root: Path, specs: list[RunSpec]) -> None:
             raise RuntimeError(f"Path escape: {run_dir} not under {output_resolved}")
 
 
-def validate_environment(output_root: Path, sumo_command: str, network_files: dict) -> None:
+def validate_environment(
+    output_root: Path, sumo_command: str, network_files: dict, specs: list | None = None
+) -> None:
     """启动前环境校验：SUMO、路网、磁盘"""
     if shutil.which(sumo_command) is None:
         raise RuntimeError(f"SUMO binary not found: {sumo_command}")
@@ -677,13 +681,18 @@ def validate_environment(output_root: Path, sumo_command: str, network_files: di
     if not os.access(output_root, os.W_OK):
         raise RuntimeError(f"Output root not writable: {output_root}")
 
-    usage = shutil.disk_usage(output_root)
-    min_bytes = 10 * 1024**3
-    if usage.free < min_bytes:
-        raise RuntimeError(
-            f"Insufficient disk space: {usage.free / 1024**3:.1f} GB free, "
-            f"need at least {min_bytes / 1024**3:.0f} GB"
-        )
+    if specs:
+        usage = shutil.disk_usage(output_root)
+        # P1-8：磁盘检查按 run 数估算参考用量（~20 MB/run），仅提示不硬门禁；
+        # 实际容量以运行时的 resume/OOM 恢复兜底。
+        per_run = 20 * 1024**2  # 20 MB per-run reference
+        est_gb = (per_run * len(specs)) / 1024**3
+        if usage.free < per_run * len(specs):
+            print(
+                f"[WARN] Estimated disk usage ~{est_gb:.1f} GB for {len(specs)} runs, "
+                f"{usage.free / 1024**3:.1f} GB free; runs exceeding capacity will be "
+                f"recovered via resume (not a hard gate)."
+            )
 
 
 def sort_specs(specs: list[RunSpec]) -> list[RunSpec]:
@@ -828,6 +837,8 @@ async def run_sumo_process(
         run_spec_sha256 = spec.sha256()
         if spec.pipeline_version == "v0.4.1":
             cmd = build_sumo_command_v4_1(prepared, network_file, spec, sumo_command)
+        elif spec.pipeline_version == "v0.4.2":
+            cmd = build_sumo_command_v4_2(prepared, network_file, spec, sumo_command)
         else:
             cmd = build_sumo_command(
                 prepared, network_file, sumo_command, spec.simulation_end, spec.step_length
@@ -1450,7 +1461,7 @@ def main():
     try:
         validate_path_safety(output_root, specs)
         print("[VALIDATE] path safety: OK")
-        validate_environment(output_root, args.sumo, network_files)
+        validate_environment(output_root, args.sumo, network_files, specs)
         print(f"[VALIDATE] SUMO={args.sumo}, output={output_root.resolve()}: OK")
     except RuntimeError as e:
         print(f"[ERROR] {e}")

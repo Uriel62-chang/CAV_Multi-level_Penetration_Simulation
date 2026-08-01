@@ -154,7 +154,14 @@ def _check_preconditions(run_dir: Path, pipeline_version: str) -> dict | None:
         if not (run_dir / fname).exists():
             return {"status": "SIMULATION_NOT_SUCCESS", "error_message": f"missing file: {fname}"}
 
-    if _find_ssm_file(run_dir) is None:
+    if getattr(spec, "pipeline_version", "") == "v0.4.2" and not spec.ssm_enabled:
+        # v0.4.2 主 factorial：ssm.xml 意图性缺失，不得存在
+        if _find_ssm_file(run_dir) is not None:
+            return {
+                "status": "SIMULATION_NOT_SUCCESS",
+                "error_message": "unexpected ssm.xml for SSM-disabled main factorial",
+            }
+    elif _find_ssm_file(run_dir) is None:
         return {
             "status": "SIMULATION_NOT_SUCCESS",
             "error_message": "missing ssm.xml / ssm_compact.xml",
@@ -497,19 +504,39 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
         edge_perf[label] = parse_edge_performance(str(perf_path), warmup)
         edge_emis[label] = parse_edge_emissions(str(emis_path), warmup)
 
-    # SSM
-    ssm_file = run_dir / "ssm_compact.xml"
-    if not ssm_file.exists():
-        ssm_file = run_dir / "ssm.xml"
-    merge_gap = 5.0 if spec.ssm_extratime_s < 5.0 else 0.0
-    ssm = parse_ssm_subgroup(
-        str(ssm_file),
-        type_map,
-        warmup,
-        ttc_threshold=3.0,
-        drac_threshold=3.0,
-        fragment_merge_gap_s=merge_gap,
-    )
+    # SSM：v0.4.2 主 factorial 为意图性缺失（ssm_enabled=False），不解析
+    if getattr(spec, "pipeline_version", "") == "v0.4.2" and not spec.ssm_enabled:
+        ssm = {
+            "all": {
+                "ssm_raw_record_count": 0,
+                "ssm_valid_record_count": 0,
+                "ttc_conflict_event_count": 0,
+                "drac_conflict_event_count": 0,
+                "parse_success": True,
+                "ssm_not_collected": True,
+            },
+            "pair_HV_HV": {"ttc_event_count": 0, "drac_event_count": 0},
+            "pair_HV_CAV": {"ttc_event_count": 0, "drac_event_count": 0},
+            "pair_CAV_CAV": {"ttc_event_count": 0, "drac_event_count": 0},
+            "role_f_HV_l_HV": {"ttc_event_count": 0, "drac_event_count": 0},
+            "role_f_HV_l_CAV": {"ttc_event_count": 0, "drac_event_count": 0},
+            "role_f_CAV_l_HV": {"ttc_event_count": 0, "drac_event_count": 0},
+            "role_f_CAV_l_CAV": {"ttc_event_count": 0, "drac_event_count": 0},
+            "unclassified": {"ttc_event_count": 0, "drac_event_count": 0},
+        }
+    else:
+        ssm_file = run_dir / "ssm_compact.xml"
+        if not ssm_file.exists():
+            ssm_file = run_dir / "ssm.xml"
+        merge_gap = 5.0 if spec.ssm_extratime_s < 5.0 else 0.0
+        ssm = parse_ssm_subgroup(
+            str(ssm_file),
+            type_map,
+            warmup,
+            ttc_threshold=3.0,
+            drac_threshold=3.0,
+            fragment_merge_gap_s=merge_gap,
+        )
 
     # Lanechange
     lc_path = run_dir / "lanechange.xml"

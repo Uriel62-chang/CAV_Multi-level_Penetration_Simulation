@@ -375,6 +375,23 @@ def run_v4(args) -> None:
     print(f"\n[DONE] 4 charts → {out_dir.resolve()}")
 
 
+def run_v4_2(args) -> None:
+    """v0.4.2 main-factorial 报告入口（P0-6）。
+
+    不生成 Safety–Flow trade-off 曲线（分拆设计 §3.4 禁止把两实验拼成联合 trade-off）；
+    Safety 事件率仅由独立 safety 报告使用空间配对列。"""
+    if not os.path.exists(args.aggregated):
+        print(f"错误: 找不到文件 {args.aggregated}")
+        return
+    df = pd.read_csv(args.aggregated)
+    out_dir = Path(args.outDir)
+    _ensure_dir(out_dir)
+    chart_observed_peak_flow_v4(df, out_dir)
+    chart_co2_flow_v4(df, out_dir)
+    chart_delay_v4(df, out_dir)
+    print(f"\n[DONE] 3 charts (main factorial, no safety-flow trade-off) → {out_dir.resolve()}")
+
+
 # ═══════════════════════════════════════════════════════════════════
 # CLI
 # ═══════════════════════════════════════════════════════════════════
@@ -393,11 +410,18 @@ def main():
         "--aggregated", default="results/aggregated_results.csv", help="v0.4.0 模式：多种子聚合 CSV"
     )
     parser.add_argument("--v4", action="store_true", help="启用 v0.4.0 四组 trade-off 图表模式")
+    parser.add_argument(
+        "--v4-2",
+        action="store_true",
+        help="启用 v0.4.2 main-factorial 报告模式（不生成 safety-flow trade-off）",
+    )
     # 通用
     parser.add_argument("--outDir", default="graph/v0.4.0", help="输出目录")
     args = parser.parse_args()
 
-    if args.v4:
+    if args.v4_2:
+        run_v4_2(args)
+    elif args.v4:
         run_v4(args)
     else:
         run_v03(args)

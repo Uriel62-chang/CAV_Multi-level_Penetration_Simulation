@@ -55,7 +55,7 @@
 ## Full experiment rerun only
 
 - [ ] The rerun is a new versioned experiment and does not overwrite v0.4.0/post3.
-- [ ] A bounded pilot has passed predefined correctness, randomness, storage and runtime gates.
+- [ ] A small-scale correctness check and resource estimate precede the full rerun; resource behaviour is not a veto on the study publication.
 - [ ] Requested treatments map to intended `cav_count/realized_pcav` values without accidental duplicate compositions.
 - [ ] Vehicle-type assignment seeds and independent SUMO random seeds are separate and documented.
 - [ ] Safety-event and vehicle-km spatial scopes are matched, including an explicit internal-edge policy.

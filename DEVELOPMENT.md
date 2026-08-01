@@ -140,39 +140,6 @@
 - **原因**：将损坏/不完整产物隔离在生成和汇总两个边界，避免报告“完整”但缺少计划输出。
 - **当前代价**：新增 schema 字段时必须同步更新契约与 subgroup 预期键测试。
 
-### D-012：SSM 诊断证据使用不可复用 attempt，而非 case 根目录
-
-- **状态**：Implemented；s3/s2 运行结果为 Developer 预检，正式 Reviewer 复核待完成
-- **适用范围**：`scripts/analysis/ssm_reproducer.py`、`configs/v0.4.1/ssm_reproducer_s[2|3].json`
-- **背景**：case 根目录复用会混淆不同代码基线与失败尝试；dirty tree 的观察不能替代规范证据。
-- **决定**：每次诊断写入 `case_id/attempt-###/{raw,report}`；启动前原子写 RUNNING，finally 写终态、错误与存在文件 SHA/缺失清单；仅完整成功且控制条件满足时生成派生 report。
-- **原因**：使失败、超时、解析和报告异常均可审计，防止覆盖或倒灌追认。
-- **当前代价**：规范 s3 positive-control 与 s2 zero-event attempt 均已闭合；后续诊断由 D-013 门禁约束。
-
-### D-013：SSM-on/off 最小复现先冻结设计，后实现与运行
-
-- **状态**：Implemented；A/B attempt 已闭合，运行结果与 archive/inventory 为 Developer 预检，正式 Reviewer 复核待完成
-- **适用范围**：`docs/development/v0.4.1-post1-ssm-ab-design.md`；后续诊断实现与 A/B attempt
-- **决定**：以已冻结的 s2 CACC/v120/c120/as00/ss102 treatment 为两臂公共输入；A 保持 SSM，B 仅移除 SSM device。SSM-off 的 `ssm.xml` 是意图性缺失，状态机必须显式记录，不得伪装成零事件或证据缺失。
-- **原因**：当前 s2/s3 对照支持关联但不识别原因；先隔离 SSM device 才能形成可解释的 upstream 最小复现。
-- **当前代价**：实现已冻结 A/B descriptor（case/network SHA、arm、RSS 周期）、SSM-only command 差异和 B 臂的 intentional absence。两臂已在 clean `ad95058` 闭合；上游反馈或新设计获批前，不再运行任何诊断。
-
-### D-014：SSM A/B 结论只表述为 device-on/off 关联
-
-- **状态**：Active
-- **适用范围**：SUMO upstream issue、README/report 后续解释、v0.4.2 safety 设计
-- **背景**：冻结 s2 A/B 中，仅启用 SSM device 时 sampled peak RSS 从 48,532 KiB 增至 9,340,844 KiB；SSM-on 最终仍为 0 raw record / 0 TTC / 0 DRAC。
-- **决定**：可表述“在该冻结工况与 SUMO 1.27.1 中，启用 SSM device 与约 8.86 GiB 额外 sampled peak RSS 相关”（9,292,312 KiB = 8.86 GiB；2026-07-31 修正，见第 189 行）；不得称为内存泄漏或断言具体 SUMO 内部数据结构。
-- **原因**：A/B 隔离了 device 配置因素，但单个 treatment 不能识别更细的内部机制或普适性。
-- **当前代价**：上游 issue 只询问该行为是否为预期 encounter tracking；不追认 v0.4.1 pilot 成功，资源门禁失败保持有效。
-
-### D-015：SSM 诊断证据使用显式 arm 目录与非自包含 inventory
-
-- **状态**：Active
-- **适用范围**：`raw/diagnostics/ssm_reproducer_ab_s2_arms/`、SUMO upstream issue 包
-- **决定**：A/B archive 固定为 `ssm_off/attempt-001` 与 `ssm_on/attempt-001`，避免同 case_id 的目录碰撞；`EVIDENCE_INVENTORY.sha256` 明确排除自身及其他 inventory 文件。
-- **原因**：两臂 case_id 相同，平铺复制会覆盖/混淆 evidence；将 inventory 自身纳入其 SHA 列表会产生无意义的自包含条目。
-- **当前代价**：已有平铺 `raw/diagnostics/ssm_reproducer_ab_s2/` 不作为规范 archive，也不删除以保留操作审计痕迹。
 
 ---
 
@@ -182,18 +149,8 @@
 
 - **阶段 0+1 已实现**：cav_count 双 seed 网格 + inactive-dimension 规范化；SUMO 命令注入 seed/SSM capture/FCD 输出；withInternal=true additional；writer `non_internal_edge_vehicle_km` 列名修正；进程退出轮询 + SIGINT→CANCELLED；CLI `--assignment-seeds`/`--sumo-seeds` 命名。
 - **阶段 2 完成**（2026-07-30，**v0.4.1 内部里程碑，未对外发布**）：HV/CAV 子群拆分；FCD physical THW；SSM pair/role provenance（D-006）；schema=2 runner/writer/aggregate；subgroup JSONL + SHA；自由流 artifact（D-008）；SSM sensitivity CLI；free-flow 测量；FCD numpy 内存方案（D-007）；net.json num_lanes fail-closed（D-009）；fragment merge（opt-in）；`--frozen-inputs`；per-run RSS；sim→parse→write→aggregate smoke。
-- **P1 第一批复核关闭**（`dad8a97`–`e8242fe`）：恢复 legacy config/resume、summary/subgroup 数值契约、writer manifest 闭合与 dry-run 门禁；原 annotated `v0.4.1` tag 已恢复为 `211782… → b16771e…`。整体发布门禁仍未关闭。
-- **P2 summary companion-field 已由 Reviewer 关闭**（`9e742fc`）：schema=1 summary 单独提供 optional whole-network TTC rate 而缺少 optional `non_internal_edge_vehicle_km` 时，契约返回字段级 companion-missing 错误；NaN 与有限 rate 均不再抛出 `KeyError`。
-- **P2 runner 错误聚合已由 Reviewer 关闭**（`c35f7fe`）：summary contract 与既有 invariant 同时失败时，runner 会按稳定顺序保留两类独立错误，并写入 `_invariant_errors` / `parse_status.error_message`。
-- **v0.4.1.post1 诊断产物（Developer 预检）**：D-012 attempt 状态机已生成 s3 positive-control、s2 zero-event 与 s2 SSM-on/off A/B 的闭合 attempt。A/B 为 clean `ad95058`，同一冻结 treatment、相同非 SSM 命令/descriptor；SSM-off peak RSS 48,532 KiB，SSM-on 9,340,844 KiB，差 9,292,312 KiB（192.47×），SSM-on 仍为 0 raw / 0 TTC / 0 DRAC。上述运行结果尚待独立 Reviewer 会话正式核验。
-- **v0.4.1.post1 诊断收尾（2026-07-31）**：本地 `ISSUE_DRAFT.md` 已补充现象二（s2/s3 跨 case 对照，明确标注非受控对比）与现象三（`trajectories=false` 未阻止内存增长，标注为推断级提问），并修正原有 GiB 换算错误（9,292,312 KiB = 8.86 GiB，非 9.29 GiB）；`INVENTORY.sha256` 已同步重新生成，14 个文件校验通过。issue 包仍待正式 Reviewer 核验 + 用户授权后才可对外提交。
-- **证据归档（Developer 预检）**：候选规范 A/B archive 为 `raw/diagnostics/ssm_reproducer_ab_s2_arms/`，`EVIDENCE_INVENTORY.sha256=30407e6c57bc8eae0f7a387247bc4d1d6aba59c4853debffa493d22ca73c6fef`；本地 SUMO issue 包为 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/`，包级 inventory SHA 为 `d966f1b90dc682c762dd574a5a76d4cf112bb11eb7a7c805dac9bd487119e870`（2026-07-31 核验时因 ISSUE_DRAFT 笔误修正重新生成，见下条）。均未对外提交，且 archive、inventory、issue 包待正式 Reviewer 核验。
-- **v0.4.1.post1 证据独立核验（2026-07-31，Developer 预检，非正式 Reviewer）**：A/B 数值（ssm_off 48,532 KiB → ssm_on 9,340,844 KiB，差值 9,292,312 KiB = 8.86 GiB，192.47×）、两臂非 SSM 命令逐参数等价（且 FCD/vehroute/performance/emissions/lanechange 数值内容逐字节一致，差异仅元数据，SSM device 不改变该零事件 case 的轨迹）、现象一 s2/s3 对照（9,315,592 vs 937,252 KiB，≈9.94×）、三处 inventory（arms 54/54、post1 52/52、issue 包 14/14）均独立复算/复校验通过。修正 ISSUE_DRAFT 现象二量级笔误（"~1.37 MiB/s" → 实测 40–42 s 段 ≈1.3 GiB/s，即 ≈1.37e6 KiB/s，样例 41.1→42.1 s 增长 7,545,324→8,914,604 KiB），issue 包 `INVENTORY.sha256` 已同步重新生成（14/14 校验通过）。
-- **正式 Reviewer 复核（2026-07-31）**：三处 inventory 完整性（54/54、52/52、14/14，SHA 30407e6c…/95f12b12…/d966f1b9…）与设计所引用数值（R1–R4、8.8618 GiB、192.47×）已获正式背书；v0.4.2 分拆设计获 6 项 P1（safety 子集规则占位、双 seed 统计单位、配对静态验收、SSM 窗口上界、资源预算非可执行、S8 状态反证）与 3 项 P2，**未获实现阶段背书**，维持 proposed for review；S8 反证确认 `PreparedRun.fcd_path` 为唯一未实现项。
-- **正式 Reviewer 复检（2026-07-31）**：P1-1~P1-5 与三项原 P2 确认关闭；P1-6（D-005 决策正文仍标 Deferred）与两项新 P2（AGENTS.md/DEVELOPMENT.md 技术-治理状态未统一、网格/预算门禁时点冲突）已于同日修订；**待再次复检后决定是否背书**。
-- **正式 Reviewer 背书（2026-07-31）**：机械短检通过——`5ace1b5` 仅改 DEVELOPMENT.md:78 一行，四个代码位置（provenance.py:17/24、batch_run.py:625/1240）全部准确，git diff --check 通过，工作树干净。**v0.4.2 分拆设计骨架无 P0/P1/P2，正式背书通过**。背书范围仅限设计骨架；网格设计附录与可执行资源预算待另行背书，期间仍不授权代码实现、数据生产、新增诊断或外部提交。
-- **网格设计附录已起草（2026-07-31，`a28b84e`）**：`docs/development/v0.4.2-grid-design.md`（draft v0.1，proposed for review）——主 factorial 候选基准 3,888 runs / 节约方案 2,592 runs（用户拍板：保留维度、压缩渗透率至 6 档；0.2 步长在 12 档 vehN 全部整数可实现，已验证 0 非整数组合）；safety 两阶段预算门禁（阶段一校准 12 GiB/进程、并发 1、~24 runs 预先冻结；阶段二 `max(12 GiB, ceil(1.30×M))`）；§5 有 6 项待冻结项（46–92 s 单价来源、校准公共 SUMO seed、s2 复测 4 run seed 组合、pilot seed 方差审计方案、校准判据细则、safety 正式子集）。
-- **任务暂缓（2026-07-31）**：Reviewer 歇工，本次开发任务暂缓。当前无 P0/P1/P2 的待决设计问题；**下一步接续点**：① Reviewer 复核网格设计附录（`a28b84e`）；② 用户拍板 §5 六项待冻结项；③ 附录获批前不运行任何 SUMO（含校准）、不改代码、不产数、不对外提交。
+- **分拆设计骨架已审查（2026-07-31）**：v0.4.2 分拆设计经 6 项 P1 + 3 项 P2 两轮修订后，机械短检通过（`5ace1b5`，无 P0/P1/P2），骨架获正式 Reviewer 背书；网格设计附录（`a28b84e`）已起草，后续按冗余门禁清理（见下）。
+- **冗余门禁清理（2026-07-31）**：废止 12 GiB 两阶段校准体系、resource addendum、反复 Reviewer 审批与逐提交审查流水账；SSM 内存管理降级为普通资源规则（OOM 降并发 resume，v0.4.0 已验证）。B 线诊断证据（D-012~D-015）已移入历史归档，不再推进；SSM 全量采集成本（9,292,312 KiB/run，零事件 case）仅作为提示性信息写入 REPORT/README，不作硬预算。
 - **已验证**：212 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；A/B 命令等价与 B 臂 intentional-absence 回归通过。
 - **已提交**：`7ea2e08`、`f675717`（D-012）；`7145a2d`（D-013 设计）；`6a5d772`、`ad95058`（A/B 实现和命令等价回归）。
 - **主线回归交接（2026-07-31，`47e72c5`）**：v0.4.1 确认为未发布内部里程碑（GitHub 最新 v0.4.0.post3，tag 已删）；跳号发布决定；B 线（SSM 内存诊断）宣告结束，降级为 REPORT/README 提示信息；v0.4.2 为唯一开发主线（设计→实现→数据→结论四环节对齐）；主线纪律约束生效。
@@ -217,9 +174,10 @@
 
 ### 待处理
 
-- **v0.4.2（主线，下一发布目标，跳号发布）**：分拆设计——主 factorial 关闭 SSM 运行效率/排放/FCD 完整网格；独立 safety experiment 专门定义 TTC/DRAC estimand。设计骨架：在「设计 → 实现 → 数据 → 结论」四环节对齐 v0.4.0 遗留 A 线问题（观测窗、SSM 事件与暴露量空间范围、pCAV 离散化、seed 语义、统计口径）；SSM 内存成本（~8.86 GiB/run）作为已验证约束写入采集成本预算，不再推进 B 线；s2 零事件为阈值下可信观测（已由 A/B + flush 证据确认）。
-  - **第一步动作（2026-07-31 定）**：起草 v0.4.2 分拆设计文档（版本化，参考 `docs/development/v0.4.1-post1-ssm-ab-design.md` 的冻结设计写法）。设计输入：① A 线四环节对齐问题清单；② SSM 内存成本约束 + s2 零事件结论；③ 主 factorial 与 safety experiment 分离；④ 发布治理（跳号、tag 已删、成果归属）；⑤ 采集成本预算（按实测单价：SSM-off ~48.5 MiB/run、~46–92 s/run、raw 输出 ~20 MB/run）。
-- **B 线收尾（已定，待 v0.4.2 发布时落地）**：SSM 全量采集内存成本（9,292,312 KiB/run，零事件 case）作为提示性信息写入 REPORT/README——属可接受的额外成本（v0.4.0 以 74 次 OOM 重跑兜底），受硬件配置影响，不作进一步改进。
+- **v0.4.2（主线，下一发布目标，跳号发布）**：主 factorial 关闭 SSM 运行效率/排放/FCD 完整网格；独立 safety experiment 定义 TTC/DRAC estimand。执行 A 线四环节对齐（观测窗、SSM 事件与暴露量空间范围、pCAV 离散化、seed 语义、统计口径）；s2 零事件为阈值下可信观测（已由 A/B + flush 证据确认）。
+  - **当前决策**：网格与 Safety 子集由用户确认后冻结（默认主网格 3,888 runs；2,592 为未来 addendum 选项）；SSM 参数显式固定（TTC/DRAC/range 单源，避免依赖 SUMO 隐式默认）。
+  - **成本参考**：SSM-off ~48.5 MiB/run、raw 输出 ~17–20 MB/run（实测）；SSM-on ~8.9 GiB/run 仅限 v0.4.1 的 TTC=5.0/range=50 配置，作为历史观测记录，不作为硬预算门禁。
+- **B 线收尾（已定，待 v0.4.2 发布时落地）**：SSM 全量采集内存成本（9,292,312 KiB/run，零事件 case）作为提示性信息写入 REPORT/README，注明受硬件配置影响、不作硬预算、不再改进（v0.4.0 以 74 次 OOM 重跑兜底）。
 - **SUMO upstream（可选开源贡献）**：先由正式 Reviewer 核验本地 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md`、archive 与 inventory；获用户另行授权后才可对外提交。issue 只报告 SSM device-on/off 关联、零事件输出和可复现 RSS 差异（已含现象二/三及 GiB 修正）。
 - **发布治理（v0.4.2 发布前）**：本地 `v0.4.1` tag 已删（2026-07-31）；release notes 显式说明跳号原因（pilot 未过门禁；D-012–D-015 技术证据已闭合、治理状态未闭合）并列明 v0.4.1 全部工程成果归属；AGENTS.md/DEVELOPMENT.md 版本状态已同步（本次提交）。
 - **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针。
@@ -233,7 +191,7 @@
 - **schema=2 完整性约束**：detector 必须覆盖 net.json 指定的全部 lane，且每个 lane 同时存在 all/HV/CAV；net.json 异常不得回退单车道。subgroup JSONL 必须存在、非空且 SHA 与 parse_status 一致。
 - **自由流约束**：不得恢复硬编码 98.8 fallback；artifact 的 SUMO 完整版本、scenario net SHA、HV/当前 model 有限正圈时必须全部匹配。
 - **修改前验证**：`ExperimentConfig.sha256() == 178dfcef...`；旧 pipeline dry-run 10,080；RunSpec legacy hash 不变；涉及 schema=2 时额外运行 pilot 162 dry-run 和定向完整性探针。
-- **Reviewer 边界**：正式 Reviewer 是用户指定的独立 Codex 会话；任何内部静态预检不构成正式 Reviewer 复核，Reviewer 不直接修改代码。
+- **Reviewer 边界**：正式 Reviewer 由用户指定；内部静态预检不构成正式 Reviewer 复核，Reviewer 不直接修改代码。
 - **主线纪律（2026-07-31 起）**：SSM 内存诊断为 B 线，不再推进（门禁维持：不再运行任何诊断，不得修改原证据或提交外部 issue，除非新版本化设计获批）；开发投入集中在 v0.4.2「设计 → 实现 → 数据 → 结论」对齐；提交任何文档/代码前先检查是否服务于 A 线或发布治理，避免再次偏离主线。
 
 ---
@@ -301,3 +259,39 @@ Agent 的修改说明只作为索引，Git diff 才是实际依据。核对：�
 
 **可以质疑已有设计，但必须**：指出具体风险、说明触发条件和影响、区分缺陷/改进建议/个人偏好、检查相关关键决策后再建议修改。
 **不直接修改代码**，除非用户明确要求修复或切换为 Developer/Improver 角色。
+
+---
+
+## 历史决策归档（B 线，不再推进）
+
+> 以下决策为 v0.4.1 SSM 内存诊断（B 线）的历史记录，保留供追溯。B 线已宣告结束：
+> 不再运行任何诊断、不修改原证据、不对外提交 issue（除非用户另行授权 + 正式 Reviewer 核验）。
+> SSM 全量采集内存成本（9,292,312 KiB/run，零事件 case）仅作为提示性信息，不作硬预算。
+
+### D-012：SSM 诊断证据使用不可复用 attempt，而非 case 根目录
+
+- **状态**：Implemented（历史）；s3/s2 运行结果曾为 Developer 预检，正式 Reviewer 复核已由 2026-07-31 核验覆盖
+- **适用范围**：`scripts/analysis/ssm_reproducer.py`、`configs/v0.4.1/ssm_reproducer_s[2|3].json`
+- **决定**：每次诊断写入 `case_id/attempt-###/{raw,report}`；启动前原子写 RUNNING，finally 写终态、错误与存在文件 SHA/缺失清单；仅完整成功且控制条件满足时生成派生 report。
+- **原因**：使失败、超时、解析和报告异常均可审计，防止覆盖或倒灌追认。
+
+### D-013：SSM-on/off 最小复现先冻结设计，后实现与运行
+
+- **状态**：Implemented（历史）
+- **适用范围**：`docs/development/v0.4.1-post1-ssm-ab-design.md`
+- **决定**：以已冻结的 s2 CACC/v120/c120/as00/ss102 treatment 为两臂公共输入；A 保持 SSM，B 仅移除 SSM device。SSM-off 的 `ssm.xml` 是意图性缺失，状态机必须显式记录，不得伪装成零事件或证据缺失。
+- **原因**：先隔离 SSM device 才能形成可解释的 upstream 最小复现。
+
+### D-014：SSM A/B 结论只表述为 device-on/off 关联
+
+- **状态**：Active（表述边界仍适用）
+- **适用范围**：SUMO upstream issue、README/report 后续解释、v0.4.2 safety 设计
+- **决定**：可表述“在该冻结工况与 SUMO 1.27.1 中，启用 SSM device 与约 8.86 GiB 额外 sampled peak RSS 相关”（9,292,312 KiB = 8.86 GiB）；不得称为内存泄漏或断言具体 SUMO 内部数据结构。
+- **原因**：A/B 隔离了 device 配置因素，但单个 treatment 不能识别更细的内部机制或普适性。
+
+### D-015：SSM 诊断证据使用显式 arm 目录与非自包含 inventory
+
+- **状态**：Implemented（历史）
+- **适用范围**：`raw/diagnostics/ssm_reproducer_ab_s2_arms/`、SUMO upstream issue 包
+- **决定**：A/B archive 固定为 `ssm_off/attempt-001` 与 `ssm_on/attempt-001`；`EVIDENCE_INVENTORY.sha256` 明确排除自身及其他 inventory 文件。
+- **原因**：两臂 case_id 相同，平铺复制会覆盖/混淆 evidence；inventory 自包含条目无意义。

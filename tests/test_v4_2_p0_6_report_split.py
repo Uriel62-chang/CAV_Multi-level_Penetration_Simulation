@@ -60,3 +60,83 @@ def test_cli_has_v4_2_flag():
     src = inspect.getsource(viz_main)
     assert "--v4-2" in src
     assert "run_v4_2" in src
+
+
+def test_safety_config_expands_to_84(tmp_path):
+    """P0-11：v0.4.2 safety 配置展开为 4×3×7=84 runs。"""
+    from scripts.experiment_config import load_experiment_config
+    from scripts.simulation.batch_run import build_run_specs
+
+    cfg = load_experiment_config("configs/v0.4.2/safety.json")
+    specs = build_run_specs(
+        scenarios=list(cfg.scenarios),
+        models=list(cfg.models),
+        treatments=[dict(t) for t in cfg.treatments],
+        sumo_seeds=list(cfg.sumo_seeds),
+        simulation_end=cfg.simulation_end,
+        warmup=cfg.warmup,
+        step_length=cfg.step_length,
+        detector_frequency=cfg.detector_frequency,
+        edge_data_frequency=cfg.edge_data_frequency,
+        loops=cfg.loops,
+        network_files=dict(cfg.network_files),
+        seed_scope=cfg.seed_scope,
+        pipeline_version=cfg.pipeline_version,
+        schema_version=cfg.schema_version,
+        config_sha256=cfg.sha256(),
+        network_sha256={},
+        experiment_id=cfg.sha256(),
+        ssm_capture_ttc_threshold_s=cfg.ssm_capture_ttc_threshold_s,
+        ssm_capture_drac_threshold_mps2=cfg.ssm_capture_drac_threshold_mps2,
+        ssm_range_m=cfg.ssm_range_m,
+        ssm_trajectories=cfg.ssm_trajectories,
+        ssm_extratime_s=cfg.ssm_extratime_s,
+        fcd_profile=cfg.fcd_profile,
+        fcd_max_leader_distance_m=cfg.fcd_max_leader_distance_m,
+        with_internal=cfg.with_internal,
+        experiment_role=cfg.experiment_role,
+        ssm_enabled=cfg.ssm_enabled,
+        analysis_ttc_threshold_s=cfg.analysis_ttc_threshold_s,
+        analysis_drac_threshold_mps2=cfg.analysis_drac_threshold_mps2,
+        ssm_dedup_method=cfg.ssm_dedup_method,
+        ssm_mirror_overlap_ratio=cfg.ssm_mirror_overlap_ratio,
+        ssm_fragment_merge_gap_s=cfg.ssm_fragment_merge_gap_s,
+    )
+    assert len(specs) == 84
+    assert all(s.experiment_role == "safety" for s in specs)
+    assert all(s.ssm_enabled for s in specs)
+    # p 档位与 vehN 组合验证
+    per_vehn = {vn: set() for vn in (30, 60, 120)}
+    for s in specs:
+        per_vehn[s.vehicle_count].add(s.cav_count / s.vehicle_count)
+    for vn, levels in per_vehn.items():
+        assert levels == {0.0, 0.2, 0.6, 1.0}, f"vehN={vn}: {levels}"
+
+
+def test_safety_report_generates_events_chart(tmp_path, monkeypatch):
+    """P0-11：safety 报告生成事件率随渗透率图，无 trade-off。"""
+    import argparse
+
+    from scripts.results import visualization as viz
+
+    df = pd.DataFrame(
+        {
+            "scenario": ["s0"] * 2,
+            "model": ["IDM", "CACC"],
+            "requested_pcav": [None, None],
+            "realized_pcav": [0.2, 0.6],
+            "pCAV": [0.2, 0.6],
+            "vehN": [60, 60],
+            "cav_count": [12, 36],
+            "whole_network_ttc_events_per_1000_non_internal_edge_veh_km_mean": [0.5, 1.2],
+        }
+    )
+    p = tmp_path / "agg.csv"
+    df.to_csv(p, index=False)
+    out = tmp_path / "out"
+    out.mkdir()
+    monkeypatch.setattr(viz.plt, "show", lambda: None)
+    viz.run_safety_v4_2(argparse.Namespace(aggregated=str(p), outDir=str(out)))
+    files = sorted(x.name for x in out.iterdir())
+    assert "chart_safety_events_by_penetration.png" in files
+    assert "chart_safety_flow.png" not in files

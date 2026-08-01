@@ -392,6 +392,34 @@ def run_v4_2(args) -> None:
     print(f"\n[DONE] 3 charts (main factorial, no safety-flow trade-off) → {out_dir.resolve()}")
 
 
+def run_safety_v4_2(args) -> None:
+    """v0.4.2 safety 独立报告入口（P0-11）。
+
+    生成 TTC/DRAC 事件率随渗透率（realized_pcav）变化的图，仅用空间配对列；
+    不生成与主 factorial 的联合 trade-off。"""
+    if not os.path.exists(args.aggregated):
+        print(f"错误: 找不到文件 {args.aggregated}")
+        return
+    df = pd.read_csv(args.aggregated)
+    out_dir = Path(args.outDir)
+    _ensure_dir(out_dir)
+    ttc_col = _ttc_metric_column(df)
+    pen = _penetration_column(df)
+    fig, axes = plt.subplots(1, 2, figsize=(16, 7), constrained_layout=True)
+    for ax, sc in zip(axes, ["scenario_0", "scenario_3"], strict=True):
+        sub = df[df["scenario"] == sc]
+        for model in ["IDM", "CACC"]:
+            d = sub[sub["model"] == model].sort_values(pen)
+            ax.plot(d[pen], d[ttc_col], marker="o", label=model)
+        ax.set_xlabel(f"{pen} (realized)")
+        ax.set_ylabel("TTC events / 1000 non-internal veh-km")
+        ax.set_title(f"{sc} safety")
+        ax.legend()
+    fig.savefig(out_dir / "chart_safety_events_by_penetration.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"\n[DONE] safety report (TTC events by penetration) → {out_dir.resolve()}")
+
+
 # ═══════════════════════════════════════════════════════════════════
 # CLI
 # ═══════════════════════════════════════════════════════════════════
@@ -415,11 +443,18 @@ def main():
         action="store_true",
         help="启用 v0.4.2 main-factorial 报告模式（不生成 safety-flow trade-off）",
     )
+    parser.add_argument(
+        "--safety",
+        action="store_true",
+        help="启用 v0.4.2 safety 独立报告模式（事件率随渗透率，仅空间配对列）",
+    )
     # 通用
     parser.add_argument("--outDir", default="graph/v0.4.0", help="输出目录")
     args = parser.parse_args()
 
-    if args.v4_2:
+    if args.safety:
+        run_safety_v4_2(args)
+    elif args.v4_2:
         run_v4_2(args)
     elif args.v4:
         run_v4(args)

@@ -159,6 +159,10 @@ def prepare_run(
                 raise ValueError(f"frozen {src_name} SHA mismatch after copy")
         vehicle_type_map = json.loads(type_map_path.read_text(encoding="utf-8"))
     else:
+        # P0-2：v0.4.2 时 cav_count 为权威来源，直接传入，避免 round 二义性
+        effective_cav_count = (
+            spec.cav_count if getattr(spec, "pipeline_version", "") == "v0.4.2" else None
+        )
         vehicle_type_map = generate_flow(
             spec.vehicle_count,
             spec.pcav,
@@ -172,6 +176,7 @@ def prepare_run(
             num_lanes=num_lanes,
             edge_ids=edge_ids,
             bottleneck_edge_ids=net_meta.get("bottleneck_edge_ids"),
+            cav_count=effective_cav_count,
         )
         type_map_path = run_dir / "vehicle_type_map.json"
         atomic_write_json(type_map_path, vehicle_type_map)

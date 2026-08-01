@@ -192,9 +192,18 @@ def _ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
+def _penetration_column(df: pd.DataFrame) -> str:
+    """v0.4.2 绘图横轴：realized_pcav 优先（count 网格下恒等于设计渗透率且非空）；
+    requested_pcav 仅 legacy requested-grid 使用；pCAV 为最旧兼容。"""
+    for col in ("realized_pcav", "requested_pcav", "pCAV"):
+        if col in df.columns:
+            return col
+    raise ValueError("no penetration column (realized_pcav/requested_pcav/pCAV) in dataframe")
+
+
 def chart_observed_peak_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
     """x=pCAV, y=每个 pCAV 下最高 flow，四场景分面"""
-    penetration_column = "requested_pcav" if "requested_pcav" in df.columns else "pCAV"
+    penetration_column = _penetration_column(df)
     observed_peaks = (
         df.groupby(["scenario", "model", penetration_column])["flow_mean"].max().reset_index()
     )
@@ -309,9 +318,9 @@ def chart_co2_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
 
 
 def chart_delay_v4(df: pd.DataFrame, out_dir: Path) -> None:
-    """x=requested pCAV, y=相对固定参考圈时的有符号差，vehN=120。"""
+    """x=渗透率, y=相对固定参考圈时的有符号差，vehN=120。"""
     sub = df[df["vehN"] == 120]
-    penetration_column = "requested_pcav" if "requested_pcav" in df.columns else "pCAV"
+    penetration_column = _penetration_column(df)
     fig, axes = plt.subplots(
         2, 2, figsize=(16, 11), sharex=True, sharey=False, constrained_layout=True
     )

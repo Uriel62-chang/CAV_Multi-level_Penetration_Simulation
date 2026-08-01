@@ -130,6 +130,7 @@ def aggregate(input_csv: Path, output_csv: Path, schema_ver: str) -> pd.DataFram
     grouped.columns = grouped.columns.map(lambda x: new_columns.get(x, f"{x[0]}_{x[1]}"))
     grouped = grouped.reset_index()
     if schema_ver == "2":
+        # P0-2：count 网格下 realized_pcav 为权威渗透率；requested_pcav 保持 nullable
         grouped.insert(2, "pCAV", grouped["cav_count"] / grouped["vehN"])
         grouped.insert(4, "requested_pcav", float("nan"))
     else:

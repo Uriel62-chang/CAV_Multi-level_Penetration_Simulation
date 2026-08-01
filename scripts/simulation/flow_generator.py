@@ -178,11 +178,15 @@ def generate_flow(
     num_lanes: int = 1,
     edge_ids: list[str] | None = None,
     bottleneck_edge_ids: list[str] | None = None,
+    cav_count: int | None = None,
 ) -> dict[str, str]:
     """生成混合车流 SUMO route 文件 (.rou.xml)，并返回 vehicle_id → vehicle_type 映射。
 
     步骤：等距分布车辆 → 随机打乱 CAV/HV 顺序 → 写入 vType + vehicle + route。
     多车道场景（scenario_2）自动注入 LC2013 换道参数和 departLane 属性。
+
+    CAV 数量（P0-2）：`cav_count` 为唯一权威来源；为 None 时由
+    `round(vehicle_count * cav_ratio)` 推导（legacy 兼容，供 v0.4.0/v0.4.1 路径）。
 
     Returns:
         dict[str, str]: ``{vehicle_id: vehicle_type}`` 映射，键如 ``"veh0"``，值 ``"CAV"`` 或 ``"HV"``。
@@ -215,8 +219,11 @@ def generate_flow(
 
     lc2013 = f" {_lc2013_attrs()}" if multi_lane else ""
 
-    # CAV数量
-    cav_count = round(vehicle_count * cav_ratio)
+    # CAV数量：cav_count 为权威来源（P0-2）；None 时 legacy round 推导
+    if cav_count is None:
+        cav_count = round(vehicle_count * cav_ratio)
+    if cav_count < 0 or cav_count > vehicle_count:
+        raise ValueError(f"cav_count={cav_count} out of range [0, {vehicle_count}]")
     vehicle_types = ["CAV"] * cav_count + ["HV"] * (vehicle_count - cav_count)
     rng.shuffle(vehicle_types)
 

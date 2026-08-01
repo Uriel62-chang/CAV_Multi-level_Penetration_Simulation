@@ -692,4 +692,16 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
         elif spec.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2):
             return False
 
+    # P0-10：v0.4.2 校验 additional 与 network XML（resume 闭包）
+    if spec.pipeline_version == PIPELINE_V4_2:
+        additional_sha = data.get("additional_file_sha256")
+        if additional_sha:
+            if sha256_file(run_dir / "additional.add.xml") != additional_sha:
+                return False
+        else:
+            return False
+        network_sha = data.get("network_xml_sha256")
+        if network_sha and spec.network_sha256 and network_sha != spec.network_sha256:
+            return False
+
     return True

@@ -1075,6 +1075,11 @@ async def run_sumo_process(
             type_map_path = prepared.vehicle_type_map_path or (run_dir / "vehicle_type_map.json")
             if type_map_path.exists():
                 status_data["vehicle_type_map_sha256"] = sha256_file(str(type_map_path))
+            # P0-10：v0.4.2 额外记录 additional 与 network XML SHA（resume 闭包）
+            if spec.pipeline_version == "v0.4.2":
+                status_data["additional_file_sha256"] = sha256_file(str(prepared.additional_path))
+                if spec.network_sha256:
+                    status_data["network_xml_sha256"] = spec.network_sha256
         atomic_write_json(prepared.status_path, status_data)
 
         return SimulationResult(

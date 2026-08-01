@@ -153,6 +153,7 @@ def _write_required_files(run_dir: Path) -> None:
     """写入 v0.4.2 schema=2 所需的全部文件（不含 ssm.xml）。"""
     for name in (
         "routes.rou.xml",
+        "additional.add.xml",
         "lanechange.xml",
         "performance.xml",
         "emissions.xml",
@@ -191,5 +192,23 @@ def _write_status(run_dir: Path, spec: RunSpec, pipeline: str) -> None:
 
     status["route_file_sha256"] = _h("routes.rou.xml")
     status["vehicle_type_map_sha256"] = _h("vehicle_type_map.json")
+    if spec.pipeline_version == "v0.4.2":
+        status["additional_file_sha256"] = _h("additional.add.xml")
+        status["network_xml_sha256"] = spec.network_sha256
     (run_dir / "simulation_status.json").write_text(json.dumps(status), encoding="utf-8")
     (run_dir / "run_spec.json").write_text(json.dumps(spec.to_dict()), encoding="utf-8")
+
+
+def test_v4_2_resume_rejects_additional_change(tmp_path: Path):
+    """P0-10：additional.add.xml 被修改后 resume 判定失败。"""
+    spec = _spec_v4_2(experiment_role="main_factorial", ssm_enabled=False)
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    _write_required_files(run_dir)
+    _write_status(run_dir, spec, pipeline="v0.4.2")
+    assert is_simulation_complete(spec, run_dir, "v0.4.2") is True
+    # 修改 additional → 拒绝复用
+    (run_dir / "additional.add.xml").write_text(
+        "<additional><modified/></additional>", encoding="utf-8"
+    )
+    assert is_simulation_complete(spec, run_dir, "v0.4.2") is False

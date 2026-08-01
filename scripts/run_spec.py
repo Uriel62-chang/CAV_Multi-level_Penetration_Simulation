@@ -253,6 +253,23 @@ class RunSpec:
                 raise ValueError("ssm_mirror_overlap_ratio must be in (0, 1]")
             if self.ssm_fragment_merge_gap_s < 0 or not self._finite(self.ssm_fragment_merge_gap_s):
                 raise ValueError("ssm_fragment_merge_gap_s must be non-negative and finite")
+            # P1-4：与 ExperimentConfig.validate() 一致的 role×ssm_enabled 与阈值包络约束，
+            # 使配置"单源"贯穿至实际运行单元（RunSpec 直构/from_dict 路径同样拒绝）
+            if self.experiment_role == "main_factorial" and self.ssm_enabled:
+                raise ValueError("main_factorial experiment must set ssm_enabled=false")
+            if self.experiment_role == "safety" and not self.ssm_enabled:
+                raise ValueError("safety experiment must set ssm_enabled=true")
+            if self.analysis_ttc_threshold_s > self.ssm_capture_ttc_threshold_s:
+                raise ValueError(
+                    f"analysis_ttc_threshold_s ({self.analysis_ttc_threshold_s}) exceeds "
+                    f"ssm_capture_ttc_threshold_s ({self.ssm_capture_ttc_threshold_s})"
+                )
+            if self.analysis_drac_threshold_mps2 < self.ssm_capture_drac_threshold_mps2:
+                raise ValueError(
+                    f"analysis_drac_threshold_mps2 ({self.analysis_drac_threshold_mps2}) below "
+                    f"ssm_capture_drac_threshold_mps2 "
+                    f"({self.ssm_capture_drac_threshold_mps2})"
+                )
 
     @staticmethod
     def _finite(val: float) -> bool:
@@ -707,5 +724,22 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
                 return False
         else:
             return False
+        # P0-1：net.json 与 raw SUMO 输出进入 SHA 闭包（Reviewer 复检）
+        net_json_sha = data.get("net_json_sha256")
+        if net_json_sha:
+            net_meta_path = Path(spec.network_file).with_name("net.json")
+            if not net_meta_path.exists() or sha256_file(net_meta_path) != net_json_sha:
+                return False
+        else:
+            return False
+        raw_hashes = data.get("raw_output_sha256")
+        if not isinstance(raw_hashes, dict) or not raw_hashes:
+            return False
+        for fname, fhash in raw_hashes.items():
+            if not isinstance(fname, str) or fname.startswith("/") or ".." in fname:
+                return False  # 拒绝路径穿越/绝对路径键
+            p = run_dir / fname
+            if not p.exists() or sha256_file(p) != fhash:
+                return False
 
     return True

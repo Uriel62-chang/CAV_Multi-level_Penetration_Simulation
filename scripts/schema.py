@@ -189,7 +189,6 @@ RUN_LEVEL_COLUMNS_V4_1 = (
     + list(SAFETY_EB_COLUMNS)
     + list(LANECHANGE_COLUMNS)
     + list(EMISSIONS_COLUMNS)
-    + list(EMISSIONS_COLUMNS_V4_2)
     + list(EFFICIENCY_COLUMNS)
     + list(NORMALIZED_COLUMNS)
     + list(DELAY_COLUMNS)
@@ -205,12 +204,20 @@ SUMMARY_REQUIRED_KEYS_V4_1 = (
     + list(SAFETY_EB_COLUMNS)
     + list(LANECHANGE_COLUMNS)
     + list(EMISSIONS_COLUMNS)
-    + list(EMISSIONS_COLUMNS_V4_2)
     + list(EFFICIENCY_COLUMNS)
     + list(NORMALIZED_COLUMNS)
     + list(DELAY_COLUMNS)
     + list(AUDIT_COLUMNS_V4_1)
 )
+
+# ═══════════════════════════════════════════════════════════════
+# v0.4.2 schema_version=2 扩展（P0-4/P1-1）
+# v0.4.2 在 v0.4.1 schema=2 契约之上新增排放双口径字段；
+# V4_1 集合保持冻结，V4_2 = V4_1 + 扩展，validator/writer 按 pipeline_version 分流。
+# ═══════════════════════════════════════════════════════════════
+
+RUN_LEVEL_COLUMNS_V4_2 = list(RUN_LEVEL_COLUMNS_V4_1) + list(EMISSIONS_COLUMNS_V4_2)
+SUMMARY_REQUIRED_KEYS_V4_2 = list(SUMMARY_REQUIRED_KEYS_V4_1) + list(EMISSIONS_COLUMNS_V4_2)
 
 # ── summary.json 完整必需字段 = CSV 列（去掉 quality 列）+ 审计字段 ──
 
@@ -290,9 +297,22 @@ SUMMARY_NAN_RULES = {
 }
 
 
-def validate_summary_contract(summary: dict, schema_version: str) -> list[str]:
-    """Return field-level schema errors; valid no-event extrema may be NaN."""
-    required = SUMMARY_REQUIRED_KEYS_V4_1 if schema_version == "2" else SUMMARY_REQUIRED_KEYS
+def validate_summary_contract(
+    summary: dict, schema_version: str, pipeline_version: str | None = None
+) -> list[str]:
+    """Return field-level schema errors; valid no-event extrema may be NaN.
+
+    schema=2 时按 pipeline_version 分流：v0.4.2 要求 V4_2（含排放双口径扩展），
+    v0.4.1 保持 V4_1 冻结契约（P1-1）。
+    """
+    if schema_version == "2":
+        required = (
+            SUMMARY_REQUIRED_KEYS_V4_2
+            if pipeline_version == "v0.4.2"
+            else SUMMARY_REQUIRED_KEYS_V4_1
+        )
+    else:
+        required = SUMMARY_REQUIRED_KEYS
     errors = [f"summary missing required key: {key}" for key in required if key not in summary]
     if errors:
         return errors

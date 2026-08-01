@@ -328,7 +328,9 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
         if _rss_sampler is not None:
             _rss_sampler.join(timeout=1.0)
 
-        contract_errors = validate_summary_contract(summary, spec.schema_version)
+        contract_errors = validate_summary_contract(
+            summary, spec.schema_version, pipeline_version=spec.pipeline_version
+        )
         errors = contract_errors + errors
         if errors:
             summary["_invariant_errors"] = errors

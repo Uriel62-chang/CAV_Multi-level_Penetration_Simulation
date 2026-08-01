@@ -64,6 +64,23 @@ def _make_v4_2_run(tmp_path):
         "vehicle_type_map_sha256": sha256_file(str(rd / "vehicle_type_map.json")),
         "additional_file_sha256": sha256_file(str(rd / "additional.add.xml")),
         "network_xml_sha256": spec.network_sha256,
+        "net_json_sha256": sha256_file(str(net_dir / "net.json")),
+        "raw_output_sha256": {
+            name: sha256_file(str(rd / name))
+            for name in (
+                "performance.xml",
+                "emissions.xml",
+                "lanechange.xml",
+                "vehroute.xml",
+                "performance_HV.xml",
+                "performance_CAV.xml",
+                "emissions_HV.xml",
+                "emissions_CAV.xml",
+                "detector_lane0.xml",
+                "detector_lane0_HV.xml",
+                "detector_lane0_CAV.xml",
+            )
+        },
     }
     (rd / "simulation_status.json").write_text(json.dumps(status))
     (rd / "run_spec.json").write_text(json.dumps(spec.to_dict()))
@@ -97,4 +114,22 @@ def test_v4_2_rejects_tampered_additional(tmp_path):
     rd, spec, _ = _make_v4_2_run(tmp_path)
     assert is_simulation_complete(spec, rd, PIPELINE_V4_2)
     (rd / "additional.add.xml").write_text("<tampered/>")
+    assert not is_simulation_complete(spec, rd, PIPELINE_V4_2)
+
+
+def test_v4_2_rejects_tampered_raw_output(tmp_path):
+    """P0-1：raw SUMO 输出（performance.xml）被修改后 resume 必须拒绝。"""
+    rd, spec, _ = _make_v4_2_run(tmp_path)
+    assert is_simulation_complete(spec, rd, PIPELINE_V4_2)
+    (rd / "performance.xml").write_text("<tampered-raw/>")
+    assert not is_simulation_complete(spec, rd, PIPELINE_V4_2)
+
+
+def test_v4_2_rejects_tampered_net_json(tmp_path):
+    """P0-1：net.json 内容被修改（num_lanes 仍合法）后 resume 必须拒绝。"""
+    rd, spec, _ = _make_v4_2_run(tmp_path)
+    assert is_simulation_complete(spec, rd, PIPELINE_V4_2)
+    net_dir = tmp_path / "net"
+    # 修改 num_lanes 之外的字段，num_lanes 仍为合法正整数
+    (net_dir / "net.json").write_text(json.dumps({"num_lanes": 1, "note": "tampered"}))
     assert not is_simulation_complete(spec, rd, PIPELINE_V4_2)

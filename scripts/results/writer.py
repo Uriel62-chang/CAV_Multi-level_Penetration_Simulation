@@ -23,6 +23,7 @@ from scripts.run_spec import atomic_write_json
 from scripts.schema import (
     RUN_LEVEL_COLUMNS,
     RUN_LEVEL_COLUMNS_V4_1,
+    RUN_LEVEL_COLUMNS_V4_2,
     SUBGROUP_LONG_COLUMNS_V4_1,
     validate_summary_contract,
 )
@@ -68,7 +69,9 @@ def _recompute_rate(numerator, denominator, fallback=None):
     return n / d * 1000
 
 
-def _read_summary(run_dir: Path, run_id: str, schema_ver: str) -> tuple[dict | None, str | None]:
+def _read_summary(
+    run_dir: Path, run_id: str, schema_ver: str, pipeline_version: str | None = None
+) -> tuple[dict | None, str | None]:
     """读取 summary.json，返回 (data, error_reason)。error_reason 为 None 表示成功。"""
     sp = run_dir / "summary.json"
     if not sp.exists():
@@ -81,7 +84,7 @@ def _read_summary(run_dir: Path, run_id: str, schema_ver: str) -> tuple[dict | N
 
     if data.get("run_id") != run_id:
         return None, f"run_id mismatch: {data.get('run_id')} != {run_id}"
-    errors = validate_summary_contract(data, schema_ver)
+    errors = validate_summary_contract(data, schema_ver, pipeline_version=pipeline_version)
     if errors:
         return None, "; ".join(errors)
 
@@ -112,9 +115,11 @@ def _read_sim_status(run_dir: Path) -> str:
         return "UNREADABLE"
 
 
-def _build_row(summary: dict, parse_status: str, schema_ver: str = "1") -> dict:
+def _build_row(
+    summary: dict, parse_status: str, schema_ver: str = "1", pipeline_version: str | None = None
+) -> dict:
     if schema_ver == "2":
-        return _build_row_v4_1(summary, parse_status)
+        return _build_row_v4_1(summary, parse_status, pipeline_version)
     else:
         return _build_row_legacy(summary, parse_status)
 
@@ -169,8 +174,9 @@ def _build_row_legacy(summary: dict, parse_status: str) -> dict:
     return row
 
 
-def _build_row_v4_1(summary: dict, parse_status: str) -> dict:
-    row = {col: summary.get(col, float("nan")) for col in RUN_LEVEL_COLUMNS_V4_1}
+def _build_row_v4_1(summary: dict, parse_status: str, pipeline_version: str | None = None) -> dict:
+    columns = RUN_LEVEL_COLUMNS_V4_2 if pipeline_version == "v0.4.2" else RUN_LEVEL_COLUMNS_V4_1
+    row = {col: summary.get(col, float("nan")) for col in columns}
 
     errors = summary.get("_invariant_errors", [])
     parser_flags = [
@@ -592,7 +598,7 @@ def build_run_level_results(
             continue
 
         # 读取 summary
-        summary, error = _read_summary(run_dir, run_id, schema_ver)
+        summary, error = _read_summary(run_dir, run_id, schema_ver, pipeline_version)
         if summary is None:
             failed_rows.append(
                 {
@@ -609,7 +615,7 @@ def build_run_level_results(
             continue
 
         # 构建 CSV 行
-        row = _build_row(summary, parse_status, schema_ver)
+        row = _build_row(summary, parse_status, schema_ver, pipeline_version)
         success_rows.append(row)
 
     # ── 排序 ──
@@ -637,7 +643,10 @@ def build_run_level_results(
 
     # ── 写入 run_level_results.csv ──
     csv_path = output_dir / results_filename
-    columns = RUN_LEVEL_COLUMNS_V4_1 if schema_ver == "2" else RUN_LEVEL_COLUMNS
+    if schema_ver == "2":
+        columns = RUN_LEVEL_COLUMNS_V4_2 if pipeline_version == "v0.4.2" else RUN_LEVEL_COLUMNS_V4_1
+    else:
+        columns = RUN_LEVEL_COLUMNS
     _atomic_write_csv(csv_path, success_rows, columns)
     print(f"[WRITE] {len(success_rows)} rows → {csv_path}")
 

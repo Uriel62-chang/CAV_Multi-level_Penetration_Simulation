@@ -206,6 +206,23 @@ def _write_status(run_dir: Path, spec: RunSpec, pipeline: str) -> None:
     if spec.pipeline_version == "v0.4.2":
         status["additional_file_sha256"] = _h("additional.add.xml")
         status["network_xml_sha256"] = spec.network_sha256
+        # P0-1：net.json 与 raw 输出 SHA 闭包
+        net_meta = Path(NET).with_name("net.json")
+        status["net_json_sha256"] = sha256_file(str(net_meta))
+        raw_names = [
+            "performance.xml",
+            "emissions.xml",
+            "lanechange.xml",
+            "vehroute.xml",
+            "performance_HV.xml",
+            "performance_CAV.xml",
+            "emissions_HV.xml",
+            "emissions_CAV.xml",
+            "detector_lane0.xml",
+            "detector_lane0_HV.xml",
+            "detector_lane0_CAV.xml",
+        ]
+        status["raw_output_sha256"] = {n: _h(n) for n in raw_names}
     (run_dir / "simulation_status.json").write_text(json.dumps(status), encoding="utf-8")
     (run_dir / "run_spec.json").write_text(json.dumps(spec.to_dict()), encoding="utf-8")
 

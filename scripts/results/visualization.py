@@ -187,12 +187,24 @@ _LEGACY_MISMATCHED_TTC_METRIC = "whole_network_ttc_events_per_1000_non_internal_
 
 
 def _ttc_metric_column(df: pd.DataFrame) -> str:
-    """优先使用空间配对列（全路网事件/全路网 veh-km，P0-3/A 线要求）；
-    旧 non-internal 口径列仅作 legacy CSV 兼容 fallback。"""
+    """v0.4.0 --v4 兼容路径：优先配对列，缺失时回退 legacy 错配列（post3 CSV）。"""
     for col in (_PAIRED_TTC_METRIC, _LEGACY_MISMATCHED_TTC_METRIC):
         if col in df.columns:
             return col
     raise ValueError(f"no TTC per-veh-km column in aggregated CSV; expected {_PAIRED_TTC_METRIC}")
+
+
+def _paired_ttc_metric_column(df: pd.DataFrame) -> str:
+    """v0.4.2 --safety 路径（P1-3）：只接受空间配对列，缺失 fail-closed。
+
+    不得回退到 legacy non-internal 错配列——那会重新生成 A 线已修正的错误口径。
+    """
+    if _PAIRED_TTC_METRIC in df.columns:
+        return _PAIRED_TTC_METRIC
+    raise ValueError(
+        f"safety report requires space-matched column {_PAIRED_TTC_METRIC!r}; "
+        f"found legacy mismatched column only: {_LEGACY_MISMATCHED_TTC_METRIC!r}"
+    )
 
 
 def _ensure_dir(path: Path) -> None:
@@ -412,7 +424,7 @@ def run_safety_v4_2(args) -> None:
     df = pd.read_csv(args.aggregated)
     out_dir = Path(args.outDir)
     _ensure_dir(out_dir)
-    ttc_col = _ttc_metric_column(df)
+    ttc_col = _paired_ttc_metric_column(df)  # P1-3：fail-closed，不回退 legacy 错配列
     pen = _penetration_column(df)
     fig, axes = plt.subplots(1, 2, figsize=(16, 7), constrained_layout=True)
     for ax, sc in zip(axes, ["scenario_0", "scenario_3"], strict=True):

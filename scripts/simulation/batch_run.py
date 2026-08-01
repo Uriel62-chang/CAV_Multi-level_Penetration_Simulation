@@ -765,6 +765,52 @@ def _stderr_tail(path: Path, limit: int = 4000) -> str:
         return ""
 
 
+def _collect_v4_2_raw_hashes(run_dir: Path, spec: RunSpec) -> dict[str, str]:
+    """v0.4.2 raw SUMO 输出文件的 SHA 清单（resume 闭包，P0-1）。
+
+    覆盖 performance/emissions/lanechange/vehroute/ssm（safety）/fcd（启用）/
+    detector（按 net.json num_lanes）；仅记录实际存在的文件。
+    """
+    names = [
+        "performance.xml",
+        "emissions.xml",
+        "lanechange.xml",
+        "vehroute.xml",
+        "performance_HV.xml",
+        "performance_CAV.xml",
+        "emissions_HV.xml",
+        "emissions_CAV.xml",
+    ]
+    if getattr(spec, "ssm_enabled", False):
+        names.append("ssm.xml")
+    if spec.fcd_profile is not None:
+        names.append("fcd.xml.gz")
+    net_meta_path = Path(spec.network_file).with_name("net.json")
+    num_lanes = 1
+    try:
+        with open(net_meta_path, encoding="utf-8") as f:
+            meta = json.load(f)
+        nl = meta.get("num_lanes")
+        if type(nl) is int and nl >= 1:
+            num_lanes = nl
+    except (OSError, ValueError):
+        pass
+    for lane_idx in range(num_lanes):
+        names.extend(
+            [
+                f"detector_lane{lane_idx}.xml",
+                f"detector_lane{lane_idx}_HV.xml",
+                f"detector_lane{lane_idx}_CAV.xml",
+            ]
+        )
+    hashes: dict[str, str] = {}
+    for name in names:
+        p = run_dir / name
+        if p.exists():
+            hashes[name] = sha256_file(str(p))
+    return hashes
+
+
 def _missing_required_outputs(run_dir: Path, spec: RunSpec) -> list[str]:
     # P0-4：v0.4.2 主 factorial（ssm_enabled=False）不要求 ssm.xml（意图性缺失）
     names = ["lanechange.xml", "performance.xml", "emissions.xml", "vehroute.xml"]
@@ -1080,6 +1126,11 @@ async def run_sumo_process(
                 status_data["additional_file_sha256"] = sha256_file(str(prepared.additional_path))
                 if spec.network_sha256:
                     status_data["network_xml_sha256"] = spec.network_sha256
+                # P0-1：net.json 与 raw SUMO 输出进 SHA 闭包（Reviewer 复检 P0-1）
+                net_meta_path = Path(spec.network_file).with_name("net.json")
+                if net_meta_path.exists():
+                    status_data["net_json_sha256"] = sha256_file(str(net_meta_path))
+                status_data["raw_output_sha256"] = _collect_v4_2_raw_hashes(run_dir, spec)
         atomic_write_json(prepared.status_path, status_data)
 
         return SimulationResult(

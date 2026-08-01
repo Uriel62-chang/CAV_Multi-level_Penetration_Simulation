@@ -20,6 +20,7 @@ from scripts.schema import (
     DELAY_COLUMNS,
     EFFICIENCY_COLUMNS,
     EMISSIONS_COLUMNS,
+    EMISSIONS_COLUMNS_V4_2,
     LANECHANGE_COLUMNS,
     NORMALIZED_COLUMNS,
     SAFETY_EB_COLUMNS,
@@ -37,6 +38,7 @@ METRIC_COLUMNS = (
     + SAFETY_EB_COLUMNS
     + LANECHANGE_COLUMNS
     + EMISSIONS_COLUMNS
+    + EMISSIONS_COLUMNS_V4_2  # P1-2：排放双口径进入 run-level 聚合（schema=1 CSV 无这些列，自动跳过）
     + EFFICIENCY_COLUMNS
     + NORMALIZED_COLUMNS
     + DELAY_COLUMNS
@@ -137,6 +139,14 @@ def aggregate(input_csv: Path, output_csv: Path, schema_ver: str) -> pd.DataFram
         "total_NOx_g": "nox",
         "total_PMx_g": "pmx",
         "total_fuel_kg": "fuel",
+        "non_internal_CO2_kg": "ni_co2",
+        "non_internal_NOx_g": "ni_nox",
+        "non_internal_PMx_g": "ni_pmx",
+        "non_internal_fuel_kg": "ni_fuel",
+        "whole_network_CO2_g_per_veh_km": "wn_co2_per_k",
+        "whole_network_NOx_mg_per_veh_km": "wn_nox_per_k",
+        "whole_network_PMx_mg_per_veh_km": "wn_pmx_per_k",
+        "whole_network_fuel_g_per_veh_km": "wn_fuel_per_k",
         "total_vehicle_km": "veh_km",
         "total_time_loss_s": "time_loss",
         "completed_lap_count": "laps",

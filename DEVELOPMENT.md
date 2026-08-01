@@ -151,7 +151,20 @@
 - **阶段 2 完成**（2026-07-30，**v0.4.1 内部里程碑，未对外发布**）：HV/CAV 子群拆分；FCD physical THW；SSM pair/role provenance（D-006）；schema=2 runner/writer/aggregate；subgroup JSONL + SHA；自由流 artifact（D-008）；SSM sensitivity CLI；free-flow 测量；FCD numpy 内存方案（D-007）；net.json num_lanes fail-closed（D-009）；fragment merge（opt-in）；`--frozen-inputs`；per-run RSS；sim→parse→write→aggregate smoke。
 - **分拆设计骨架已审查（2026-07-31）**：v0.4.2 分拆设计经 6 项 P1 + 3 项 P2 两轮修订后，机械短检通过（`5ace1b5`，无 P0/P1/P2），骨架获正式 Reviewer 背书；网格设计附录（`a28b84e`）已起草，后续按冗余门禁清理（见下）。
 - **冗余门禁清理（2026-07-31）**：废止 12 GiB 两阶段校准体系、resource addendum、反复 Reviewer 审批与逐提交审查流水账；SSM 内存管理降级为普通资源规则（OOM 降并发 resume，v0.4.0 已验证）。B 线诊断证据（D-012~D-015）已移入历史归档，不再推进；SSM 全量采集成本（9,292,312 KiB/run，零事件 case）仅作为提示性信息写入 REPORT/README，不作硬预算。
-- **已验证**：212 tests passed；Ruff/mypy/format/compileall 通过；pilot 162 与 legacy 10,080 dry-run 通过；A/B 命令等价与 B 臂 intentional-absence 回归通过。
+- **A 线实现完成（2026-08-01）**：v0.4.0 代码逻辑与实验设计对齐全部落地，9 个提交（`6147853`~`b72c381`）：
+  - **P0-1**（`370d3a2`/`44e8932`）：v0.4.2 pipeline 身份（PIPELINE_V4_2 + experiment_role/ssm_enabled），config→RunSpec→command→required-outputs→parser 贯通；主 factorial 可表达 SSM-off 意图性缺失；runner 分派 v0.4.2 到 stage2 parser
+  - **P0-2**（`a06e4dd`/`6147853`）：cav_count 权威处理变量（flow 生成不再 round 二义）；配置序列化含网格字段（不同网格 SHA 不碰撞）；绘图横轴 realized_pcav 优先
+  - **P0-3**（`c57e5ff`）：聚合分别记录 assignment/sumo 水平数、组合数、有效 n，拒缺失/重复组合
+  - **P0-4**（`05cd260`/`44e8932`）：SSM 观测窗上界 [warmup,3600)，主 parser/subgroup/sensitivity 统一；main_factorial 成功判定不要求 ssm.xml
+  - **P0-5**（`1916d53`/`44e8932`）：SSM analysis 配置单源（阈值/dedup/overlap/fragment 参数化并写入 summary）；ssm_not_collected 透传（区分未采集/零事件）；dedup_method 声明与实际执行一致
+  - **P0-6**（`73814bf`/`44e8932`）：main/safety 报告分离（`--v4-2` 不生成 trade-off；`--safety` 生成事件率随渗透率图）
+  - **P0-7**（`3c8f0ce`）：排放双累计（non-internal 主口径 + 全路网次要）
+  - **P0-8**（`47fa29d`）：自由流 4 场景参考 + 逐类型 delay（HV→HV ref、CAV→CAV_model ref，lap 加权）
+  - **P0-9**（`723bb2c`）：emissionClass 显式化（仅 v0.4.2，legacy 字节不变）
+  - **P0-10**（`658a055`）：resume 闭包扩展（additional/network XML SHA）
+  - **P0-11**（`ff30425`）：84-run Safety 正式配置（`configs/v0.4.2/safety.json`，p∈{0,0.2,0.6,1.0}）+ 独立报告入口
+  - **P1 组**（`b72c381`）：aggregate 输出 seed_scope；图表标签改"CAV Penetration"；删除 reasonix.toml 工具缓存
+- **已验证（2026-08-01）**：266 tests passed；Ruff/mypy/format/compileall 通过；legacy 10,080 / pilot 162 / safety 84 三 dry-run 通过；legacy SUMO 命令字节与路由 SHA 基线未变（P0-9 参数隔离验证）。
 - **已提交**：`7ea2e08`、`f675717`（D-012）；`7145a2d`（D-013 设计）；`6a5d772`、`ad95058`（A/B 实现和命令等价回归）。
 - **主线回归交接（2026-07-31，`47e72c5`）**：v0.4.1 确认为未发布内部里程碑（GitHub 最新 v0.4.0.post3，tag 已删）；跳号发布决定；B 线（SSM 内存诊断）宣告结束，降级为 REPORT/README 提示信息；v0.4.2 为唯一开发主线（设计→实现→数据→结论四环节对齐）；主线纪律约束生效。
 
@@ -159,7 +172,7 @@
 
 - **当前分支**：`main`
 - **本文档最后更新**：参见 `git log -1 --oneline -- DEVELOPMENT.md`
-- **最近代码稳定提交**：`ad9505809eb918152d071e992993840f95883f0c`（代码基线；其后 47e72c5/d064bcc/02fd67d/a036e94/c932033 为文档/交接提交）
+- **最近代码稳定提交**：`ad9505809eb918152d071e992993840f95883f0c`（legacy 基线）；A 线实现提交链 `6147853`~`b72c381`（HEAD，2026-08-01）
 - **版本发布状态**：GitHub 最新公开版本 v0.4.0.post3；v0.4.1 为本地内部里程碑（未 push、tag 已删）；**v0.4.2 为下一发布目标（跳号发布）**
 - **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-31
 - **可运行入口**：
@@ -174,9 +187,11 @@
 
 ### 待处理
 
-- **v0.4.2（主线，下一发布目标，跳号发布）**：主 factorial 关闭 SSM 运行效率/排放/FCD 完整网格；独立 safety experiment 定义 TTC/DRAC estimand。执行 A 线四环节对齐（观测窗、SSM 事件与暴露量空间范围、pCAV 离散化、seed 语义、统计口径）；s2 零事件为阈值下可信观测（已由 A/B + flush 证据确认）。
-  - **当前决策**：网格与 Safety 子集由用户确认后冻结（默认主网格 3,888 runs；2,592 为未来 addendum 选项）；SSM 参数显式固定（TTC/DRAC/range 单源，避免依赖 SUMO 隐式默认）。
-  - **成本参考**：SSM-off ~48.5 MiB/run、raw 输出 ~17–20 MB/run（实测）；SSM-on ~8.9 GiB/run 仅限 v0.4.1 的 TTC=5.0/range=50 配置，作为历史观测记录，不作为硬预算门禁。
+- **v0.4.2（主线，下一发布目标，跳号发布）**：A 线实现已完成（见「已完成」A 线实现完成条目）。剩余：
+  1. **正式 Reviewer 复核 A 线实现批次**（`6147853`~`b72c381`，266 tests + 三 dry-run 已过，待独立背书）；
+  2. **v0.4.2 正式网格运行**（主 factorial 3,888 runs + safety 84 runs）——需用户授权后产数（普通资源规则：OOM 降并发 resume）；
+  3. **B 线收尾文案**：SSM 全量采集内存成本（9,292,312 KiB/run，零事件 case）作为提示性信息写入 REPORT/README，注明受硬件配置影响、不作硬预算、不再改进；
+  4. **release notes 起草**（跳号说明 + v0.4.1 工程成果归属 + A 线实现清单）。
 - **B 线收尾（已定，待 v0.4.2 发布时落地）**：SSM 全量采集内存成本（9,292,312 KiB/run，零事件 case）作为提示性信息写入 REPORT/README，注明受硬件配置影响、不作硬预算、不再改进（v0.4.0 以 74 次 OOM 重跑兜底）。
 - **SUMO upstream（可选开源贡献）**：先由正式 Reviewer 核验本地 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md`、archive 与 inventory；获用户另行授权后才可对外提交。issue 只报告 SSM device-on/off 关联、零事件输出和可复现 RSS 差异（已含现象二/三及 GiB 修正）。
 - **发布治理（v0.4.2 发布前）**：本地 `v0.4.1` tag 已删（2026-07-31）；release notes 显式说明跳号原因（pilot 未过门禁；D-012–D-015 技术证据已闭合、治理状态未闭合）并列明 v0.4.1 全部工程成果归属；AGENTS.md/DEVELOPMENT.md 版本状态已同步（本次提交）。
@@ -190,6 +205,7 @@
 - **需要保持兼容**：`build_run_id()` 旧调用方式（`cav_count=None` 走 legacy 格式）；flow_generator 输出；10,080 旧 run ID 列表。
 - **schema=2 完整性约束**：detector 必须覆盖 net.json 指定的全部 lane，且每个 lane 同时存在 all/HV/CAV；net.json 异常不得回退单车道。subgroup JSONL 必须存在、非空且 SHA 与 parse_status 一致。
 - **自由流约束**：不得恢复硬编码 98.8 fallback；artifact 的 SUMO 完整版本、scenario net SHA、HV/当前 model 有限正圈时必须全部匹配。
+- **A 线实现约束（2026-08-01）**：P0-9 的 `explicit_emission_class` 参数默认 False（legacy v0.4.0/v0.4.1 路由字节不变），仅 v0.4.2 传 True；P0-10 的 v0.4.2 resume 要求 status 含 `additional_file_sha256` 与 `network_xml_sha256`（缺少即判定 incomplete）；SSM analysis 配置（阈值/dedup/overlap/fragment）仅 v0.4.2 从 RunSpec 读取，v0.4.1 保持旧 merge_gap 推导。
 - **修改前验证**：`ExperimentConfig.sha256() == 178dfcef...`；旧 pipeline dry-run 10,080；RunSpec legacy hash 不变；涉及 schema=2 时额外运行 pilot 162 dry-run 和定向完整性探针。
 - **Reviewer 边界**：正式 Reviewer 由用户指定；内部静态预检不构成正式 Reviewer 复核，Reviewer 不直接修改代码。
 - **主线纪律（2026-07-31 起）**：SSM 内存诊断为 B 线，不再推进（门禁维持：不再运行任何诊断，不得修改原证据或提交外部 issue，除非新版本化设计获批）；开发投入集中在 v0.4.2「设计 → 实现 → 数据 → 结论」对齐；提交任何文档/代码前先检查是否服务于 A 线或发布治理，避免再次偏离主线。

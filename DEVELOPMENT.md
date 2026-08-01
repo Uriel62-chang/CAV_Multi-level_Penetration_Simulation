@@ -151,7 +151,9 @@
 - **阶段 2 完成**（2026-07-30，**v0.4.1 内部里程碑，未对外发布**）：HV/CAV 子群拆分；FCD physical THW；SSM pair/role provenance（D-006）；schema=2 runner/writer/aggregate；subgroup JSONL + SHA；自由流 artifact（D-008）；SSM sensitivity CLI；free-flow 测量；FCD numpy 内存方案（D-007）；net.json num_lanes fail-closed（D-009）；fragment merge（opt-in）；`--frozen-inputs`；per-run RSS；sim→parse→write→aggregate smoke。
 - **分拆设计骨架已审查（2026-07-31）**：v0.4.2 分拆设计经 6 项 P1 + 3 项 P2 两轮修订后，机械短检通过（`5ace1b5`，无 P0/P1/P2），骨架获正式 Reviewer 背书；网格设计附录（`a28b84e`）已起草，后续按冗余门禁清理（见下）。
 - **冗余门禁清理（2026-07-31）**：废止 12 GiB 两阶段校准体系、resource addendum、反复 Reviewer 审批与逐提交审查流水账；SSM 内存管理降级为普通资源规则（OOM 降并发 resume，v0.4.0 已验证）。B 线诊断证据（D-012~D-015）已移入历史归档，不再推进；SSM 全量采集成本（9,292,312 KiB/run，零事件 case）仅作为提示性信息写入 REPORT/README，不作硬预算。
-- **A 线实现完成（2026-08-01）**：v0.4.0 代码逻辑与实验设计对齐全部落地，9 个提交（`6147853`~`b72c381`）：
+- **A 线实现完成（2026-08-01）**：v0.4.0 代码逻辑与实验设计对齐全部落地。实现提交链 =
+  前置提交 `73814bf`（P0-6 报告入口）+ `6147853`~`b72c381`（**8 个实现提交**）；
+  `1aa9632` 为范围外的交接文档提交（P2-1 修正：原"9 个提交"计数不准确）：
   - **P0-1**（`370d3a2`/`44e8932`）：v0.4.2 pipeline 身份（PIPELINE_V4_2 + experiment_role/ssm_enabled），config→RunSpec→command→required-outputs→parser 贯通；主 factorial 可表达 SSM-off 意图性缺失；runner 分派 v0.4.2 到 stage2 parser
   - **P0-2**（`a06e4dd`/`6147853`）：cav_count 权威处理变量（flow 生成不再 round 二义）；配置序列化含网格字段（不同网格 SHA 不碰撞）；绘图横轴 realized_pcav 优先
   - **P0-3**（`c57e5ff`）：聚合分别记录 assignment/sumo 水平数、组合数、有效 n，拒缺失/重复组合

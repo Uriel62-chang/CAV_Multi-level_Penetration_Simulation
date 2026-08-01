@@ -37,7 +37,7 @@ python3 -m scripts.simulation.batch_run \
   --scenario scenario_0 \
   --net net/scenario_0/loop.net.xml \
   --model IDM \
-  --seeds 1 \
+  --assignment-seeds 1 \
   --output-root raw \
   --resume
 
@@ -112,7 +112,7 @@ python3 -m scripts.results.visualization \
 - S8 剩余项：PreparedRun.fcd_path（canonical_json_bytes、atomic_write_bytes、--acceptance 已在阶段 2 实现）
 
 ### 测试基线
-- 170 tests passed（85 legacy + 19 v0.4.1 + 66 stage2）
+- 266 tests passed（A 线批次后基线；原 170 计数未含 v0.4.2 新增测试）
 - Ruff / mypy / compileall / format 全通过
 - dry-run: v0.4.0 10,080 / pilot 162 / smoke 1
 - aggregate 现已要求 --schema-version 参数

@@ -1,0 +1,111 @@
+{
+  "config_version": "v0.4.2-main-1",
+  "pipeline_version": "v0.4.2",
+  "schema_version": "2",
+  "grid_mode": "cav_count",
+  "experiment_role": "main_factorial",
+  "ssm_enabled": false,
+  "scenarios": [
+    "scenario_0",
+    "scenario_1",
+    "scenario_2",
+    "scenario_3"
+  ],
+  "models": [
+    "IDM",
+    "CACC"
+  ],
+  "treatments": [
+    {
+      "vehicle_count": 10,
+      "cav_counts": [0, 2, 4, 6, 8, 10],
+      "assignment_seeds": [1, 2, 3]
+    },
+    {
+      "vehicle_count": 20,
+      "cav_counts": [0, 4, 8, 12, 16, 20],
+      "assignment_seeds": [1, 2, 3]
+    },
+    {
+      "vehicle_count": 30,
+      "cav_counts": [0, 6, 12, 18, 24, 30],
+      "assignment_seeds": [1, 2, 3]
+    },
+    {
+      "vehicle_count": 40,
+      "cav_counts": [0, 8, 16, 24, 32, 40],
+      "assignment_seeds": [1, 2, 3]
+    },
+    {
+      "vehicle_count": 50,
+      "cav_counts": [0, 10, 20, 30, 40, 50],
+      "assignment_seeds": [1, 2, 3]
+    },
+    {
+      "vehicle_count": 60,
+      "cav_counts": [0, 12, 24, 36, 48, 60],
+      "assignment_seeds": [1, 2, 3]
+    },
+    {
+      "vehicle_count": 70,
+      "cav_counts": [0, 14, 28, 42, 56, 70],
+      "assignment_seeds": [1, 2, 3]
+    },
+    {
+      "vehicle_count": 80,
+      "cav_counts": [0, 16, 32, 48, 64, 80],
+      "assignment_seeds": [1, 2, 3]
+    },
+    {
+      "vehicle_count": 90,
+      "cav_counts": [0, 18, 36, 54, 72, 90],
+      "assignment_seeds": [1, 2, 3]
+    },
+    {
+      "vehicle_count": 100,
+      "cav_counts": [0, 20, 40, 60, 80, 100],
+      "assignment_seeds": [1, 2, 3]
+    },
+    {
+      "vehicle_count": 110,
+      "cav_counts": [0, 22, 44, 66, 88, 110],
+      "assignment_seeds": [1, 2, 3]
+    },
+    {
+      "vehicle_count": 120,
+      "cav_counts": [0, 24, 48, 72, 96, 120],
+      "assignment_seeds": [1, 2, 3]
+    }
+  ],
+  "sumo_seeds": [
+    101,
+    102,
+    103
+  ],
+  "seed_scope": "vehicle_type_assignment",
+  "simulation_end": 3600,
+  "warmup": 600,
+  "step_length": 0.1,
+  "detector_frequency": 120,
+  "edge_data_frequency": 300,
+  "loops": 300,
+  "network_files": {
+    "scenario_0": "net/scenario_0/loop.net.xml",
+    "scenario_1": "net/scenario_1/loop.net.xml",
+    "scenario_2": "net/scenario_2/loop.net.xml",
+    "scenario_3": "net/scenario_3/loop.net.xml"
+  },
+  "ssm_capture_ttc_threshold_s": 3.0,
+  "ssm_capture_drac_threshold_mps2": 3.0,
+  "ssm_range_m": 50.0,
+  "ssm_trajectories": false,
+  "ssm_extratime_s": 5.0,
+  "analysis_ttc_threshold_s": 3.0,
+  "analysis_drac_threshold_mps2": 3.0,
+  "ssm_dedup_method": "greedy_one_to_one_80pct",
+  "ssm_mirror_overlap_ratio": 0.8,
+  "ssm_fragment_merge_gap_s": 0.0,
+  "with_internal": true,
+  "fcd_profile": "1s",
+  "fcd_max_leader_distance_m": 4000
+}

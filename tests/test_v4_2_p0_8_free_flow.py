@@ -42,8 +42,8 @@ def _primitives(hv_mean=70.0, cav_mean=65.0, n_hv=10, n_cav=10):
 
 
 def test_delay_per_vehicle_type_weighted():
-    """HV lap → HV ref；CAV lap → CAV_IDM ref；加权汇总。"""
-    refs = {"HV": 60.0, "CAV_IDM": 58.0}
+    """HV lap → HV ref；CAV lap → IDM ref；加权汇总（runner 真实返回键结构）。"""
+    refs = {"HV": 60.0, "IDM": 58.0}
     prim = _primitives(hv_mean=70.0, cav_mean=65.0, n_hv=10, n_cav=10)
     s = compute_core_summary(prim, _spec("IDM"), refs)
     expected = ((70.0 - 60.0) * 10 + (65.0 - 58.0) * 10) / 20
@@ -51,8 +51,8 @@ def test_delay_per_vehicle_type_weighted():
 
 
 def test_delay_cav_uses_model_specific_ref():
-    """CAV delay 用 CAV_CACC 参考（非 HV/CAV_IDM）。"""
-    refs = {"HV": 60.0, "CAV_CACC": 57.0}
+    """CAV delay 用 CACC 参考（非 HV/IDM）。"""
+    refs = {"HV": 60.0, "CACC": 57.0}
     prim = _primitives(hv_mean=70.0, cav_mean=65.0, n_hv=10, n_cav=10)
     s = compute_core_summary(prim, _spec("CACC"), refs)
     expected = ((70.0 - 60.0) * 10 + (65.0 - 57.0) * 10) / 20
@@ -60,10 +60,22 @@ def test_delay_cav_uses_model_specific_ref():
 
 
 def test_delay_all_hv_no_cav():
-    refs = {"HV": 60.0, "CAV_IDM": 58.0}
+    refs = {"HV": 60.0, "IDM": 58.0}
     prim = _primitives(hv_mean=70.0, cav_mean=0.0, n_hv=20, n_cav=0)
     s = compute_core_summary(prim, _spec("IDM"), refs)
     assert s["mean_lap_delay_s"] == pytest.approx(10.0)
+
+
+def test_delay_runner_key_structure_mixed():
+    """P0-2 回归：runner 返回键为 {"HV", spec.model}，CAV delay 不得被静默丢弃。
+
+    Reviewer 复算场景：hv_mean=70/ref 60（+10）、cav_mean=65/ref 58（+7），
+    等权混合 → 8.5 s；旧实现只取 HV 项得 5.0 s。
+    """
+    refs = {"HV": 60.0, "IDM": 58.0}  # runner._load_free_flow_references 返回结构
+    prim = _primitives(hv_mean=70.0, cav_mean=65.0, n_hv=10, n_cav=10)
+    s = compute_core_summary(prim, _spec("IDM"), refs)
+    assert s["mean_lap_delay_s"] == pytest.approx(8.5)
 
 
 def test_free_flow_artifact_covers_all_scenarios():

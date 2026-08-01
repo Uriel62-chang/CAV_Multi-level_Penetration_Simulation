@@ -65,8 +65,15 @@ def aggregate(input_csv: Path, output_csv: Path, schema_ver: str) -> pd.DataFram
 
     # P0-3：schema=2 双 seed 统计单位——分别记录 assignment/sumo 水平数、组合数与有效 n，
     # 并拒绝缺失/重复组合（端点 assignment 失活为 1 个水平，sumo seed 仍活动）。
+    # P0-7：schema=2 时缺失 seed 列必须 fail-closed，不得静默退回旧统计。
     seed_stats = None
-    if schema_ver == "2" and "assignment_seed" in df_ok.columns:
+    if schema_ver == "2":
+        if "assignment_seed" not in df_ok.columns or "sumo_seed" not in df_ok.columns:
+            raise ValueError(
+                "schema=2 aggregation requires both 'assignment_seed' and 'sumo_seed' "
+                f"columns; missing: "
+                f"{[c for c in ('assignment_seed', 'sumo_seed') if c not in df_ok.columns]}"
+            )
         seed_groups = df_ok.groupby(list(group_keys), dropna=False)
         rows = []
         for keys, grp in seed_groups:

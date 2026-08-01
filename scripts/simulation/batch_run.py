@@ -1561,7 +1561,7 @@ def main():
         "resolved_config": resolved_config.to_dict(),
         "config_sha256": config_sha256,
         "sumo_seed_mode": "explicit"
-        if resolved_config.pipeline_version == "v0.4.1"
+        if resolved_config.pipeline_version in ("v0.4.1", "v0.4.2")
         else "SUMO default; no --seed passed",
         "started_at": batch_started_at,
         "finished_at": None,

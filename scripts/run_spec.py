@@ -701,7 +701,11 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
         else:
             return False
         network_sha = data.get("network_xml_sha256")
-        if network_sha and spec.network_sha256 and network_sha != spec.network_sha256:
+        if network_sha:
+            # P0-6：重新哈希实际网络文件比对（不能只与 RunSpec 内同源 SHA 比较）
+            if sha256_file(spec.network_file) != network_sha:
+                return False
+        else:
             return False
 
     return True

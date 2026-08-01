@@ -9,6 +9,7 @@
 
 from pathlib import Path
 
+from scripts.provenance import sha256_file
 from scripts.run_spec import (
     PIPELINE_V4_0_POST1,
     PIPELINE_V4_1,
@@ -105,7 +106,12 @@ def test_v4_2_safety_keeps_ssm_options():
 
 
 def test_v4_2_main_factorial_missing_ssm_is_complete(tmp_path: Path):
-    spec = _spec_v4_2(experiment_role="main_factorial", ssm_enabled=False)
+    spec = _spec_v4_2(
+        experiment_role="main_factorial",
+        ssm_enabled=False,
+        network_file=NET,
+        network_sha256=sha256_file(NET),
+    )
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True)
     _write_required_files(run_dir)
@@ -118,7 +124,12 @@ def test_v4_2_main_factorial_missing_ssm_is_complete(tmp_path: Path):
 
 
 def test_v4_2_safety_requires_ssm(tmp_path: Path):
-    spec = _spec_v4_2(experiment_role="safety", ssm_enabled=True)
+    spec = _spec_v4_2(
+        experiment_role="safety",
+        ssm_enabled=True,
+        network_file=NET,
+        network_sha256=sha256_file(NET),
+    )
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True)
     _write_required_files(run_dir)
@@ -201,7 +212,12 @@ def _write_status(run_dir: Path, spec: RunSpec, pipeline: str) -> None:
 
 def test_v4_2_resume_rejects_additional_change(tmp_path: Path):
     """P0-10：additional.add.xml 被修改后 resume 判定失败。"""
-    spec = _spec_v4_2(experiment_role="main_factorial", ssm_enabled=False)
+    spec = _spec_v4_2(
+        experiment_role="main_factorial",
+        ssm_enabled=False,
+        network_file=NET,
+        network_sha256=sha256_file(NET),
+    )
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True)
     _write_required_files(run_dir)

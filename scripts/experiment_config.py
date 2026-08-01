@@ -185,13 +185,13 @@ class ExperimentConfig:
             ssm_measures=str(data.get("ssm_measures", "TTC DRAC")),
             ssm_range=str(data.get("ssm_range", "50.0")),
             ssm_range_m=float(data.get("ssm_range_m", 50.0)),
-            ssm_trajectories=bool(data.get("ssm_trajectories", False)),
+            ssm_trajectories=_parse_bool(data, "ssm_trajectories", False),
             ssm_extratime_s=float(data.get("ssm_extratime_s", 5.0)),
             fcd_profile=_optional_str(data, "fcd_profile"),
             fcd_max_leader_distance_m=_optional_float(data, "fcd_max_leader_distance_m"),
-            with_internal=bool(data.get("with_internal", False)),
+            with_internal=_parse_bool(data, "with_internal", False),
             experiment_role=str(data.get("experiment_role", "main_factorial")),
-            ssm_enabled=bool(data.get("ssm_enabled", False)),
+            ssm_enabled=_parse_bool(data, "ssm_enabled", False),
             analysis_ttc_threshold_s=float(data.get("analysis_ttc_threshold_s", 3.0)),
             analysis_drac_threshold_mps2=float(data.get("analysis_drac_threshold_mps2", 3.0)),
             ssm_dedup_method=str(data.get("ssm_dedup_method", "greedy_one_to_one_80pct")),
@@ -295,6 +295,32 @@ class ExperimentConfig:
             raise ValueError(
                 f"v0.4.2 pipeline requires schema_version=2, got {self.schema_version}"
             )
+        # P0-5：v0.4.2 双实验 role×ssm_enabled 一致性 + capture/analysis 阈值包络
+        if self.pipeline_version == PIPELINE_V4_2:
+            if self.experiment_role not in ("main_factorial", "safety"):
+                raise ValueError(
+                    f"experiment_role must be 'main_factorial' or 'safety', "
+                    f"got {self.experiment_role!r}"
+                )
+            if self.experiment_role == "main_factorial" and self.ssm_enabled:
+                raise ValueError(
+                    "main_factorial experiment must set ssm_enabled=false (SSM disabled)"
+                )
+            if self.experiment_role == "safety" and not self.ssm_enabled:
+                raise ValueError("safety experiment must set ssm_enabled=true")
+            if self.analysis_ttc_threshold_s > self.ssm_capture_ttc_threshold_s:
+                raise ValueError(
+                    f"analysis_ttc_threshold_s ({self.analysis_ttc_threshold_s}) exceeds "
+                    f"ssm_capture_ttc_threshold_s ({self.ssm_capture_ttc_threshold_s}); "
+                    "analysis cannot request events the raw capture did not record"
+                )
+            if self.analysis_drac_threshold_mps2 < self.ssm_capture_drac_threshold_mps2:
+                raise ValueError(
+                    f"analysis_drac_threshold_mps2 ({self.analysis_drac_threshold_mps2}) "
+                    f"below ssm_capture_drac_threshold_mps2 "
+                    f"({self.ssm_capture_drac_threshold_mps2}); "
+                    "analysis cannot request events the raw capture did not record"
+                )
         _require_nonempty_unique("scenarios", self.scenarios)
         _require_nonempty_unique("models", self.models)
         if self.warmup < 0 or self.warmup >= self.simulation_end:
@@ -438,6 +464,22 @@ def _optional_str(data: dict[str, Any], key: str) -> str | None:
 def _optional_float(data: dict[str, Any], key: str) -> float | None:
     value = data.get(key)
     return float(value) if value is not None else None
+
+
+def _parse_bool(data: dict[str, Any], key: str, default: bool) -> bool:
+    """类型化布尔解析：接受 JSON bool 及字符串 "true"/"false"（P0-5）。
+
+    修复 bool("false") == True 的字符串解析缺陷：配置中写 "false" 必须解析为 False。
+    """
+    value = data.get(key, default)
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in ("true", "1", "yes"):
+            return True
+        if lowered in ("false", "0", "no"):
+            return False
+        raise ValueError(f"{key}: invalid boolean string {value!r}")
+    return bool(value)
 
 
 def _require_nonempty_unique(name: str, values: tuple[Any, ...]) -> None:

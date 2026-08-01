@@ -1,0 +1,81 @@
+{
+  "reference_id": "ff-v0.4.2-4scenarios",
+  "free_flow_version": "v0.4.1-pilot-ff-1",
+  "sumo_version": "Eclipse SUMO sumo 1.27.1\n Build features: Linux-6.8.0-117-generic x86_64 GNU 11.4.0 Release FMI Proj GUI Intl SWIG Eigen GDAL GL2PS\n Copyright (C) 2001-2026 German Aerospace Center (DLR) and others; https://sumo.dlr.de\n\nEclipse SUMO sumo 1.27.1 is part of SUMO.\nThis program and the accompanying materials\nare made available under the terms of the Eclipse Public License v2.0\nwhich accompanies this distribution, and is available at\nhttp://www.eclipse.org/legal/epl-v20.html\nThis program may also be made available under the following Secondary\nLicenses when the conditions for such availability set forth in the Eclipse\nPublic License 2.0 are satisfied: GNU General Public License, version 2\nor later which is available at\nhttps://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html\nSPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later",
+  "results": {
+    "scenario_0": {
+      "net_sha256": "62a90124610b04bd23ef58e6f7008dcb14b3768c9936fd71e55f660df71c3de4",
+      "references": {
+        "CAV_IDM": {
+          "lap_time_s": 98.80000000000004,
+          "source_run_id": "ff_scenario_0_CAV_IDM"
+        },
+        "CAV_CACC": {
+          "lap_time_s": 91.59999999999991,
+          "source_run_id": "ff_scenario_0_CAV_CACC"
+        },
+        "HV": {
+          "lap_time_s": 111.80000000000013,
+          "source_run_id": "ff_scenario_0_HV"
+        }
+      }
+    },
+    "scenario_2": {
+      "net_sha256": "435ca1dc2215737824f68681adeabd1c63fba2c680c18cbfe37af8176518d90d",
+      "references": {
+        "CAV_IDM": {
+          "lap_time_s": 60.59999999999991,
+          "source_run_id": "ff_scenario_2_CAV_IDM"
+        },
+        "CAV_CACC": {
+          "lap_time_s": 60.59999999999991,
+          "source_run_id": "ff_scenario_2_CAV_CACC"
+        },
+        "HV": {
+          "lap_time_s": 61.5,
+          "source_run_id": "ff_scenario_2_HV"
+        }
+      }
+    },
+    "scenario_1": {
+      "net_sha256": "17c2a1759cab8703afea3cc8597c25a99698aa2c0411dc292ff30e88c91ddbab",
+      "references": {
+        "CAV_IDM": {
+          "lap_time_s": 60.30000000000001,
+          "source_run_id": "ff_scenario_1_CAV_IDM"
+        },
+        "CAV_CACC": {
+          "lap_time_s": 60.30000000000001,
+          "source_run_id": "ff_scenario_1_CAV_CACC"
+        },
+        "HV": {
+          "lap_time_s": 61.200000000000045,
+          "source_run_id": "ff_scenario_1_HV"
+        }
+      }
+    },
+    "scenario_3": {
+      "net_sha256": "54b36edab680d1bdefffc06e9fc5f8396fe32131bfb9606a61c0f1247607effc",
+      "references": {
+        "CAV_IDM": {
+          "lap_time_s": 60.59999999999991,
+          "source_run_id": "ff_scenario_3_CAV_IDM"
+        },
+        "CAV_CACC": {
+          "lap_time_s": 60.59999999999991,
+          "source_run_id": "ff_scenario_3_CAV_CACC"
+        },
+        "HV": {
+          "lap_time_s": 61.5,
+          "source_run_id": "ff_scenario_3_HV"
+        }
+      }
+    }
+  },
+  "scenarios": [
+    "scenario_0",
+    "scenario_1",
+    "scenario_2",
+    "scenario_3"
+  ]
+}

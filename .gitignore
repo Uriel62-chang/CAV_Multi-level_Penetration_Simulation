@@ -24,4 +24,5 @@ requirements-lock-v0.4-dev.txt
 /results/run_level_results.csv
 /results/failed_runs.csv
 /results/writer_report.json
-artifacts/free_flow/
+# 注意：artifacts/free_flow/v0.4.1-pilot-ff-1/free_flow_references.json 是正式解析输入（P1-1），
+# 必须纳入版本控制；如未来产生大体积 artifact，用具体路径排除而非整个目录。

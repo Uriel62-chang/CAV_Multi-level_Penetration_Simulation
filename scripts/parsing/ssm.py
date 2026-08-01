@@ -20,6 +20,21 @@ def _overlap_ratio(a_begin: float, a_end: float, b_begin: float, b_end: float) -
     return overlap / min(duration_a, duration_b)
 
 
+def _sorted_greedy_key(entry):
+    """sorted_greedy_80pct 的确定性排序键（与 ssm_sensitivity._dedup_sorted_greedy 一致）。"""
+    _, rec = entry
+    return (
+        rec["begin"],
+        rec["end"],
+        rec["ego"],
+        rec["foe"],
+        rec["min_ttc"] if rec["min_ttc"] is not None else float("inf"),
+        rec.get("min_ttc_time", 0) if rec.get("min_ttc_time") is not None else 0,
+        rec["max_drac"] if rec["max_drac"] is not None else float("-inf"),
+        rec.get("max_drac_time", 0) if rec.get("max_drac_time") is not None else 0,
+    )
+
+
 def _merge_fragments(records, gap_s=5.0):
     """按有向 (ego, foe) 合并 ≤5s 间隙的同向碎片。
 
@@ -136,6 +151,7 @@ def parse_ssm(
 
         # TTC
         ttc_val = None
+        ttc_time = 0.0
         min_ttc_elem = conflict.find("minTTC")
         if min_ttc_elem is not None:
             try:
@@ -150,6 +166,7 @@ def parse_ssm(
 
         # DRAC
         drac_val = None
+        drac_time = 0.0
         max_drac_elem = conflict.find("maxDRAC")
         if max_drac_elem is not None:
             try:
@@ -170,6 +187,8 @@ def parse_ssm(
                 "end": end,
                 "min_ttc": ttc_val,
                 "max_drac": drac_val,
+                "min_ttc_time": ttc_time,
+                "max_drac_time": drac_time,
             }
         )
 
@@ -192,6 +211,15 @@ def parse_ssm(
     # P0-6：dedup_method="none" 时跳过镜像去重
     if dedup_method == "none":
         groups = {}
+    elif dedup_method == "sorted_greedy_80pct":
+        # P0-5：sorted_greedy 按确定性键全局排序后再分组贪心
+        # （与 ssm_sensitivity._dedup_sorted_greedy 语义一致），不得静默退化为未排序 greedy
+        entries_all = [(idx, rec) for idx, rec in enumerate(parsed)]
+        entries_all.sort(key=_sorted_greedy_key)
+        groups = defaultdict(list)
+        for idx, rec in entries_all:
+            pair = tuple(sorted((rec["ego"], rec["foe"])))
+            groups[pair].append((idx, rec))
     for pair, entries in groups.items():
         # 分为 A→B 和 B→A 两个方向
         forward = [(i, r) for i, r in entries if r["ego"] == pair[0] and r["foe"] == pair[1]]
@@ -206,19 +234,34 @@ def parse_ssm(
             if not keep[i_fwd]:
                 continue
             best_idx = -1
-            best_overlap = 0.0
-            for i_rev, r_rev in reverse:
-                if not keep[i_rev] or i_rev in matched_reverse:
-                    continue
-                ov = _overlap_ratio(
-                    r_fwd["begin"],
-                    r_fwd["end"],
-                    r_rev["begin"],
-                    r_rev["end"],
-                )
-                if ov >= mirror_overlap_ratio and ov > best_overlap:
-                    best_overlap = ov
-                    best_idx = i_rev
+            if dedup_method == "sorted_greedy_80pct":
+                # 排序后取第一个达到重叠阈值的镜像（与 sensitivity 一致）
+                for i_rev, r_rev in reverse:
+                    if not keep[i_rev] or i_rev in matched_reverse:
+                        continue
+                    ov = _overlap_ratio(
+                        r_fwd["begin"],
+                        r_fwd["end"],
+                        r_rev["begin"],
+                        r_rev["end"],
+                    )
+                    if ov >= mirror_overlap_ratio:
+                        best_idx = i_rev
+                        break
+            else:
+                best_overlap = 0.0
+                for i_rev, r_rev in reverse:
+                    if not keep[i_rev] or i_rev in matched_reverse:
+                        continue
+                    ov = _overlap_ratio(
+                        r_fwd["begin"],
+                        r_fwd["end"],
+                        r_rev["begin"],
+                        r_rev["end"],
+                    )
+                    if ov >= mirror_overlap_ratio and ov > best_overlap:
+                        best_overlap = ov
+                        best_idx = i_rev
 
             if best_idx >= 0:
                 keep[best_idx] = False
@@ -423,6 +466,15 @@ def parse_ssm_subgroup(
     # P0-6：dedup_method="none" 时跳过镜像去重
     if dedup_method == "none":
         groups = {}
+    elif dedup_method == "sorted_greedy_80pct":
+        # P0-5：sorted_greedy 按确定性键全局排序后再分组贪心
+        # （与 ssm_sensitivity._dedup_sorted_greedy 语义一致），不得静默退化为未排序 greedy
+        entries_all = [(idx, rec) for idx, rec in enumerate(parsed)]
+        entries_all.sort(key=_sorted_greedy_key)
+        groups = defaultdict(list)
+        for idx, rec in entries_all:
+            pair = tuple(sorted((rec["ego"], rec["foe"])))
+            groups[pair].append((idx, rec))
     for pair, entries in groups.items():
         forward = [(i, r) for i, r in entries if r["ego"] == pair[0] and r["foe"] == pair[1]]
         reverse = [(i, r) for i, r in entries if r["ego"] == pair[1] and r["foe"] == pair[0]]
@@ -435,19 +487,34 @@ def parse_ssm_subgroup(
             if not keep[i_fwd]:
                 continue
             best_idx = -1
-            best_overlap = 0.0
-            for i_rev, r_rev in reverse:
-                if not keep[i_rev] or i_rev in matched_reverse:
-                    continue
-                ov = _overlap_ratio(
-                    r_fwd["begin"],
-                    r_fwd["end"],
-                    r_rev["begin"],
-                    r_rev["end"],
-                )
-                if ov >= mirror_overlap_ratio and ov > best_overlap:
-                    best_overlap = ov
-                    best_idx = i_rev
+            if dedup_method == "sorted_greedy_80pct":
+                # 排序后取第一个达到重叠阈值的镜像（与 sensitivity 一致）
+                for i_rev, r_rev in reverse:
+                    if not keep[i_rev] or i_rev in matched_reverse:
+                        continue
+                    ov = _overlap_ratio(
+                        r_fwd["begin"],
+                        r_fwd["end"],
+                        r_rev["begin"],
+                        r_rev["end"],
+                    )
+                    if ov >= mirror_overlap_ratio:
+                        best_idx = i_rev
+                        break
+            else:
+                best_overlap = 0.0
+                for i_rev, r_rev in reverse:
+                    if not keep[i_rev] or i_rev in matched_reverse:
+                        continue
+                    ov = _overlap_ratio(
+                        r_fwd["begin"],
+                        r_fwd["end"],
+                        r_rev["begin"],
+                        r_rev["end"],
+                    )
+                    if ov >= mirror_overlap_ratio and ov > best_overlap:
+                        best_overlap = ov
+                        best_idx = i_rev
 
             if best_idx >= 0:
                 keep[best_idx] = False

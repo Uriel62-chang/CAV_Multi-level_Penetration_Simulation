@@ -180,12 +180,19 @@ MODEL_STYLES = {
     "CACC": {"marker": "s", "linestyle": "--", "linewidth": 1.5},
 }
 
-_EXPLICIT_TTC_METRIC = "whole_network_ttc_events_per_1000_non_internal_edge_veh_km_mean"
+# v0.4.2 withInternal=true 下空间配对列：全路网 TTC 事件 / 全路网 veh-km
+_PAIRED_TTC_METRIC = "ttc_per_k_mean"
+# legacy post3 错配列：全路网事件 / non-internal-edge veh-km（仅兼容旧 CSV，不得优先）
+_LEGACY_MISMATCHED_TTC_METRIC = "whole_network_ttc_events_per_1000_non_internal_edge_veh_km_mean"
 
 
 def _ttc_metric_column(df: pd.DataFrame) -> str:
-    """优先使用表达完整空间口径的 post3 列，旧短列仅作兼容 fallback。"""
-    return _EXPLICIT_TTC_METRIC if _EXPLICIT_TTC_METRIC in df.columns else "ttc_per_k_mean"
+    """优先使用空间配对列（全路网事件/全路网 veh-km，P0-3/A 线要求）；
+    旧 non-internal 口径列仅作 legacy CSV 兼容 fallback。"""
+    for col in (_PAIRED_TTC_METRIC, _LEGACY_MISMATCHED_TTC_METRIC):
+        if col in df.columns:
+            return col
+    raise ValueError(f"no TTC per-veh-km column in aggregated CSV; expected {_PAIRED_TTC_METRIC}")
 
 
 def _ensure_dir(path: Path) -> None:
@@ -395,8 +402,10 @@ def run_v4_2(args) -> None:
 def run_safety_v4_2(args) -> None:
     """v0.4.2 safety 独立报告入口（P0-11）。
 
-    生成 TTC/DRAC 事件率随渗透率（realized_pcav）变化的图，仅用空间配对列；
-    不生成与主 factorial 的联合 trade-off。"""
+    生成 TTC 事件率随渗透率（realized_pcav）变化的图（仅 TTC、仅 scenario_0/scenario_3
+    两个有事件集中度的场景），使用空间配对列；不生成与主 factorial 的联合 trade-off。
+    注意：本实现不覆盖 DRAC 与四场景，文档/help 表述与此一致（P1-3）。
+    """
     if not os.path.exists(args.aggregated):
         print(f"错误: 找不到文件 {args.aggregated}")
         return
@@ -412,7 +421,7 @@ def run_safety_v4_2(args) -> None:
             d = sub[sub["model"] == model].sort_values(pen)
             ax.plot(d[pen], d[ttc_col], marker="o", label=model)
         ax.set_xlabel(f"{pen} (realized)")
-        ax.set_ylabel("TTC events / 1000 non-internal veh-km")
+        ax.set_ylabel("TTC events / 1000 veh-km (whole-network, space-matched)")
         ax.set_title(f"{sc} safety")
         ax.legend()
     fig.savefig(out_dir / "chart_safety_events_by_penetration.png", dpi=150, bbox_inches="tight")
@@ -446,11 +455,22 @@ def main():
     parser.add_argument(
         "--safety",
         action="store_true",
-        help="启用 v0.4.2 safety 独立报告模式（事件率随渗透率，仅空间配对列）",
+        help="启用 v0.4.2 safety 独立报告模式（仅 TTC 事件率随渗透率、仅 scenario_0/scenario_3，"
+        "使用空间配对列 ttc_per_k_mean）",
     )
     # 通用
-    parser.add_argument("--outDir", default="graph/v0.4.0", help="输出目录")
+    parser.add_argument(
+        "--outDir",
+        default=None,
+        help="输出目录（默认：--v4 → graph/v0.4.0；--v4-2/--safety → graph/v0.4.2，P2-2 防版本混放）",
+    )
     args = parser.parse_args()
+
+    if args.outDir is None:
+        if args.v4_2 or args.safety:
+            args.outDir = "graph/v0.4.2"  # P2-2：v0.4.2 报告不与 v0.4.0 结果混放
+        else:
+            args.outDir = "graph/v0.4.0"
 
     if args.safety:
         run_safety_v4_2(args)

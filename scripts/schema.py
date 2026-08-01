@@ -104,6 +104,19 @@ EMISSIONS_COLUMNS = [
     "total_fuel_kg",
 ]
 
+# v0.4.2 排放双口径扩展（P0-7/P0-4）：non-internal 绝对量与全路网次要强度。
+# 独立于 EMISSIONS_COLUMNS，避免改变 legacy schema=1 的冻结字段集。
+EMISSIONS_COLUMNS_V4_2 = [
+    "non_internal_CO2_kg",
+    "non_internal_NOx_g",
+    "non_internal_PMx_g",
+    "non_internal_fuel_kg",
+    "whole_network_CO2_g_per_veh_km",
+    "whole_network_NOx_mg_per_veh_km",
+    "whole_network_PMx_mg_per_veh_km",
+    "whole_network_fuel_g_per_veh_km",
+]
+
 EFFICIENCY_COLUMNS = [
     "total_vehicle_km",
     "non_internal_edge_vehicle_km",
@@ -176,6 +189,7 @@ RUN_LEVEL_COLUMNS_V4_1 = (
     + list(SAFETY_EB_COLUMNS)
     + list(LANECHANGE_COLUMNS)
     + list(EMISSIONS_COLUMNS)
+    + list(EMISSIONS_COLUMNS_V4_2)
     + list(EFFICIENCY_COLUMNS)
     + list(NORMALIZED_COLUMNS)
     + list(DELAY_COLUMNS)
@@ -191,6 +205,7 @@ SUMMARY_REQUIRED_KEYS_V4_1 = (
     + list(SAFETY_EB_COLUMNS)
     + list(LANECHANGE_COLUMNS)
     + list(EMISSIONS_COLUMNS)
+    + list(EMISSIONS_COLUMNS_V4_2)
     + list(EFFICIENCY_COLUMNS)
     + list(NORMALIZED_COLUMNS)
     + list(DELAY_COLUMNS)

@@ -252,10 +252,18 @@ def _expected_subgroup_keys(fcd_enabled: bool) -> set[tuple[str, str, str, str]]
                 "total_NOx_g",
                 "total_PMx_g",
                 "total_fuel_kg",
+                "non_internal_CO2_kg",
+                "non_internal_NOx_g",
+                "non_internal_PMx_g",
+                "non_internal_fuel_kg",
                 "CO2_g_per_veh_km",
                 "NOx_mg_per_veh_km",
                 "PMx_mg_per_veh_km",
                 "fuel_g_per_veh_km",
+                "whole_network_CO2_g_per_veh_km",
+                "whole_network_NOx_mg_per_veh_km",
+                "whole_network_PMx_mg_per_veh_km",
+                "whole_network_fuel_g_per_veh_km",
             )
         )
         keys.update(

@@ -8,7 +8,7 @@ import pandas as pd
 def _make_agg(tmp_path):
     df = pd.DataFrame(
         {
-            "scenario": ["s0"] * 2,
+            "scenario": ["scenario_0", "scenario_0"],
             "model": ["IDM", "CACC"],
             "requested_pcav": [None, None],
             "realized_pcav": [0.5, 0.5],
@@ -18,7 +18,7 @@ def _make_agg(tmp_path):
             "flow_mean": [1000.0, 1100.0],
             "co2_per_k_mean": [200.0, 190.0],
             "delay_mean": [10.0, 8.0],
-            "whole_network_ttc_events_per_1000_non_internal_edge_veh_km_mean": [0.1, 0.2],
+            "ttc_per_k_mean": [0.1, 0.2],
         }
     )
     p = tmp_path / "agg.csv"
@@ -114,21 +114,21 @@ def test_safety_config_expands_to_84(tmp_path):
 
 
 def test_safety_report_generates_events_chart(tmp_path, monkeypatch):
-    """P0-11：safety 报告生成事件率随渗透率图，无 trade-off。"""
+    """P0-11：safety 报告生成事件率随渗透率图，无 trade-off；用空间配对列。"""
     import argparse
 
     from scripts.results import visualization as viz
 
     df = pd.DataFrame(
         {
-            "scenario": ["s0"] * 2,
+            "scenario": ["scenario_0", "scenario_0"],
             "model": ["IDM", "CACC"],
             "requested_pcav": [None, None],
             "realized_pcav": [0.2, 0.6],
             "pCAV": [0.2, 0.6],
             "vehN": [60, 60],
             "cav_count": [12, 36],
-            "whole_network_ttc_events_per_1000_non_internal_edge_veh_km_mean": [0.5, 1.2],
+            "ttc_per_k_mean": [0.5, 1.2],
         }
     )
     p = tmp_path / "agg.csv"
@@ -140,3 +140,40 @@ def test_safety_report_generates_events_chart(tmp_path, monkeypatch):
     files = sorted(x.name for x in out.iterdir())
     assert "chart_safety_events_by_penetration.png" in files
     assert "chart_safety_flow.png" not in files
+    # P1-3：曲线必须基于非空数据渲染（scenario_0 两模型行），PNG 非空
+    png = out / "chart_safety_events_by_penetration.png"
+    assert png.stat().st_size > 1000, f"safety chart unexpectedly small: {png.stat().st_size}"
+
+
+def test_ttc_metric_column_prefers_paired(tmp_path):
+    """P0-3：配对列存在时优先 ttc_per_k_mean，不选旧 non-internal 错配列。"""
+    from scripts.results.visualization import _ttc_metric_column
+
+    df = pd.DataFrame(
+        {
+            "ttc_per_k_mean": [1.0],
+            "whole_network_ttc_events_per_1000_non_internal_edge_veh_km_mean": [9.9],
+        }
+    )
+    assert _ttc_metric_column(df) == "ttc_per_k_mean"
+
+
+def test_ttc_metric_column_fallback_legacy(tmp_path):
+    """P0-3：仅 legacy CSV 时回退到旧列（兼容），不报错。"""
+    from scripts.results.visualization import _ttc_metric_column
+
+    df = pd.DataFrame({"whole_network_ttc_events_per_1000_non_internal_edge_veh_km_mean": [9.9]})
+    assert _ttc_metric_column(df) == (
+        "whole_network_ttc_events_per_1000_non_internal_edge_veh_km_mean"
+    )
+
+
+def test_ttc_metric_column_missing_raises(tmp_path):
+    """P0-3：无任何 TTC 列时 fail-closed。"""
+    import pytest
+
+    from scripts.results.visualization import _ttc_metric_column
+
+    df = pd.DataFrame({"flow_mean": [1.0]})
+    with pytest.raises(ValueError):
+        _ttc_metric_column(df)

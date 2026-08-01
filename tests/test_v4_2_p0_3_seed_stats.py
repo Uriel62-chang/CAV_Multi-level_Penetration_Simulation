@@ -60,6 +60,16 @@ def test_endpoint_seed_stats(tmp_path):
     assert row["sumo_seed_run_count"] == 3
 
 
+def test_schema2_missing_seed_column_fails_closed(tmp_path):
+    """P0-7：schema=2 缺 assignment_seed/sumo_seed 列必须拒绝，不得静默退回旧统计。"""
+    df = _make_df(2, 2).drop(columns=["sumo_seed"])
+    in_csv = tmp_path / "in.csv"
+    out_csv = tmp_path / "out.csv"
+    df.to_csv(in_csv, index=False)
+    with pytest.raises(ValueError, match="sumo_seed"):
+        aggregate(in_csv, out_csv, "2")
+
+
 def test_duplicate_seed_pair_rejected(tmp_path):
     """同一 (assignment, sumo) 组合重复出现 → 拒绝。"""
     df = _make_df(2, 2)

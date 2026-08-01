@@ -80,9 +80,13 @@ def compute_core_summary(primitives, spec, free_flow_refs):
     # P0-8：逐 lap 按车辆类型减对应参考后汇总（HV→HV ref；CAV→CAV_model ref）
     # mean_delay = Σ_vt (mean_lap[vt] - ref[vt]) * lap_count[vt] / lap_count_total
     p95 = vr.get("p95_lap_time_s", float("nan"))
+    # 键契约（与 runner._load_free_flow_references 一致）：{"HV", spec.model}
     hv_ref = free_flow_refs.get("HV", float("nan"))
-    model_ref_key = f"CAV_{spec.model}" if spec.model in ("IDM", "CACC") else None
-    cav_ref = free_flow_refs.get(model_ref_key, float("nan")) if model_ref_key else float("nan")
+    cav_ref = (
+        free_flow_refs.get(spec.model, float("nan"))
+        if spec.model in ("IDM", "CACC")
+        else float("nan")
+    )
 
     vr_hv = primitives.vehroute.get("HV", {})
     vr_cav = primitives.vehroute.get("CAV", {})
@@ -312,39 +316,80 @@ def compute_subgroup_records(primitives, spec, free_flow_refs):
             lc.get("unsafe_lc_gap_ratio", float("nan")),
         )
 
-    # Emissions
+    # Emissions（与 core P0-7 口径一致：主强度 non-internal/non-internal，
+    # 全路网强度次要；同名列含义必须与 core 相同）
     for vt in ("HV", "CAV"):
         ee = primitives.edge_emis.get(vt, {})
         ep = primitives.edge_perf.get(vt, {})
         veh_km = ep.get("total_vehicle_km", float("nan"))
-        for key in ("total_CO2_kg", "total_NOx_g", "total_PMx_g", "total_fuel_kg"):
+        ni_veh_km = ep.get("non_internal_edge_vehicle_km", float("nan"))
+        for key in (
+            "total_CO2_kg",
+            "total_NOx_g",
+            "total_PMx_g",
+            "total_fuel_kg",
+            "non_internal_CO2_kg",
+            "non_internal_NOx_g",
+            "non_internal_PMx_g",
+            "non_internal_fuel_kg",
+        ):
             _add("vehicle_type", vt, "emissions", key, ee.get(key, float("nan")))
+        # 主口径：non-internal 排放 / non-internal veh-km
         _add(
             "vehicle_type",
             vt,
             "emissions",
             "CO2_g_per_veh_km",
-            _safe_div(ee.get("total_CO2_kg", 0) * 1000.0, veh_km),
+            _safe_div(ee.get("non_internal_CO2_kg", 0) * 1000.0, ni_veh_km),
         )
         _add(
             "vehicle_type",
             vt,
             "emissions",
             "NOx_mg_per_veh_km",
-            _safe_div(ee.get("total_NOx_g", 0) * 1000.0, veh_km),
+            _safe_div(ee.get("non_internal_NOx_g", 0) * 1000.0, ni_veh_km),
         )
         _add(
             "vehicle_type",
             vt,
             "emissions",
             "PMx_mg_per_veh_km",
-            _safe_div(ee.get("total_PMx_g", 0) * 1000.0, veh_km),
+            _safe_div(ee.get("non_internal_PMx_g", 0) * 1000.0, ni_veh_km),
         )
         _add(
             "vehicle_type",
             vt,
             "emissions",
             "fuel_g_per_veh_km",
+            _safe_div(ee.get("non_internal_fuel_kg", 0) * 1000.0, ni_veh_km),
+        )
+        # 全路网次要强度：all-edge 排放 / all-edge veh-km
+        _add(
+            "vehicle_type",
+            vt,
+            "emissions",
+            "whole_network_CO2_g_per_veh_km",
+            _safe_div(ee.get("total_CO2_kg", 0) * 1000.0, veh_km),
+        )
+        _add(
+            "vehicle_type",
+            vt,
+            "emissions",
+            "whole_network_NOx_mg_per_veh_km",
+            _safe_div(ee.get("total_NOx_g", 0) * 1000.0, veh_km),
+        )
+        _add(
+            "vehicle_type",
+            vt,
+            "emissions",
+            "whole_network_PMx_mg_per_veh_km",
+            _safe_div(ee.get("total_PMx_g", 0) * 1000.0, veh_km),
+        )
+        _add(
+            "vehicle_type",
+            vt,
+            "emissions",
+            "whole_network_fuel_g_per_veh_km",
             _safe_div(ee.get("total_fuel_kg", 0) * 1000.0, veh_km),
         )
 

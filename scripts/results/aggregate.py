@@ -63,6 +63,38 @@ def aggregate(input_csv: Path, output_csv: Path, schema_ver: str) -> pd.DataFram
     # 排除 data_quality != ok 的行（仅对 ok 数据做聚合）
     df_ok = df[df["data_quality"] == "ok"].copy()
 
+    # P0-3：schema=2 双 seed 统计单位——分别记录 assignment/sumo 水平数、组合数与有效 n，
+    # 并拒绝缺失/重复组合（端点 assignment 失活为 1 个水平，sumo seed 仍活动）。
+    seed_stats = None
+    if schema_ver == "2" and "assignment_seed" in df_ok.columns:
+        seed_groups = df_ok.groupby(list(group_keys), dropna=False)
+        rows = []
+        for keys, grp in seed_groups:
+            if not isinstance(keys, tuple):
+                keys = (keys,)
+            a_levels = sorted(grp["assignment_seed"].dropna().unique())
+            s_levels = sorted(grp["sumo_seed"].dropna().unique())
+            combos = list(zip(grp["assignment_seed"], grp["sumo_seed"], strict=True))
+            # 组合唯一性检查（同一 (assignment, sumo) 不得出现多次）
+            seen = set()
+            for a, s in combos:
+                pair = (a, s)
+                if pair in seen:
+                    raise ValueError(
+                        f"duplicate (assignment_seed={a}, sumo_seed={s}) in group {keys}"
+                    )
+                seen.add(pair)
+            rows.append(
+                {
+                    **dict(zip(group_keys, keys, strict=True)),
+                    "_a_levels": len(a_levels),
+                    "_s_levels": len(s_levels),
+                    "_combos": len(combos),
+                    "_effective_n": len(combos),
+                }
+            )
+        seed_stats = pd.DataFrame(rows)
+
     # 聚合函数
     agg_funcs = {
         col: ["mean", "std", "median", "min", "max", "count"]
@@ -143,8 +175,27 @@ def aggregate(input_csv: Path, output_csv: Path, schema_ver: str) -> pd.DataFram
         (grouped["vehN"] * grouped["pCAV"]).round() / grouped["vehN"],
     )
     grouped.insert(6, "flow_valid_run_count", grouped["n_valid"])
-    grouped.insert(7, "assignment_seed_run_count", grouped["n_valid"])
-    grouped.insert(8, "independent_random_replication_count", 0)
+    # P0-3：双 seed 统计单位——assignment 水平数、sumo 水平数、组合数、有效 n
+    if seed_stats is not None:
+        grouped = grouped.merge(
+            seed_stats.drop(columns=["_effective_n"]),
+            on=list(group_keys),
+            how="left",
+            validate="one_to_one",
+        )
+        grouped = grouped.rename(
+            columns={
+                "_a_levels": "assignment_seed_level_count",
+                "_s_levels": "sumo_seed_level_count",
+                "_combos": "seed_pair_combination_count",
+            }
+        )
+        grouped.insert(9, "assignment_seed_run_count", grouped["seed_pair_combination_count"])
+        grouped.insert(10, "sumo_seed_run_count", grouped["sumo_seed_level_count"])
+        grouped.insert(11, "independent_random_replication_count", 0)
+    else:
+        grouped.insert(7, "assignment_seed_run_count", grouped["n_valid"])
+        grouped.insert(8, "independent_random_replication_count", 0)
 
     if not grouped.columns.is_unique:
         duplicates = grouped.columns[grouped.columns.duplicated()].tolist()

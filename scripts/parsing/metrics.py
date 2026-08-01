@@ -77,10 +77,29 @@ def compute_core_summary(primitives, spec, free_flow_refs):
     wn_fuel_per = _safe_div(ee.get("total_fuel_kg", 0) * 1000.0, total_veh_km)
     tl_per = _safe_div(ep.get("total_time_loss_s", 0), total_veh_km)
 
-    hv_ref = free_flow_refs.get("HV", float("nan"))
-    ml = vr.get("mean_lap_time_s", float("nan"))
+    # P0-8：逐 lap 按车辆类型减对应参考后汇总（HV→HV ref；CAV→CAV_model ref）
+    # mean_delay = Σ_vt (mean_lap[vt] - ref[vt]) * lap_count[vt] / lap_count_total
     p95 = vr.get("p95_lap_time_s", float("nan"))
-    mean_delay = ml - hv_ref if not _math.isnan(ml) and not _math.isnan(hv_ref) else float("nan")
+    hv_ref = free_flow_refs.get("HV", float("nan"))
+    model_ref_key = f"CAV_{spec.model}" if spec.model in ("IDM", "CACC") else None
+    cav_ref = free_flow_refs.get(model_ref_key, float("nan")) if model_ref_key else float("nan")
+
+    vr_hv = primitives.vehroute.get("HV", {})
+    vr_cav = primitives.vehroute.get("CAV", {})
+    n_hv = vr_hv.get("completed_lap_count", 0)
+    n_cav = vr_cav.get("completed_lap_count", 0)
+    n_total = n_hv + n_cav
+
+    if n_total > 0 and not _math.isnan(hv_ref):
+        d_hv = (vr_hv.get("mean_lap_time_s", float("nan")) - hv_ref) if n_hv else 0.0
+        mean_delay = d_hv * n_hv / n_total
+        if n_cav and not _math.isnan(cav_ref):
+            d_cav = vr_cav.get("mean_lap_time_s", float("nan")) - cav_ref
+            mean_delay += d_cav * n_cav / n_total
+    else:
+        mean_delay = float("nan")
+
+    # p95 delay：沿用 all-level 参考（保持与 v0.4.0 近似口径；P0-8 主修复在 mean）
     p95_delay = p95 - hv_ref if not _math.isnan(p95) and not _math.isnan(hv_ref) else float("nan")
 
     # Build flat dict compatible with current parse_run_outputs

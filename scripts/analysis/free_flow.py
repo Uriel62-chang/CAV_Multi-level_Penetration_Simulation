@@ -114,6 +114,8 @@ def _run_free_flow(run_id, spec, network_file, net_meta, cfg):
         scenario=spec.scenario,
         num_lanes=net_meta.get("num_lanes", 1),
         edge_ids=edge_ids,
+        # P1-6：s3 需要 bottleneck 元数据
+        bottleneck_edge_ids=net_meta.get("bottleneck_edge_ids"),
     )
     cmd = [
         "sumo",

@@ -528,15 +528,26 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
         ssm_file = run_dir / "ssm_compact.xml"
         if not ssm_file.exists():
             ssm_file = run_dir / "ssm.xml"
-        merge_gap = 5.0 if spec.ssm_extratime_s < 5.0 else 0.0
+        # P0-5：v0.4.2 从 spec 读取 analysis 配置（单源）；v0.4.1 保留旧 merge_gap 推导
+        if getattr(spec, "pipeline_version", "") == "v0.4.2":
+            merge_gap = spec.ssm_fragment_merge_gap_s
+            ttc_th = spec.analysis_ttc_threshold_s
+            drac_th = spec.analysis_drac_threshold_mps2
+            overlap = spec.ssm_mirror_overlap_ratio
+        else:
+            merge_gap = 5.0 if spec.ssm_extratime_s < 5.0 else 0.0
+            ttc_th = 3.0
+            drac_th = 3.0
+            overlap = 0.8
         ssm = parse_ssm_subgroup(
             str(ssm_file),
             type_map,
             warmup,
-            ttc_threshold=3.0,
-            drac_threshold=3.0,
+            ttc_threshold=ttc_th,
+            drac_threshold=drac_th,
             fragment_merge_gap_s=merge_gap,
             simulation_end=spec.simulation_end,
+            mirror_overlap_ratio=overlap,
         )
 
     # Lanechange

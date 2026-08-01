@@ -93,6 +93,18 @@ def compute_core_summary(primitives, spec, free_flow_refs):
         "ssm_capture_ttc_threshold_s": spec.ssm_capture_ttc_threshold_s,
         "ssm_capture_drac_threshold_mps2": spec.ssm_capture_drac_threshold_mps2,
         "with_internal": spec.with_internal,
+        # P0-5：v0.4.2 记录 analysis 配置（单源可审计）
+        **(
+            {
+                "analysis_ttc_threshold_s": spec.analysis_ttc_threshold_s,
+                "analysis_drac_threshold_mps2": spec.analysis_drac_threshold_mps2,
+                "ssm_dedup_method": spec.ssm_dedup_method,
+                "ssm_mirror_overlap_ratio": spec.ssm_mirror_overlap_ratio,
+                "ssm_fragment_merge_gap_s": spec.ssm_fragment_merge_gap_s,
+            }
+            if getattr(spec, "pipeline_version", "") == "v0.4.2"
+            else {}
+        ),
         "mean_flow_veh_h": det.get("mean_flow_veh_h", float("nan")),
         "max_flow_veh_h": det.get("max_flow_veh_h", float("nan")),
         "mean_speed_m_s": det.get("mean_speed_m_s", float("nan")),

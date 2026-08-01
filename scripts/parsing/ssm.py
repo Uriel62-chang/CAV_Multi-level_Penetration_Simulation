@@ -75,6 +75,7 @@ def parse_ssm(
     drac_threshold: float = 3.0,
     fragment_merge_gap_s: float = 0.0,
     simulation_end: float | None = None,
+    mirror_overlap_ratio: float = 0.8,
 ):
     """解析 SUMO SSM 输出 XML。
 
@@ -211,7 +212,7 @@ def parse_ssm(
                     r_rev["begin"],
                     r_rev["end"],
                 )
-                if ov >= _MIRROR_OVERLAP_RATIO and ov > best_overlap:
+                if ov >= mirror_overlap_ratio and ov > best_overlap:
                     best_overlap = ov
                     best_idx = i_rev
 
@@ -296,6 +297,7 @@ def parse_ssm_subgroup(
     drac_threshold: float = 3.0,
     fragment_merge_gap_s: float = 0.0,
     simulation_end: float | None = None,
+    mirror_overlap_ratio: float = 0.8,
 ) -> dict:
     all_result = _make_default_all_result()
 
@@ -435,7 +437,7 @@ def parse_ssm_subgroup(
                     r_rev["begin"],
                     r_rev["end"],
                 )
-                if ov >= _MIRROR_OVERLAP_RATIO and ov > best_overlap:
+                if ov >= mirror_overlap_ratio and ov > best_overlap:
                     best_overlap = ov
                     best_idx = i_rev
 

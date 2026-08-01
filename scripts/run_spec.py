@@ -164,6 +164,15 @@ class RunSpec:
     ssm_trajectories: bool = False
     ssm_extratime_s: float = 5.0
 
+    # v0.4.2 新增：SSM analysis 配置（P0-5，单源；仅 v0.4.2 使用）
+    analysis_ttc_threshold_s: float = 3.0
+    analysis_drac_threshold_mps2: float = 3.0
+    ssm_dedup_method: str = (
+        "greedy_one_to_one_80pct"  # none | greedy_one_to_one_80pct | sorted_greedy_80pct
+    )
+    ssm_mirror_overlap_ratio: float = 0.8
+    ssm_fragment_merge_gap_s: float = 0.0
+
     # 阶段 1 新增：edgeData
     with_internal: bool = False
 
@@ -219,15 +228,31 @@ class RunSpec:
                     self.fcd_max_leader_distance_m
                 ):
                     raise ValueError("fcd_max_leader_distance_m must be positive and finite")
-        # v0.4.2 新增：experiment_role 校验
-        if self.pipeline_version == PIPELINE_V4_2 and self.experiment_role not in (
-            "main_factorial",
-            "safety",
-        ):
-            raise ValueError(
-                f"experiment_role must be 'main_factorial' or 'safety', "
-                f"got {self.experiment_role!r}"
-            )
+        # v0.4.2 新增：experiment_role / analysis 配置校验
+        if self.pipeline_version == PIPELINE_V4_2:
+            if self.experiment_role not in ("main_factorial", "safety"):
+                raise ValueError(
+                    f"experiment_role must be 'main_factorial' or 'safety', "
+                    f"got {self.experiment_role!r}"
+                )
+            if self.analysis_ttc_threshold_s <= 0 or not self._finite(
+                self.analysis_ttc_threshold_s
+            ):
+                raise ValueError("analysis_ttc_threshold_s must be positive and finite")
+            if self.analysis_drac_threshold_mps2 <= 0 or not self._finite(
+                self.analysis_drac_threshold_mps2
+            ):
+                raise ValueError("analysis_drac_threshold_mps2 must be positive and finite")
+            if self.ssm_dedup_method not in (
+                "none",
+                "greedy_one_to_one_80pct",
+                "sorted_greedy_80pct",
+            ):
+                raise ValueError(f"invalid ssm_dedup_method: {self.ssm_dedup_method!r}")
+            if self.ssm_mirror_overlap_ratio <= 0 or self.ssm_mirror_overlap_ratio > 1:
+                raise ValueError("ssm_mirror_overlap_ratio must be in (0, 1]")
+            if self.ssm_fragment_merge_gap_s < 0 or not self._finite(self.ssm_fragment_merge_gap_s):
+                raise ValueError("ssm_fragment_merge_gap_s must be non-negative and finite")
 
     @staticmethod
     def _finite(val: float) -> bool:
@@ -293,6 +318,11 @@ class RunSpec:
             result["fcd_max_leader_distance_m"] = self.fcd_max_leader_distance_m
             result["experiment_role"] = self.experiment_role
             result["ssm_enabled"] = self.ssm_enabled
+            result["analysis_ttc_threshold_s"] = self.analysis_ttc_threshold_s
+            result["analysis_drac_threshold_mps2"] = self.analysis_drac_threshold_mps2
+            result["ssm_dedup_method"] = self.ssm_dedup_method
+            result["ssm_mirror_overlap_ratio"] = self.ssm_mirror_overlap_ratio
+            result["ssm_fragment_merge_gap_s"] = self.ssm_fragment_merge_gap_s
         return result
 
     @classmethod
@@ -382,6 +412,25 @@ class RunSpec:
             spec, "experiment_role", str(data.get("experiment_role", "main_factorial"))
         )
         object.__setattr__(spec, "ssm_enabled", bool(data.get("ssm_enabled", False)))
+        object.__setattr__(
+            spec, "analysis_ttc_threshold_s", float(data.get("analysis_ttc_threshold_s", 3.0))
+        )
+        object.__setattr__(
+            spec,
+            "analysis_drac_threshold_mps2",
+            float(data.get("analysis_drac_threshold_mps2", 3.0)),
+        )
+        object.__setattr__(
+            spec,
+            "ssm_dedup_method",
+            str(data.get("ssm_dedup_method", "greedy_one_to_one_80pct")),
+        )
+        object.__setattr__(
+            spec, "ssm_mirror_overlap_ratio", float(data.get("ssm_mirror_overlap_ratio", 0.8))
+        )
+        object.__setattr__(
+            spec, "ssm_fragment_merge_gap_s", float(data.get("ssm_fragment_merge_gap_s", 0.0))
+        )
         if spec.experiment_role not in ("main_factorial", "safety"):
             raise ValueError(f"invalid experiment_role: {spec.experiment_role}")
         return spec

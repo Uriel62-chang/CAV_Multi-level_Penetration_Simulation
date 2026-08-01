@@ -61,6 +61,13 @@ _ALL_KNOWN_FIELDS = (
         "fcd_profile",
         "fcd_max_leader_distance_m",
         "with_internal",
+        "experiment_role",
+        "ssm_enabled",
+        "analysis_ttc_threshold_s",
+        "analysis_drac_threshold_mps2",
+        "ssm_dedup_method",
+        "ssm_mirror_overlap_ratio",
+        "ssm_fragment_merge_gap_s",
     }
 )
 
@@ -115,6 +122,15 @@ class ExperimentConfig:
 
     # ── edgeData internal edge ──
     with_internal: bool = False
+
+    # v0.4.2 新增：experiment role 与 SSM analysis 配置（P0-3/P0-5）
+    experiment_role: str = "main_factorial"  # main_factorial | safety
+    ssm_enabled: bool = False
+    analysis_ttc_threshold_s: float = 3.0
+    analysis_drac_threshold_mps2: float = 3.0
+    ssm_dedup_method: str = "greedy_one_to_one_80pct"
+    ssm_mirror_overlap_ratio: float = 0.8
+    ssm_fragment_merge_gap_s: float = 0.0
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ExperimentConfig:
@@ -174,6 +190,13 @@ class ExperimentConfig:
             fcd_profile=_optional_str(data, "fcd_profile"),
             fcd_max_leader_distance_m=_optional_float(data, "fcd_max_leader_distance_m"),
             with_internal=bool(data.get("with_internal", False)),
+            experiment_role=str(data.get("experiment_role", "main_factorial")),
+            ssm_enabled=bool(data.get("ssm_enabled", False)),
+            analysis_ttc_threshold_s=float(data.get("analysis_ttc_threshold_s", 3.0)),
+            analysis_drac_threshold_mps2=float(data.get("analysis_drac_threshold_mps2", 3.0)),
+            ssm_dedup_method=str(data.get("ssm_dedup_method", "greedy_one_to_one_80pct")),
+            ssm_mirror_overlap_ratio=float(data.get("ssm_mirror_overlap_ratio", 0.8)),
+            ssm_fragment_merge_gap_s=float(data.get("ssm_fragment_merge_gap_s", 0.0)),
         )
         config.validate()
         return config
@@ -181,7 +204,7 @@ class ExperimentConfig:
     def to_dict(self) -> dict[str, Any]:
         # This is the historical resolved-manifest representation.  It includes
         # the capture defaults available in v0.4.0.post1, but not later fields.
-        if self.pipeline_version != PIPELINE_V4_1:
+        if self.pipeline_version == PIPELINE_V4_0_POST1:
             return {
                 "config_version": self.config_version,
                 "pipeline_version": self.pipeline_version,
@@ -243,6 +266,15 @@ class ExperimentConfig:
             result["fcd_profile"] = self.fcd_profile
         if self.fcd_max_leader_distance_m is not None:
             result["fcd_max_leader_distance_m"] = self.fcd_max_leader_distance_m
+        # P0-3/P0-5：v0.4.2 额外输出 experiment role 与 analysis 配置（P0-2 修复 SHA 碰撞）
+        if self.pipeline_version == PIPELINE_V4_2:
+            result["experiment_role"] = self.experiment_role
+            result["ssm_enabled"] = self.ssm_enabled
+            result["analysis_ttc_threshold_s"] = self.analysis_ttc_threshold_s
+            result["analysis_drac_threshold_mps2"] = self.analysis_drac_threshold_mps2
+            result["ssm_dedup_method"] = self.ssm_dedup_method
+            result["ssm_mirror_overlap_ratio"] = self.ssm_mirror_overlap_ratio
+            result["ssm_fragment_merge_gap_s"] = self.ssm_fragment_merge_gap_s
         return result
 
     def sha256(self) -> str:

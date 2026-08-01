@@ -106,6 +106,13 @@ def build_run_specs(
     fcd_profile: str | None = None,
     fcd_max_leader_distance_m: float | None = None,
     with_internal: bool = False,
+    experiment_role: str = "main_factorial",
+    ssm_enabled: bool = False,
+    analysis_ttc_threshold_s: float = 3.0,
+    analysis_drac_threshold_mps2: float = 3.0,
+    ssm_dedup_method: str = "greedy_one_to_one_80pct",
+    ssm_mirror_overlap_ratio: float = 0.8,
+    ssm_fragment_merge_gap_s: float = 0.0,
 ) -> list[RunSpec]:
     """生成全部 RunSpec，根据参数自动选择 requested_pcav 或 cav_count 网格模式。"""
     if sumo_seeds is not None and treatments is not None:
@@ -135,6 +142,13 @@ def build_run_specs(
             fcd_profile=fcd_profile,
             fcd_max_leader_distance_m=fcd_max_leader_distance_m,
             with_internal=with_internal,
+            experiment_role=experiment_role,
+            ssm_enabled=ssm_enabled,
+            analysis_ttc_threshold_s=analysis_ttc_threshold_s,
+            analysis_drac_threshold_mps2=analysis_drac_threshold_mps2,
+            ssm_dedup_method=ssm_dedup_method,
+            ssm_mirror_overlap_ratio=ssm_mirror_overlap_ratio,
+            ssm_fragment_merge_gap_s=ssm_fragment_merge_gap_s,
         )
     if pcav_levels is None or vehicle_levels is None or seeds is None:
         raise ValueError(
@@ -202,6 +216,13 @@ def _build_spec_common(
     fcd_profile: str | None = None,
     fcd_max_leader_distance_m: float | None = None,
     with_internal: bool = False,
+    experiment_role: str = "main_factorial",
+    ssm_enabled: bool = False,
+    analysis_ttc_threshold_s: float = 3.0,
+    analysis_drac_threshold_mps2: float = 3.0,
+    ssm_dedup_method: str = "greedy_one_to_one_80pct",
+    ssm_mirror_overlap_ratio: float = 0.8,
+    ssm_fragment_merge_gap_s: float = 0.0,
 ) -> RunSpec:
     """创建 RunSpec 的公共工厂。"""
     return RunSpec(
@@ -235,6 +256,13 @@ def _build_spec_common(
         fcd_profile=fcd_profile,
         fcd_max_leader_distance_m=fcd_max_leader_distance_m,
         with_internal=with_internal,
+        experiment_role=experiment_role,
+        ssm_enabled=ssm_enabled,
+        analysis_ttc_threshold_s=analysis_ttc_threshold_s,
+        analysis_drac_threshold_mps2=analysis_drac_threshold_mps2,
+        ssm_dedup_method=ssm_dedup_method,
+        ssm_mirror_overlap_ratio=ssm_mirror_overlap_ratio,
+        ssm_fragment_merge_gap_s=ssm_fragment_merge_gap_s,
     )
 
 
@@ -337,6 +365,13 @@ def _build_cav_count_specs(
     fcd_profile: str | None,
     fcd_max_leader_distance_m: float | None,
     with_internal: bool,
+    experiment_role: str = "main_factorial",
+    ssm_enabled: bool = False,
+    analysis_ttc_threshold_s: float = 3.0,
+    analysis_drac_threshold_mps2: float = 3.0,
+    ssm_dedup_method: str = "greedy_one_to_one_80pct",
+    ssm_mirror_overlap_ratio: float = 0.8,
+    ssm_fragment_merge_gap_s: float = 0.0,
 ) -> list[RunSpec]:
     """以新 cav_count 模式展开网格，含 inactive-dimension 处理。"""
     specs: list[RunSpec] = []
@@ -413,6 +448,13 @@ def _build_cav_count_specs(
                                 experiment_id=experiment_id,
                                 ssm_capture_ttc_threshold_s=ssm_capture_ttc_threshold_s,
                                 ssm_capture_drac_threshold_mps2=ssm_capture_drac_threshold_mps2,
+                                experiment_role=experiment_role,
+                                ssm_enabled=ssm_enabled,
+                                analysis_ttc_threshold_s=analysis_ttc_threshold_s,
+                                analysis_drac_threshold_mps2=analysis_drac_threshold_mps2,
+                                ssm_dedup_method=ssm_dedup_method,
+                                ssm_mirror_overlap_ratio=ssm_mirror_overlap_ratio,
+                                ssm_fragment_merge_gap_s=ssm_fragment_merge_gap_s,
                                 ssm_range_m=ssm_range_m,
                                 ssm_trajectories=ssm_trajectories,
                                 ssm_extratime_s=ssm_extratime_s,
@@ -1435,6 +1477,13 @@ def main():
             fcd_profile=resolved_config.fcd_profile,
             fcd_max_leader_distance_m=resolved_config.fcd_max_leader_distance_m,
             with_internal=resolved_config.with_internal,
+            experiment_role=resolved_config.experiment_role,
+            ssm_enabled=resolved_config.ssm_enabled,
+            analysis_ttc_threshold_s=resolved_config.analysis_ttc_threshold_s,
+            analysis_drac_threshold_mps2=resolved_config.analysis_drac_threshold_mps2,
+            ssm_dedup_method=resolved_config.ssm_dedup_method,
+            ssm_mirror_overlap_ratio=resolved_config.ssm_mirror_overlap_ratio,
+            ssm_fragment_merge_gap_s=resolved_config.ssm_fragment_merge_gap_s,
         )
     except (ValueError, RuntimeError) as e:
         print(f"[ERROR] {e}")

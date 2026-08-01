@@ -177,6 +177,8 @@ def prepare_run(
             edge_ids=edge_ids,
             bottleneck_edge_ids=net_meta.get("bottleneck_edge_ids"),
             cav_count=effective_cav_count,
+            # P0-9：v0.4.2 显式固定 emissionClass（legacy 保持字节不变）
+            explicit_emission_class=getattr(spec, "pipeline_version", "") == "v0.4.2",
         )
         type_map_path = run_dir / "vehicle_type_map.json"
         atomic_write_json(type_map_path, vehicle_type_map)

@@ -59,10 +59,22 @@ def compute_core_summary(primitives, spec, free_flow_refs):
     ttc_per_1000 = _per_1000_veh_km(ssm_all.get("ttc_conflict_event_count", 0), total_veh_km)
     eb_per_1000 = _per_1000_veh_km(eb.get("emergency_braking_count", 0), total_veh_km)
     lc_per_1000 = _per_1000_veh_km(lc.get("lane_change_count", 0), total_veh_km)
-    co2_per = _safe_div(ee.get("total_CO2_kg", 0) * 1000.0, total_veh_km)
-    nox_per = _safe_div(ee.get("total_NOx_g", 0) * 1000.0, total_veh_km)
-    pmx_per = _safe_div(ee.get("total_PMx_g", 0) * 1000.0, total_veh_km)
-    fuel_per = _safe_div(ee.get("total_fuel_kg", 0) * 1000.0, total_veh_km)
+    # P0-7：主强度用 non-internal 排放 / non-internal veh-km（与 v0.4.0 可比）；
+    # 全路网强度保留为次要字段
+    ni_veh_km = ep.get("non_internal_edge_vehicle_km", float("nan"))
+    ni_co2 = ee.get("non_internal_CO2_kg", float("nan"))
+    ni_nox = ee.get("non_internal_NOx_g", float("nan"))
+    ni_pmx = ee.get("non_internal_PMx_g", float("nan"))
+    ni_fuel = ee.get("non_internal_fuel_kg", float("nan"))
+    co2_per = _safe_div(ni_co2 * 1000.0, ni_veh_km)
+    nox_per = _safe_div(ni_nox * 1000.0, ni_veh_km)
+    pmx_per = _safe_div(ni_pmx * 1000.0, ni_veh_km)
+    fuel_per = _safe_div(ni_fuel * 1000.0, ni_veh_km)
+    # 全路网强度（次要）
+    wn_co2_per = _safe_div(ee.get("total_CO2_kg", 0) * 1000.0, total_veh_km)
+    wn_nox_per = _safe_div(ee.get("total_NOx_g", 0) * 1000.0, total_veh_km)
+    wn_pmx_per = _safe_div(ee.get("total_PMx_g", 0) * 1000.0, total_veh_km)
+    wn_fuel_per = _safe_div(ee.get("total_fuel_kg", 0) * 1000.0, total_veh_km)
     tl_per = _safe_div(ep.get("total_time_loss_s", 0), total_veh_km)
 
     hv_ref = free_flow_refs.get("HV", float("nan"))
@@ -153,6 +165,14 @@ def compute_core_summary(primitives, spec, free_flow_refs):
         "NOx_mg_per_veh_km": nox_per,
         "PMx_mg_per_veh_km": pmx_per,
         "fuel_g_per_veh_km": fuel_per,
+        "whole_network_CO2_g_per_veh_km": wn_co2_per,
+        "whole_network_NOx_mg_per_veh_km": wn_nox_per,
+        "whole_network_PMx_mg_per_veh_km": wn_pmx_per,
+        "whole_network_fuel_g_per_veh_km": wn_fuel_per,
+        "non_internal_CO2_kg": ni_co2,
+        "non_internal_NOx_g": ni_nox,
+        "non_internal_PMx_g": ni_pmx,
+        "non_internal_fuel_kg": ni_fuel,
         "time_loss_s_per_veh_km": tl_per,
         "mean_lap_delay_s": mean_delay,
         "p95_lap_delay_s": p95_delay,

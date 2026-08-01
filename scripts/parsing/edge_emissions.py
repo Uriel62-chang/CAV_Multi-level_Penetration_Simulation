@@ -38,6 +38,11 @@ def parse_edge_emissions(xml_path: str, warmup_period: float = 0.0):
     total_nox_mg = 0.0
     total_pmx_mg = 0.0
     total_fuel_mg = 0.0
+    # P0-7：non-internal-edge 双累计（internal edge id 以 ":" 开头，与 performance 一致）
+    ni_co2_mg = 0.0
+    ni_nox_mg = 0.0
+    ni_pmx_mg = 0.0
+    ni_fuel_mg = 0.0
 
     for interval in root.findall("interval"):
         try:
@@ -48,14 +53,27 @@ def parse_edge_emissions(xml_path: str, warmup_period: float = 0.0):
             continue
         for edge in interval.findall("edge"):
             try:
-                total_co2_mg += float(edge.get("CO2_abs", "0"))
-                total_nox_mg += float(edge.get("NOx_abs", "0"))
-                total_pmx_mg += float(edge.get("PMx_abs", "0"))
-                total_fuel_mg += float(edge.get("fuel_abs", "0"))
+                co2_mg = float(edge.get("CO2_abs", "0"))
+                nox_mg = float(edge.get("NOx_abs", "0"))
+                pmx_mg = float(edge.get("PMx_abs", "0"))
+                fuel_mg = float(edge.get("fuel_abs", "0"))
             except (ValueError, TypeError):
                 continue
+            total_co2_mg += co2_mg
+            total_nox_mg += nox_mg
+            total_pmx_mg += pmx_mg
+            total_fuel_mg += fuel_mg
+            if not edge.get("id", "").startswith(":"):
+                ni_co2_mg += co2_mg
+                ni_nox_mg += nox_mg
+                ni_pmx_mg += pmx_mg
+                ni_fuel_mg += fuel_mg
 
     # 转换为 kg / g / kg
+    result["non_internal_CO2_kg"] = ni_co2_mg / 1e6
+    result["non_internal_NOx_g"] = ni_nox_mg / 1e3
+    result["non_internal_PMx_g"] = ni_pmx_mg / 1e3
+    result["non_internal_fuel_kg"] = ni_fuel_mg / 1e6
     result["total_CO2_kg"] = total_co2_mg / 1e6
     result["total_NOx_g"] = total_nox_mg / 1e3
     result["total_PMx_g"] = total_pmx_mg / 1e3

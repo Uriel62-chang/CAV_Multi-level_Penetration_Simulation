@@ -42,7 +42,7 @@ def test_smoke_v4_1_full_pipeline():
 
         net_sha = sha256_file(str(net_copy_dir / "loop.net.xml"))
         ff_artifact = {
-            "reference_id": "ff-smoke",
+            "reference_id": "ff-v0.4.1-pilot-ff-1",
             "free_flow_version": "v0.4.1-pilot-ff-1",
             "sumo_version": subprocess.run(
                 ["sumo", "--version"], capture_output=True, text=True
@@ -182,6 +182,8 @@ def test_smoke_v4_1_full_pipeline():
                 str(agg_dir / "aggregated_results.csv"),
                 "--schema-version",
                 "2",
+                "--manifest",
+                str(root / "manifest.json"),
             ],
             capture_output=True,
             text=True,

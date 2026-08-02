@@ -5,10 +5,10 @@
 - [Experiment report](report.md) — v0.4.0 experiment design, metrics, results,
   limitations and conclusions, plus the appended v0.4.2 supplement (formal
   grid, safety experiment, cross-version comparison).
-- [v0.4.2 results summary](../out_v0.4.2/result_analysis.md) — structured
+- [v0.4.2 results summary](../results/v0.4.2/result_analysis.md) — structured
   v0.4.2 analysis (peaks, s3 bottleneck reversal, safety by vehN, subgroup,
   cross-version boundary); provenance and SHA list in
-  [result_handover.json](../out_v0.4.2/result_handover.json).
+  [result_handover.json](../results/v0.4.2/result_handover.json).
 
 ## Engineering
 

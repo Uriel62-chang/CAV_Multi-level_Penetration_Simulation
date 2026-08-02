@@ -49,7 +49,7 @@ deactivation) and an 84-run safety experiment (4 scenarios × 3 vehN × 7 runs
 per (scenario, vehN) — HV-only: 1 + 2 interior levels × 2 models: 4 + full-CAV:
 2 — space-matched exposure, one seed pair per effective treatment key,
 descriptive results only). Aggregates and summaries are tracked under
-`out_v0.4.2/`; full per-run data is externally retained (see
+`results/v0.4.2/`; full per-run data is externally retained (see
 [Data Availability](#data-availability)).
 
 ### Main factorial
@@ -583,12 +583,12 @@ under `graph/v0.4.2/` are not overwritten:
 ```bash
 # main-factorial figures (capacity / CO2-flow / delay)
 python3 -m scripts.results.visualization \
-  --aggregated out_v0.4.2/main/aggregated_results.csv \
+  --aggregated results/v0.4.2/main/aggregated_results.csv \
   --v4-2 --outDir /tmp/v042-figs/main
 
 # safety figure (TTC events by penetration, faceted by scenario × vehN)
 python3 -m scripts.results.visualization \
-  --aggregated out_v0.4.2/safety/aggregated_results.csv \
+  --aggregated results/v0.4.2/safety/aggregated_results.csv \
   --safety --outDir /tmp/v042-figs/safety
 ```
 
@@ -699,13 +699,13 @@ After SSM compaction, the retained raw experiment directory is approximately 58 
 
 The repository includes:
 
-- `out_v0.4.2/main/aggregated_results.csv` and `out_v0.4.2/safety/aggregated_results.csv`
+- `results/v0.4.2/main/aggregated_results.csv` and `results/v0.4.2/safety/aggregated_results.csv`
   — 528 main-factorial groups (3,888 runs) and 84 safety groups, aggregated across
   the `(assignment_seed, sumo_seed)` combination unit (3 × 3 for main interior cells);
-- `out_v0.4.2/result_handover.json` — minimal provenance handover: simulation
+- `results/v0.4.2/result_handover.json` — minimal provenance handover: simulation
   (`a8aa09a`), parsing (`a21e05e`), writer/aggregate (`6637519`) commits, main/safety
   manifest SHA, and the SHA-256 of the thirteen archived result paths;
-- `out_v0.4.2/result_analysis.md` — structured results summary (peaks, s3 bottleneck
+- `results/v0.4.2/result_analysis.md` — structured results summary (peaks, s3 bottleneck
   reversal, Safety by vehN facet, cross-version comparison boundary, subgroup table);
 - the v0.4.2 figures under `graph/v0.4.2/` (main factorial × 3 + Safety × 1).
 
@@ -714,11 +714,11 @@ the v0.4.0 post3 archive practice):
 
 - `raw_v0.4.2/` — raw SUMO outputs, per-run `summary.json` / `simulation_status.json`
   (main ≈ 34 GB, safety ≈ 0.8 GB);
-- `out_v0.4.2/{main,safety}/run_level_results.csv`,
+- `results/v0.4.2/{main,safety}/run_level_results.csv`,
   `run_level_subgroup_results.csv`, `writer_report.json`, `failed_runs.csv`
   (≈ 53 MB in total).
 
-**Git-side integrity anchor for the external raw:** `out_v0.4.2/raw_status_inventory.jsonl`
+**Git-side integrity anchor for the external raw:** `results/v0.4.2/raw_status_inventory.jsonl`
 (≈ 8.4 MB, Git-tracked) fixes the SHA-256 of every `simulation_status.json` and
 `parse_status.json` for all 3,972 runs (main 3,888 + safety 84), sorted by
 `experiment_role, run_id`, and expands the status-embedded SHA for route/type-map/

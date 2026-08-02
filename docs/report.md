@@ -390,7 +390,7 @@ s3 暴露了多目标冲突：在全 CAV、高密度固定运行点，IDM 的流
 > **版本**：v0.4.2（跳号发布）。本附录为 v0.4.0 报告的补充，不改写任何 v0.4.0
 > 数值或结论；旧报告正文中关于 v0.4.1/v0.4.2 的 prospective 路线描述已被实际发布
 > 路径取代（v0.4.1 为未发布内部里程碑，成果并入 v0.4.2）。
-> 数据：`out_v0.4.2/`（aggregated CSV、result_handover.json、result_analysis.md）。
+> 数据：`results/v0.4.2/`（aggregated CSV、result_handover.json、result_analysis.md）。
 
 ## 1. 网格与口径
 

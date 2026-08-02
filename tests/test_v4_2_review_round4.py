@@ -146,26 +146,6 @@ def test_assignment_seeds_unconditionally_replace(monkeypatch):
 # ── P1-4：输入完整性（stderr 哈希 + sidecar 迁移）──
 
 
-def _write_status_with_raw_hashes(run_dir: Path, raw_hashes: dict) -> None:
-    (run_dir / "simulation_status.json").write_text(
-        json.dumps(
-            {
-                "run_id": run_dir.name,
-                "pipeline_version": "v0.4.2",
-                "status": "SUCCESS",
-                "return_code": 0,
-                "run_spec_sha256": "x",
-                "schema_version": "2",
-                "config_sha256": "",
-                "network_sha256": "",
-                "experiment_id": "",
-                "raw_output_sha256": raw_hashes,
-            }
-        ),
-        encoding="utf-8",
-    )
-
-
 class _SpecStub:
     pipeline_version = "v0.4.2"
     fcd_profile = None
@@ -174,44 +154,113 @@ class _SpecStub:
     run_id = "run-1"
 
 
+def _ensure_inputs(run_dir: Path) -> None:
+    """创建 v0.4.2 最小解析输入文件（num_lanes=1, ssm off, fcd off）。"""
+    for name in (
+        "routes.rou.xml",
+        "additional.add.xml",
+        "vehicle_type_map.json",
+        "stderr.log",
+        "performance.xml",
+        "performance_HV.xml",
+        "performance_CAV.xml",
+        "emissions.xml",
+        "emissions_HV.xml",
+        "emissions_CAV.xml",
+        "lanechange.xml",
+        "vehroute.xml",
+        "detector_lane0.xml",
+        "detector_lane0_HV.xml",
+        "detector_lane0_CAV.xml",
+    ):
+        p = run_dir / name
+        if not p.exists():
+            p.write_text("x", encoding="utf-8")
+
+
+def _write_full_status(run_dir: Path, raw_hashes: dict) -> None:
+    """写完整 v0.4.2 status：raw_output_sha256 + 全部顶层哈希（从实际文件算）。"""
+    from scripts.provenance import sha256_file
+
+    _ensure_inputs(run_dir)
+    status = {
+        "run_id": run_dir.name,
+        "pipeline_version": "v0.4.2",
+        "status": "SUCCESS",
+        "return_code": 0,
+        "run_spec_sha256": "x",
+        "schema_version": "2",
+        "config_sha256": "",
+        "network_sha256": "",
+        "experiment_id": "",
+        "route_file_sha256": sha256_file(run_dir / "routes.rou.xml"),
+        "vehicle_type_map_sha256": sha256_file(run_dir / "vehicle_type_map.json"),
+        "additional_file_sha256": sha256_file(run_dir / "additional.add.xml"),
+        "network_xml_sha256": sha256_file("net/scenario_0/loop.net.xml"),
+        "net_json_sha256": sha256_file("net/scenario_0/net.json"),
+        "raw_output_sha256": raw_hashes,
+    }
+    (run_dir / "simulation_status.json").write_text(json.dumps(status), encoding="utf-8")
+
+
+def _full_raw_hashes(run_dir: Path) -> dict:
+    """按 spec 推导的完整 raw 哈希（expected set 全键）。"""
+    from scripts.parsing.input_integrity import raw_output_expected_names
+    from scripts.provenance import sha256_file
+
+    _ensure_inputs(run_dir)
+    return {name: sha256_file(run_dir / name) for name in raw_output_expected_names(_SpecStub())}
+
+
 def test_input_integrity_new_run_status_covers_stderr(tmp_path):
-    """新 run：status 的 raw_output_sha256 含 stderr.log → 直接校验通过。"""
+    """新 run：完整 raw_output_sha256（含 stderr.log）+ 顶层哈希 → 通过。"""
+    from scripts.parsing.input_integrity import verify
+
+    rd = tmp_path / "run-1"
+    rd.mkdir()
+    _write_full_status(rd, _full_raw_hashes(rd))
+    ok, errors = verify(rd, _SpecStub())
+    assert ok, errors
+
+
+def test_input_integrity_new_run_partial_raw_hashes_fails(tmp_path):
+    """新 run：raw_output_sha256 只含 stderr.log（集合不完整）→ fail-closed。"""
     from scripts.parsing.input_integrity import verify
     from scripts.provenance import sha256_file
 
     rd = tmp_path / "run-1"
     rd.mkdir()
-    (rd / "stderr.log").write_text("log", encoding="utf-8")
-    _write_status_with_raw_hashes(rd, {"stderr.log": sha256_file(rd / "stderr.log")})
+    _ensure_inputs(rd)
+
+    _write_full_status(rd, {"stderr.log": sha256_file(rd / "stderr.log")})
     ok, errors = verify(rd, _SpecStub())
-    assert ok, errors
+    assert not ok
+    assert any("key set mismatch" in e for e in errors)
 
 
 def test_input_integrity_old_run_requires_sidecar(tmp_path):
-    """旧 run：status 未哈希 stderr.log → 无 sidecar 时 fail-closed。"""
+    """旧 run：status 未哈希 stderr.log（迁移场景）→ 无 sidecar 时 fail-closed。"""
     from scripts.parsing.input_integrity import verify
 
     rd = tmp_path / "run-1"
     rd.mkdir()
-    (rd / "stderr.log").write_text("log", encoding="utf-8")
-    _write_status_with_raw_hashes(rd, {"performance.xml": "a" * 64})
+    raw = _full_raw_hashes(rd)
+    raw.pop("stderr.log")
+    _write_full_status(rd, raw)
     ok, errors = verify(rd, _SpecStub())
     assert not ok
     assert any("input_integrity.sidecar.json" in e for e in errors)
 
 
 def test_input_integrity_sidecar_migration_passes(tmp_path):
-    """迁移路径：显式 sidecar（purpose 正确 + stderr SHA 匹配）放行。"""
+    """迁移路径：显式 sidecar（完整键集 + SHA 匹配）放行。"""
     from scripts.parsing.input_integrity import PURPOSE, verify, write_sidecar
 
     rd = tmp_path / "run-1"
     rd.mkdir()
-    (rd / "stderr.log").write_text("log", encoding="utf-8")
-    perf = rd / "performance.xml"
-    perf.write_text("perf", encoding="utf-8")
-    from scripts.provenance import sha256_file
-
-    _write_status_with_raw_hashes(rd, {"performance.xml": sha256_file(perf)})
+    raw = _full_raw_hashes(rd)
+    raw.pop("stderr.log")
+    _write_full_status(rd, raw)
     sidecar_path = write_sidecar(rd, _SpecStub())
     assert sidecar_path.exists()
     payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
@@ -226,6 +275,43 @@ def test_input_integrity_sidecar_migration_passes(tmp_path):
     ok, errors = verify(rd, _SpecStub())
     assert not ok
     assert any("anchor_sha256" in e for e in errors)
+
+
+def test_input_integrity_sidecar_missing_key_fails(tmp_path):
+    """sidecar 删除 vehicle_type_map.json 并重算自锚 → 键集缺失 fail。"""
+    from scripts.parsing.input_integrity import verify, write_sidecar
+
+    rd = tmp_path / "run-1"
+    rd.mkdir()
+    raw = _full_raw_hashes(rd)
+    raw.pop("stderr.log")
+    _write_full_status(rd, raw)
+    write_sidecar(rd, _SpecStub())
+    sidecar_path = rd / "input_integrity.sidecar.json"
+    payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    del payload["files"]["vehicle_type_map.json"]
+    payload["anchor_sha256"] = json.dumps(payload["files"], sort_keys=True)[:64]
+    sidecar_path.write_text(json.dumps(payload), encoding="utf-8")
+    ok, errors = verify(rd, _SpecStub())
+    assert not ok
+    assert any("key set mismatch" in e for e in errors)
+
+
+def test_input_integrity_top_level_hash_mismatch_fails(tmp_path):
+    """status 顶层 route 哈希与实际文件不匹配 → fail-closed。"""
+    from scripts.parsing.input_integrity import verify, write_sidecar
+
+    rd = tmp_path / "run-1"
+    rd.mkdir()
+    raw = _full_raw_hashes(rd)
+    raw.pop("stderr.log")
+    _write_full_status(rd, raw)
+    write_sidecar(rd, _SpecStub())
+    # 修改 routes.rou.xml（status 顶层 route_file_sha256 不再匹配）
+    (rd / "routes.rou.xml").write_text("modified", encoding="utf-8")
+    ok, errors = verify(rd, _SpecStub())
+    assert not ok
+    assert any("top-level input hash mismatch: routes.rou.xml" in e for e in errors)
 
 
 # ── P1-5：aggregate 期望集合校验 ──
@@ -439,18 +525,13 @@ def test_input_integrity_sidecar_verifies_all_inputs(tmp_path):
 
     rd = tmp_path / "run-1"
     rd.mkdir()
-    (rd / "stderr.log").write_text("log", encoding="utf-8")
-    perf = rd / "performance.xml"
-    perf.write_text("perf", encoding="utf-8")
-    vtm = rd / "vehicle_type_map.json"
-    vtm.write_text("{}", encoding="utf-8")
-    from scripts.provenance import sha256_file
-
-    _write_status_with_raw_hashes(rd, {"performance.xml": sha256_file(perf)})
+    raw = _full_raw_hashes(rd)
+    raw.pop("stderr.log")
+    _write_full_status(rd, raw)
     write_sidecar(rd, _SpecStub())
     assert verify(rd, _SpecStub())[0]
     # 篡改 sidecar 记录的 vehicle_type_map.json（status 未覆盖）→ 检出
-    vtm.write_text('{"veh0": "HV"}', encoding="utf-8")
+    (rd / "vehicle_type_map.json").write_text('{"veh0": "HV"}', encoding="utf-8")
     ok, errors = verify(rd, _SpecStub())
     assert not ok
     assert any("vehicle_type_map.json" in e for e in errors)

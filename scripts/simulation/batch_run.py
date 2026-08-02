@@ -770,42 +770,12 @@ def _collect_v4_2_raw_hashes(run_dir: Path, spec: RunSpec) -> dict[str, str]:
 
     覆盖 performance/emissions/lanechange/vehroute/ssm（safety）/fcd（启用）/
     detector（按 net.json num_lanes）；仅记录实际存在的文件。
+    预期键集与 input_integrity.raw_output_expected_names 单源共享
+    （round-3 P1-1：exact expected set 校验依赖同一集合）。
     """
-    names = [
-        "performance.xml",
-        "emissions.xml",
-        "lanechange.xml",
-        "vehroute.xml",
-        "performance_HV.xml",
-        "performance_CAV.xml",
-        "emissions_HV.xml",
-        "emissions_CAV.xml",
-        # P1-4（新审阅）：stderr.log 也是解析输入（emergency braking 来源），
-        # 必须进入 raw 哈希清单；3,972 个既有 run 未记录，走迁移 sidecar。
-        "stderr.log",
-    ]
-    if getattr(spec, "ssm_enabled", False):
-        names.append("ssm.xml")
-    if spec.fcd_profile is not None:
-        names.append("fcd.xml.gz")
-    net_meta_path = Path(spec.network_file).with_name("net.json")
-    num_lanes = 1
-    try:
-        with open(net_meta_path, encoding="utf-8") as f:
-            meta = json.load(f)
-        nl = meta.get("num_lanes")
-        if type(nl) is int and nl >= 1:
-            num_lanes = nl
-    except (OSError, ValueError):
-        pass
-    for lane_idx in range(num_lanes):
-        names.extend(
-            [
-                f"detector_lane{lane_idx}.xml",
-                f"detector_lane{lane_idx}_HV.xml",
-                f"detector_lane{lane_idx}_CAV.xml",
-            ]
-        )
+    from scripts.parsing.input_integrity import raw_output_expected_names
+
+    names = raw_output_expected_names(spec)
     hashes: dict[str, str] = {}
     for name in names:
         p = run_dir / name

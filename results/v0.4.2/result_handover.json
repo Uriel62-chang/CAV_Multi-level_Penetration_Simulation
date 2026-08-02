@@ -8,9 +8,9 @@
    "note": "raw SUMO 输出与 simulation_status.json 未重跑、未修改（红线维持）"
   },
   "parsing": {
-   "final_commit": "507a80d",
-   "clean_at_runtime": true,
-   "note": "全量重解析（无 --resume）在修复提交之后运行；旧 run 经 --freeze-input-integrity 生成 sidecar（3,972 个，SHA 锚定于 inventory sidecar_sha256 列与 sidecar_anchor_sha256）；3,888 main + 84 safety 全 SUCCESS。P1（round-2）修复 input_integrity fail-open 与 sidecar 全输入核验。"
+   "artifact_generation_commit": "d963502",
+   "post_generation_validation_commit": "507a80d",
+   "note": "3,972 个正式 summary/parse_status 由 d963502 时代全量重解析生成；507a80d 仅收紧校验逻辑与 inventory/handover 元数据，未重跑解析。"
   },
   "writer": {
    "final_commit": "8f9ef4b",
@@ -66,5 +66,6 @@
   "interim_inventory_sha256": "2f71c26edf02066a"
  },
  "runtime_clean_commit_warning": "本轮 parsing/writer/aggregate 运行于已提交的修复代码（8f9ef4b/91c256f/d963502），工作区仅含未跟踪的 results/.regen 临时目录；raw 证据目录与 simulation_status.json 未动。",
- "sidecar_anchor_sha256": "7fe29958a124f580"
+ "sidecar_anchor_sha256": "0bb7cac567e05aa2cc70c1f252c770ce921a4322377de6921927cf63e73f6c94",
+ "sidecar_anchor_algorithm": "sha256(canonical_json({'<role>/<run_id>': sha256_file(run_dir/input_integrity.sidecar.json)} for all 3,972 runs (role=main_factorial|safety by source dir), sort_keys=True, separators=(',', ':')))"
 }

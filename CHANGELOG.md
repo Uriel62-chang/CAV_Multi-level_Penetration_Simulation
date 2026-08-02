@@ -8,10 +8,10 @@
 
 ### 正式实验（新）
 
-- **主 factorial 网格**：4 场景 × 2 模型 × 6 渗透率档（0.2 步长，cav_count 整数可实现）
-  × 12 vehN × 3 assignment seeds × 3 SUMO seeds = 3,888 runs，SSM 关闭。关键数值：
-  s2 CACC 全 CAV 网格内最大观测流量 7,128 veh/h；s3 高密度全 CAV 运行点 IDM 3,204 vs
-  CACC 1,536 veh/h（瓶颈反转复现 v0.4.0 定性结论）。
+- **主 factorial 网格**：4 场景 × 12 vehN × 每 (scenario, vehN) 81 runs
+  （cav=0: 3 + 内部 4 档×2 模型×3 assignment×3 SUMO: 72 + cav=vehN: 6）= 3,888 runs，
+  SSM 关闭。关键数值：s2 CACC 全 CAV 网格内最大观测流量 7,128 veh/h；s3 高密度全
+  CAV 运行点 IDM 3,204 vs CACC 1,536 veh/h（瓶颈反转复现 v0.4.0 定性结论）。
 - **独立 safety experiment**：84 runs（p∈{0,0.2,0.6,1.0} × vehN∈{30,60,120}），TTC/DRAC
   事件率与暴露量空间配对（withInternal=true）；s1 与 s2 在当前阈值/配置下未检出事件
   （边界声明，不升级为「无安全冲突」）。
@@ -37,7 +37,9 @@
 - **SSM 内存成本提示**（B 线历史观测，仅提示、不作硬预算、不再改进）：在 SUMO 1.27.1
   特定冻结工况（TTC=5.0/range=50、s2 零事件 case）下，启用 SSM device 与约 8.86 GiB
   额外 sampled peak RSS 相关（D-014 表述边界，不断言内部机制或内存泄漏）。v0.4.2
-  safety 网格显式固定 TTC/DRAC 参数后实测峰值约 0.81 GiB。
+  safety 网格（TTC=3.0/range=50）逐 run 采样实测峰值：**s2 8.91 GiB**（s2_CACC_v120_c120，
+  零事件 case，与 B 线历史观测一致）、s0 6.52、s1 1.81、s3 1.50 GiB——按普通资源规则
+  运行（OOM 降并发 resume），峰值随场景/参数变化，不作硬预算。
 
 ### 测试与门禁
 

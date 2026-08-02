@@ -405,7 +405,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
         return parse_status
 
 
-def _load_free_flow_references(spec):
+def _load_free_flow_references(spec, run_dir=None):
     import json as _json
     from pathlib import Path as _Path
 
@@ -458,7 +458,20 @@ def _load_free_flow_references(spec):
 
     import subprocess as _sp
 
-    sumo_out = _sp.run(["sumo", "--version"], capture_output=True, text=True).stdout.strip()
+    # P1-3（本轮）：优先使用仿真时持久化的实际 SUMO 版本（--sumo 自定义可执行
+    # 文件可能与 PATH 不同）；无记录（旧 run）回退 PATH 查询。
+    sumo_out: str | None = None
+    if run_dir is not None:
+        try:
+            recorded = _json.loads(
+                (_Path(run_dir) / "simulation_status.json").read_text(encoding="utf-8")
+            ).get("sumo_version")
+            if recorded:
+                sumo_out = recorded
+        except (OSError, _json.JSONDecodeError, AttributeError):
+            pass
+    if sumo_out is None:
+        sumo_out = _sp.run(["sumo", "--version"], capture_output=True, text=True).stdout.strip()
     artifact_sumo = data.get("sumo_version", "")
     if artifact_sumo != sumo_out:
         raise ValueError(
@@ -522,7 +535,7 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
     net_meta_raw = load_network_meta(network_file or spec.network_file)
     num_lanes = max(net_meta_raw.get("num_lanes", 1), 1)
 
-    free_flow_refs = _load_free_flow_references(spec)
+    free_flow_refs = _load_free_flow_references(spec, run_dir=run_dir)
 
     warmup = spec.warmup
 

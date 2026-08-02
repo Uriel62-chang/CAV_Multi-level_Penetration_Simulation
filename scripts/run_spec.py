@@ -750,6 +750,21 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
         raw_hashes = data.get("raw_output_sha256")
         if not isinstance(raw_hashes, dict) or not raw_hashes:
             return False
+        # P1（本轮）：v0.4.2 键集必须等于预期文件集合（与阶段二 input_integrity
+        # exact-set 同一来源），不得只校验已有键——删除哈希项并篡改文件会绕过。
+        if spec.pipeline_version == PIPELINE_V4_2:
+            try:
+                from scripts.parsing.input_integrity import raw_output_expected_names
+
+                expected = set(raw_output_expected_names(spec))
+            except Exception:
+                return False
+            actual = set(raw_hashes.keys())
+            if "stderr.log" in actual:
+                if actual != expected:
+                    return False
+            elif actual != expected - {"stderr.log"}:
+                return False
         for fname, fhash in raw_hashes.items():
             if not isinstance(fname, str) or fname.startswith("/") or ".." in fname:
                 return False  # 拒绝路径穿越/绝对路径键

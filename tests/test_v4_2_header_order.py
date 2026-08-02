@@ -65,7 +65,7 @@ def test_v4_2_header_matches_frozen_fixture():
     digest = hashlib.sha256(
         json.dumps(RUN_LEVEL_COLUMNS_V4_2, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
-    assert digest == "4e3c86a4248b20f087421741fc6d8ba146ad837339088b80543848b05515c272"
+    assert digest == "a11abe7ab246ad068a535dd61534fea6b1b296b0e5afdb37a6e016b88140c135"
 
 
 def test_status_columns_do_not_leak_to_legacy_sets():

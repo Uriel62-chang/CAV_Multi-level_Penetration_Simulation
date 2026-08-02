@@ -137,9 +137,10 @@ def test_v4_2_safety_requires_ssm(tmp_path: Path):
     run_dir.mkdir(parents=True)
     _write_required_files(run_dir)
     _write_status(run_dir, spec, pipeline="v0.4.2")
-    # 缺 ssm.xml → 不 complete
+    # 缺 ssm.xml（status 已记录其哈希）→ 不 complete
+    (run_dir / "ssm.xml").unlink()
     assert is_simulation_complete(spec, run_dir, "v0.4.2") is False
-    (run_dir / "ssm.xml").write_text("<SSMLog/>", encoding="utf-8")
+    (run_dir / "ssm.xml").write_text("x", encoding="utf-8")
     assert is_simulation_complete(spec, run_dir, "v0.4.2") is True
 
 
@@ -226,19 +227,15 @@ def _write_status(run_dir: Path, spec: RunSpec, pipeline: str) -> None:
         # P0-1：net.json 与 raw 输出 SHA 闭包（使用 spec.network_file 同目录的 net.json）
         net_meta = Path(spec.network_file).with_name("net.json")
         status["net_json_sha256"] = sha256_file(str(net_meta))
-        raw_names = [
-            "performance.xml",
-            "emissions.xml",
-            "lanechange.xml",
-            "vehroute.xml",
-            "performance_HV.xml",
-            "performance_CAV.xml",
-            "emissions_HV.xml",
-            "emissions_CAV.xml",
-            "detector_lane0.xml",
-            "detector_lane0_HV.xml",
-            "detector_lane0_CAV.xml",
-        ]
+        # P1-2（delta）：raw 键集与 input_integrity exact-set 单源；缺失文件
+        # 先写占位（含 safety 的 ssm.xml），resume 的存在性由文件本身判定。
+        from scripts.parsing.input_integrity import raw_output_expected_names
+
+        raw_names = raw_output_expected_names(spec)
+        for name in raw_names:
+            p = run_dir / name
+            if not p.exists():
+                p.write_text("x", encoding="utf-8")
         status["raw_output_sha256"] = {n: _h(n) for n in raw_names}
     (run_dir / "simulation_status.json").write_text(json.dumps(status), encoding="utf-8")
     (run_dir / "run_spec.json").write_text(json.dumps(spec.to_dict()), encoding="utf-8")
@@ -262,4 +259,29 @@ def test_v4_2_resume_rejects_additional_change(tmp_path: Path):
     (run_dir / "additional.add.xml").write_text(
         "<additional><modified/></additional>", encoding="utf-8"
     )
+    assert is_simulation_complete(spec, run_dir, "v0.4.2") is False
+
+
+def test_v4_2_resume_rejects_missing_raw_key_and_tamper(tmp_path: Path):
+    """P1-2（delta）：删除 raw_output_sha256 键并篡改文件 → resume 判定失败。"""
+    net_file, net_sha = _dummy_network(tmp_path)
+    spec = _spec_v4_2(
+        experiment_role="main_factorial",
+        ssm_enabled=False,
+        network_file=net_file,
+        network_sha256=net_sha,
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    _write_required_files(run_dir)
+    _write_status(run_dir, spec, pipeline="v0.4.2")
+    assert is_simulation_complete(spec, run_dir, "v0.4.2") is True
+    # 删除 performance.xml 的哈希项并篡改文件 → 键集不完整 → 拒绝
+    import json as _json
+
+    status_p = run_dir / "simulation_status.json"
+    status = _json.loads(status_p.read_text())
+    del status["raw_output_sha256"]["performance.xml"]
+    status_p.write_text(_json.dumps(status), encoding="utf-8")
+    (run_dir / "performance.xml").write_text("tampered", encoding="utf-8")
     assert is_simulation_complete(spec, run_dir, "v0.4.2") is False

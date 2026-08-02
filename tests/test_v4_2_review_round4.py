@@ -345,9 +345,7 @@ def _run_level_df(schema_cols, rows):
 
 def test_aggregate_missing_seed_pair_fails_closed(tmp_path):
     """删除 3×3 网格中的一个组合 → 必须 fail-closed（不得输出 n=8）。"""
-    from scripts.schema import RUN_LEVEL_COLUMNS_V4_2
 
-    cols = RUN_LEVEL_COLUMNS_V4_2
     rows = []
     combos = [(a, s) for a in (1, 2, 3) for s in (101, 102, 103)]
     combos.pop(2)  # 缺失 (3, 101)
@@ -369,6 +367,9 @@ def test_aggregate_missing_seed_pair_fails_closed(tmp_path):
                 "total_vehicle_km": 10.0,
             }
         )
+    from scripts.schema import RUN_LEVEL_COLUMNS_V4_2 as _COLS
+
+    cols = _COLS
     df = _run_level_df(cols, rows)
     in_csv = tmp_path / "in.csv"
     out_csv = tmp_path / "out.csv"
@@ -384,9 +385,7 @@ def test_aggregate_missing_seed_pair_fails_closed(tmp_path):
 
 def test_aggregate_manifest_run_id_set_mismatch(tmp_path):
     """CSV run_id 与 manifest 期望集合不等 → fail-closed。"""
-    from scripts.schema import RUN_LEVEL_COLUMNS_V4_2
 
-    cols = RUN_LEVEL_COLUMNS_V4_2
     rows = [
         {
             "run_id": f"r{i}",
@@ -405,6 +404,9 @@ def test_aggregate_manifest_run_id_set_mismatch(tmp_path):
         }
         for i, (a, s) in enumerate((a, s) for a in (1, 2, 3) for s in (101, 102, 103))
     ]
+    from scripts.schema import RUN_LEVEL_COLUMNS_V4_2 as _COLS
+
+    cols = _COLS
     df = _run_level_df(cols, rows)
     in_csv = tmp_path / "in.csv"
     out_csv = tmp_path / "out.csv"
@@ -420,9 +422,7 @@ def test_aggregate_manifest_run_id_set_mismatch(tmp_path):
 
 def test_aggregate_full_combo_passes(tmp_path):
     """完整 9 组合 + manifest 全等 → 通过。"""
-    from scripts.schema import RUN_LEVEL_COLUMNS_V4_2
 
-    cols = RUN_LEVEL_COLUMNS_V4_2
     rows = []
     for i, (a, s) in enumerate((a, s) for a in (1, 2, 3) for s in (101, 102, 103)):
         rows.append(
@@ -442,6 +442,9 @@ def test_aggregate_full_combo_passes(tmp_path):
                 "total_vehicle_km": 10.0,
             }
         )
+    from scripts.schema import RUN_LEVEL_COLUMNS_V4_2 as _COLS
+
+    cols = _COLS
     df = _run_level_df(cols, rows)
     in_csv = tmp_path / "in.csv"
     out_csv = tmp_path / "out.csv"
@@ -880,3 +883,62 @@ def test_aggregate_subgroup_rejects_duplicate_metric_rows(tmp_path):
     df.to_csv(in_csv, index=False)
     with pytest.raises(ValueError, match="duplicate_rows"):
         aggregate_subgroup(in_csv, out_csv, _subgroup_manifest(1))
+
+
+def test_aggregate_whole_group_non_ok_fails(tmp_path):
+    """整组 data_quality != ok → 不得静默删除，必须 fail-closed。"""
+
+    rows = []
+    # cav_count=5 全 parser_warning；cav_count=6 全 ok
+    for cav, dq in ((5, "parser_warning"), (6, "ok")):
+        for i, (a, s) in enumerate((a, s) for a in (1, 2, 3) for s in (101, 102, 103)):
+            rows.append(
+                {
+                    "run_id": f"r{cav}_{i}",
+                    "scenario": "scenario_0",
+                    "model": "IDM",
+                    "requested_pcav": None,
+                    "realized_pcav": cav / 10,
+                    "cav_count": cav,
+                    "hv_count": 10 - cav,
+                    "vehN": 10,
+                    "assignment_seed": a,
+                    "sumo_seed": s,
+                    "data_quality": dq,
+                    "mean_flow_veh_h": 100.0,
+                    "total_vehicle_km": 10.0,
+                }
+            )
+    in_csv = tmp_path / "in.csv"
+    out_csv = tmp_path / "out.csv"
+    pd.DataFrame(rows).to_csv(in_csv, index=False)
+    manifest = {
+        "treatments": [{"vehicle_count": 10, "cav_counts": [5, 6], "assignment_seeds": [1, 2, 3]}],
+        "sumo_seeds": [101, 102, 103],
+        "results": [{"run_id": r["run_id"]} for r in rows],
+    }
+    with pytest.raises(ValueError, match="no data_quality=ok runs"):
+        aggregate(in_csv, out_csv, "2", manifest=manifest)
+
+
+def test_batch_run_rejects_nonpositive_processes():
+    """P2-2（delta）：--sumo-processes 0/负 → argparse 拒绝。"""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "scripts.simulation.batch_run",
+            "--config",
+            "configs/v0.4.2/main.json",
+            "--sumo-processes",
+            "0",
+            "--dry-run",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "--sumo-processes must be positive" in result.stderr

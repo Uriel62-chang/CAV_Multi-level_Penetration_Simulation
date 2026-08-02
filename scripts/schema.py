@@ -129,6 +129,16 @@ STATUS_COLUMNS_V4_2 = [
     "ssm_not_collected",
 ]
 
+# P2-1（审阅）：v0.4.2 分析/去重参数列（split-design 验收矩阵要求输出阈值与
+# dedup 方法；summary 已写入，补入 run-level CSV 保持设计验收闭合）。
+ANALYSIS_COLUMNS_V4_2 = [
+    "analysis_ttc_threshold_s",
+    "analysis_drac_threshold_mps2",
+    "ssm_dedup_method",
+    "ssm_mirror_overlap_ratio",
+    "ssm_fragment_merge_gap_s",
+]
+
 # v0.4.2 排放双口径扩展（P0-7/P0-4）：non-internal 绝对量与全路网次要强度。
 # 独立于 EMISSIONS_COLUMNS，避免改变 legacy schema=1 的冻结字段集。
 EMISSIONS_COLUMNS_V4_2 = [
@@ -245,6 +255,7 @@ SUMMARY_REQUIRED_KEYS_V4_1 = (
 RUN_LEVEL_COLUMNS_V4_2 = (
     list(IDENTIFIER_COLUMNS_V4_1)
     + list(STATUS_COLUMNS_V4_2)
+    + list(ANALYSIS_COLUMNS_V4_2)
     + list(CONFIG_COLUMNS_V4_1)
     + list(CAPACITY_COLUMNS)
     + list(SAFETY_SSM_COLUMNS_V4_1)
@@ -274,6 +285,7 @@ def _dedup_keep_order(items):
 SUMMARY_REQUIRED_KEYS_V4_2 = _dedup_keep_order(
     list(IDENTIFIER_COLUMNS_V4_1)
     + list(STATUS_COLUMNS_V4_2)
+    + list(ANALYSIS_COLUMNS_V4_2)
     + list(CONFIG_COLUMNS_V4_1)
     + list(CAPACITY_COLUMNS)
     + list(SAFETY_SSM_COLUMNS_V4_1)
@@ -385,7 +397,7 @@ def validate_summary_contract(
     if errors:
         return errors
 
-    string_keys = {"run_id", "scenario", "model", "det_xml", "experiment_role"}
+    string_keys = {"run_id", "scenario", "model", "det_xml", "experiment_role", "ssm_dedup_method"}
     bool_keys = (
         set(AUDIT_COLUMNS_V4_1 if schema_version == "2" else AUDIT_COLUMNS)
         | {"with_internal"}

@@ -1088,6 +1088,19 @@ async def run_sumo_process(
             "stderr_tail": _stderr_tail(prepared.stderr_path),
             "sumo_peak_rss_kb": _max_rss_kb,
         }
+        # P1-3（本轮）：持久化实际 SUMO 版本（可能为 --sumo 自定义可执行文件，
+        # 与 PATH 中 sumo 不同）；解析器用该记录验证 free-flow artifact 而非
+        # 解析时查询 PATH。
+        try:
+            import subprocess as _sp
+
+            sumo_version_out = _sp.run(
+                [sumo_command, "--version"], capture_output=True, text=True, timeout=15
+            ).stdout.strip()
+            if sumo_version_out:
+                status_data["sumo_version"] = sumo_version_out
+        except (OSError, _sp.SubprocessError, TimeoutError):
+            pass
         # v0.4.1/v0.4.2: 记录冻结输入哈希供 resume 校验（P0-4 覆盖 v0.4.2）
         if status == "SUCCESS" and spec.pipeline_version in ("v0.4.1", "v0.4.2"):
             status_data["route_file_sha256"] = sha256_file(str(prepared.route_path))
@@ -1459,6 +1472,13 @@ def main():
         help="显式覆盖 sumo 随机种子列表（cav_count 模式），逗号分隔",
     )
     args = parser.parse_args()
+
+    # P2-2（审阅）：批处理数值参数正数门禁——processes<=0 会致 worker 空列表、
+    # 全部 NOT_STARTED 且正常退出；timeout<=0 同样无意义。
+    if args.sumo_processes is not None and args.sumo_processes <= 0:
+        parser.error(f"--sumo-processes must be positive, got {args.sumo_processes}")
+    if args.timeout is not None and args.timeout <= 0:
+        parser.error(f"--timeout must be positive, got {args.timeout}")
 
     # ── 加载配置并应用显式 CLI 覆盖 ──
     try:

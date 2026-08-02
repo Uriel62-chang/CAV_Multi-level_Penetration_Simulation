@@ -119,14 +119,23 @@ def aggregate(
                     "run_id set mismatch vs manifest: "
                     f"missing={sorted(missing_ids)[:5]} extra={sorted(extra_ids)[:5]}"
                 )
+        # P1（本轮）：预期分组来自完整 CSV（含非 ok 行），逐组检查 df_ok 的 seed 对；
+        # 整组无 data_quality=ok 数据必须 fail-closed，不得静默删除该组。
         seed_groups = df_ok.groupby(list(group_keys), dropna=False)
+        ok_group_map = {(k,) if not isinstance(k, tuple) else k: g for k, g in seed_groups}
         rows = []
-        for keys, grp in seed_groups:
+        for keys, _grp_all in df.groupby(list(group_keys), dropna=False):
             if not isinstance(keys, tuple):
                 keys = (keys,)
-            a_levels = sorted(grp["assignment_seed"].dropna().unique())
-            s_levels = sorted(grp["sumo_seed"].dropna().unique())
-            combos = list(zip(grp["assignment_seed"], grp["sumo_seed"], strict=True))
+            grp_ok = ok_group_map.get(keys)
+            if grp_ok is None or grp_ok.empty:
+                raise ValueError(
+                    f"group {keys} has no data_quality=ok runs "
+                    "(whole treatment non-ok; not silently dropped)"
+                )
+            a_levels = sorted(grp_ok["assignment_seed"].dropna().unique())
+            s_levels = sorted(grp_ok["sumo_seed"].dropna().unique())
+            combos = list(zip(grp_ok["assignment_seed"], grp_ok["sumo_seed"], strict=True))
             # 组合唯一性检查（同一 (assignment, sumo) 不得出现多次）
             seen = set()
             for a, s in combos:

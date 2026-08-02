@@ -243,7 +243,7 @@ def test_fragment_merge_parser_default_disabled_on_fragmentable():
     assert r["ttc_conflict_event_count"] == 2
 
 
-def test_runner_merge_gap_when_extratime_reduced(tmp_path):
+def test_runner_merge_gap_when_extratime_reduced(tmp_path, monkeypatch):
     import json
 
     from scripts.parsing.runner import _parse_one_run_v4_1
@@ -311,6 +311,13 @@ def test_runner_merge_gap_when_extratime_reduced(tmp_path):
     }
     (rd / "simulation_status.json").write_text(json.dumps(status))
 
+    # 脱离被忽略的真实路网：free-flow 参考固定为合法 fixture（Reviewer P1），
+    # 不依赖 net/scenario_0/loop.net.xml 的生成物 SHA 或存在性。
+    monkeypatch.setattr(
+        "scripts.parsing.runner._load_free_flow_references",
+        lambda spec: {"HV": 100.0, "IDM": 100.0},
+    )
+
     import scripts.parsing.ssm as ssm_mod
 
     _original = ssm_mod.parse_ssm_subgroup
@@ -346,7 +353,7 @@ def test_runner_merge_gap_when_extratime_reduced(tmp_path):
     assert 5.0 in captured_gap, f"expected merge_gap=5.0 when extratime=1.0, got {captured_gap}"
 
 
-def test_runner_merge_gap_default_disabled(tmp_path):
+def test_runner_merge_gap_default_disabled(tmp_path, monkeypatch):
     import json
 
     from scripts.parsing.runner import _parse_one_run_v4_1
@@ -412,6 +419,12 @@ def test_runner_merge_gap_default_disabled(tmp_path):
         "vehicle_type_map_sha256": "",
     }
     (rd / "simulation_status.json").write_text(json.dumps(status))
+
+    # 脱离被忽略的真实路网：free-flow 参考固定为合法 fixture（Reviewer P1）。
+    monkeypatch.setattr(
+        "scripts.parsing.runner._load_free_flow_references",
+        lambda spec: {"HV": 100.0, "IDM": 100.0},
+    )
 
     import scripts.parsing.ssm as ssm_mod
 

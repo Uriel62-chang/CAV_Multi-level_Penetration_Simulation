@@ -4,13 +4,13 @@ a424cb8 把 ``ssm_fragment_merged_count`` 加进共享 ``SAFETY_SSM_COLUMNS``，
 schema=1 producer（``single_run.py`` 不输出该键）在 runner/writer 双层契约处失败：
 parse 变 INVALID_DATA、writer 报 ``summary missing required key``。
 
-本文件使用**非自证 fixture**（硬编码 a424cb8 之前的 legacy producer 输出形状，
+本文件使用**非自证 fixture**（冻结 a424cb8 之前的历史 producer/contract 形状，
 不随被测试集合动态构造）锁定修复结果：
 
 - legacy 冻结集合（SAFETY_SSM_COLUMNS / SUMMARY_REQUIRED_KEYS / RUN_LEVEL_COLUMNS）不含 fragment；
 - V4_1 / V4_2 集合保留 fragment（正式 v0.4.2 CSV 不丢列）；
-- 真实 legacy producer 形状可通过 schema=1 contract；
-- legacy writer 对真实 legacy 形状 run 得到 complete=True；
+- 冻结的历史 legacy 形状可通过 schema=1 contract；
+- legacy writer 对冻结的 legacy 形状 run 得到 complete=True；
 - 两个 legacy 集合 digest 精确等于 a424cb8 之前的历史值。
 """
 
@@ -134,7 +134,11 @@ _POSITIVE_INT_KEYS = {"vehN": 10}
 
 
 def _legacy_producer_summary() -> dict:
-    """构造真实 legacy producer 输出形状（a424cb8 前），不含 fragment 键。"""
+    """构造冻结的历史 legacy producer/contract 形状（a424cb8 前），不含 fragment 键。
+
+    注意：这是契约 surrogate（硬编码键清单与取值），并非直接调用 legacy producer；
+    用于非自证地锚定 schema=1 契约形状，不随被测试集合动态扩张。
+    """
     summary = {}
     for key in LEGACY_SUMMARY_KEYS:
         if key in _STRING_KEYS:
@@ -173,7 +177,7 @@ def test_v4_1_and_v4_2_sets_keep_fragment_key():
     assert "ssm_fragment_merged_count" in RUN_LEVEL_COLUMNS_V4_2
 
 
-def test_legacy_producer_shape_passes_schema1_contract():
+def test_frozen_legacy_shape_passes_schema1_contract():
     summary = _legacy_producer_summary()
     assert "ssm_fragment_merged_count" not in summary
     assert validate_summary_contract(summary, "1") == []

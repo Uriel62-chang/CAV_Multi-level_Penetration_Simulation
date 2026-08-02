@@ -42,11 +42,15 @@ The four scenarios support three structured scenario comparisons:
 ## v0.4.2 Formal-grid Results
 
 v0.4.2 (jump release) ran a formal grid independent of the v0.4.0 historical
-baseline: a 3,888-run main factorial (SSM disabled; cav_count grid with 6
-penetration levels × 12 vehicle counts × 3 assignment seeds × 3 SUMO seeds)
-and an 84-run safety experiment (space-matched exposure, one seed pair per
-cell — descriptive results only). Full per-run data and aggregated results:
-`out_v0.4.2/` (see [Data Availability](#data-availability)).
+baseline: a 3,888-run main factorial (SSM disabled; 4 scenarios × 12 vehN ×
+81 runs per (scenario, vehN) — cav=0: 3 + interior 4 levels × 2 models × 3
+assignment seeds × 3 SUMO seeds: 72 + cav=vehN: 6 — with endpoint assignment
+deactivation) and an 84-run safety experiment (4 scenarios × 3 vehN × 7 runs
+per (scenario, vehN) — HV-only: 1 + 2 interior levels × 2 models: 4 + full-CAV:
+2 — space-matched exposure, one seed pair per effective treatment key,
+descriptive results only). Aggregates and summaries are tracked under
+`out_v0.4.2/`; full per-run data is externally retained (see
+[Data Availability](#data-availability)).
 
 ### Main factorial
 
@@ -66,8 +70,10 @@ v0.4.2 reproduces key endpoints and some grid peaks exactly, but **that does
 not mean all 528 shared treatment keys match the v0.4.0 grid numerically**.
 Across the 528 shared keys: flow identical in 96, within 1% in 315, maximum
 absolute difference ≈ 337.55 veh/h; delay median relative difference ≈ 6.04%;
-CO₂ has no identical groups (different measurement scope — no cross-version
-consistency inference is drawn). The s1 grid peak differs (v0.4.2: 4,178.4 @
+CO₂ has no identical groups (the primary estimand is non-internal/non-internal
+in both versions by design, but the acquisition pipeline, `withInternal`
+handling and seed design differ, so no cross-version numeric-consistency or
+change-rate inference is drawn). The s1 grid peak differs (v0.4.2: 4,178.4 @
 CACC vehN=70 p=1.0 vs v0.4.0: 4,344.96 @ vehN=90 p=0.95) because the
 penetration resolution was reduced from 21 to 6 levels. Emissions are
 compared only within v0.4.2 (IDM vs CACC).
@@ -368,11 +374,13 @@ The v0.4.2 grid uses `withInternal="true"` edgeData, so the safety event
 numerator and the vehicle-kilometre denominator share the same spatial scope
 (whole network including junction internal edges). Emissions are accumulated
 under two paired scopes: the primary intensity is non-internal-edge
-CO₂ g / non-internal-edge veh-km (comparable with v0.4.0), and a secondary
-whole-network intensity is reported alongside (`whole_network_*` columns in
-the run-level and aggregated CSVs). The v0.4.0 historical figures below use
-the original `withInternal="false"` scope and are not numerically
-interchangeable with the v0.4.2 grid.
+CO₂ g / non-internal-edge veh-km (the same estimand definition as v0.4.0, so
+the two versions are intended to be comparable at the definition level), and
+a secondary whole-network intensity is reported alongside (`whole_network_*`
+columns in the run-level and aggregated CSVs). Because the acquisition
+pipeline, `withInternal` handling and seed design differ, the v0.4.0 and
+v0.4.2 grids are **not numerically interchangeable**: no cross-version
+numeric-consistency or change-rate inference is drawn between them.
 
 ### Why use SUMO SSM for TTC?
 
@@ -696,7 +704,7 @@ The repository includes:
   the `(assignment_seed, sumo_seed)` combination unit (3 × 3 for main interior cells);
 - `out_v0.4.2/result_handover.json` — minimal provenance handover: simulation
   (`a8aa09a`), parsing (`a21e05e`), writer/aggregate (`6637519`) commits, main/safety
-  manifest SHA, and the SHA-256 of the twelve result files;
+  manifest SHA, and the SHA-256 of the thirteen archived result paths;
 - `out_v0.4.2/result_analysis.md` — structured results summary (peaks, s3 bottleneck
   reversal, Safety by vehN facet, cross-version comparison boundary, subgroup table);
 - the v0.4.2 figures under `graph/v0.4.2/` (main factorial × 3 + Safety × 1).

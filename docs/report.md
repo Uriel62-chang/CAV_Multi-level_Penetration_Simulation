@@ -396,8 +396,10 @@ s3 暴露了多目标冲突：在全 CAV、高密度固定运行点，IDM 的流
 
 - **主 factorial**：3,888 runs——4 场景 × 12 vehN × 每 (scenario, vehN) 81 runs
   （cav=0: 3 + 内部 4 档×2 模型×3 assignment×3 SUMO: 72 + cav=vehN: 6）；SSM 关闭。
-- **Safety**：84 runs——p∈{0, 0.2, 0.6, 1.0} × vehN∈{30, 60, 120}，每格 1 个
-  seed pair（描述性结果）。
+- **Safety**：84 runs——4 场景 × 3 vehN × 每 (scenario, vehN) 7 runs
+  （HV-only: 1 + 内部 2 档×2 模型: 4 + full-CAV: 2，端点规范化），
+  p∈{0, 0.2, 0.6, 1.0} × vehN∈{30, 60, 120}，每格 1 个 seed pair
+  （描述性结果；「每格」指每个有效聚合 treatment key）。
 - **口径变化**：`withInternal="true"`（安全事件与暴露量空间配对）；排放双口径
   （non-internal 主强度 + 全路网次要强度）；双 seed 统计单位
   `(assignment_seed, sumo_seed)` 等权汇总，报告每格有效 n 与 `seed_scope`；

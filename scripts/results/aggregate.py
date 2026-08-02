@@ -24,7 +24,7 @@ from scripts.schema import (
     LANECHANGE_COLUMNS,
     NORMALIZED_COLUMNS,
     SAFETY_EB_COLUMNS,
-    SAFETY_SSM_COLUMNS,
+    SAFETY_SSM_COLUMNS_V4_1,
 )
 
 # 每个 run 先计算自身的比率，以下聚合再对各车辆类型排列 run 等权求算术统计；
@@ -34,7 +34,7 @@ from scripts.schema import (
 
 METRIC_COLUMNS = (
     CAPACITY_COLUMNS
-    + SAFETY_SSM_COLUMNS
+    + SAFETY_SSM_COLUMNS_V4_1
     + SAFETY_EB_COLUMNS
     + LANECHANGE_COLUMNS
     + EMISSIONS_COLUMNS

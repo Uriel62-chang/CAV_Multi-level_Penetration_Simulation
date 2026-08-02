@@ -38,7 +38,6 @@ def _legacy_summary():
         "ssm_warmup_filtered_count",
         "ssm_valid_record_count",
         "ssm_mirrored_record_count",
-        "ssm_fragment_merged_count",
         "ttc_conflict_event_count",
         "ttc_affected_vehicle_count",
         "drac_conflict_event_count",

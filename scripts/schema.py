@@ -78,13 +78,17 @@ SAFETY_SSM_COLUMNS = [
     "ssm_warmup_filtered_count",
     "ssm_valid_record_count",
     "ssm_mirrored_record_count",
-    "ssm_fragment_merged_count",
     "ttc_conflict_event_count",
     "min_ttc_s",
     "ttc_affected_vehicle_count",
     "drac_conflict_event_count",
     "max_drac_mps2",
 ]
+
+# v0.4.1 fragment merge 扩展（a424cb8）：仅 schema=2 producer/parser 输出该键。
+# 独立于 SAFETY_SSM_COLUMNS，避免改变 legacy schema=1 的冻结字段集（仿
+# EMISSIONS_COLUMNS_V4_2 先例）；V4_1/V4_2 集合保留，正式 v0.4.2 CSV 不丢列。
+SAFETY_SSM_COLUMNS_V4_1 = SAFETY_SSM_COLUMNS + ["ssm_fragment_merged_count"]
 
 SAFETY_EB_COLUMNS = [
     "emergency_braking_count",
@@ -180,12 +184,12 @@ AUDIT_COLUMNS = [
 
 AUDIT_COLUMNS_V4_1 = AUDIT_COLUMNS + ["fcd_parse_success", "ssm_not_collected"]
 
-# v0.4.1 schema_version=2 核心 run-level CSV 列 (64 列)
+# v0.4.1 schema_version=2 核心 run-level CSV 列 (65 列)
 RUN_LEVEL_COLUMNS_V4_1 = (
     list(IDENTIFIER_COLUMNS_V4_1)
     + list(CONFIG_COLUMNS_V4_1)
     + list(CAPACITY_COLUMNS)
-    + list(SAFETY_SSM_COLUMNS)
+    + list(SAFETY_SSM_COLUMNS_V4_1)
     + list(SAFETY_EB_COLUMNS)
     + list(LANECHANGE_COLUMNS)
     + list(EMISSIONS_COLUMNS)
@@ -200,7 +204,7 @@ SUMMARY_REQUIRED_KEYS_V4_1 = (
     list(IDENTIFIER_COLUMNS_V4_1)
     + list(CONFIG_COLUMNS_V4_1)
     + list(CAPACITY_COLUMNS)
-    + list(SAFETY_SSM_COLUMNS)
+    + list(SAFETY_SSM_COLUMNS_V4_1)
     + list(SAFETY_EB_COLUMNS)
     + list(LANECHANGE_COLUMNS)
     + list(EMISSIONS_COLUMNS)

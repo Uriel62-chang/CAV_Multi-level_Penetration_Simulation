@@ -395,6 +395,12 @@ def _valid_subgroup_rows(rows: list[dict], run_id: str, spec: dict) -> bool:
         value = row["metric_value"]
         if not isinstance(value, (int, float)) or isinstance(value, bool) or math.isinf(value):
             return False
+        # P1（第二轮）：未采集（main factorial）时 SSM 计数必须为 NaN，
+        # 拒绝"伪零"（填 0 同样不合法）。
+        if row["metric_name"] in ssm_nan_ok and not (
+            isinstance(value, float) and math.isnan(value)
+        ):
+            return False
         if row["metric_name"] in count_metrics and (
             row["metric_name"] not in ssm_nan_ok and (type(value) is not int or value < 0)
         ):

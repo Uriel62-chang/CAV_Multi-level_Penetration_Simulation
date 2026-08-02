@@ -1,6 +1,7 @@
 """新审阅（2 P0 + 5 P1 + 2 P2）回归：P1-3 CLI 语义 / P1-4 输入完整性 / P1-5 aggregate 期望集合 / P2-1 from_dict 单次构造。"""
 
 import json
+import math
 from pathlib import Path
 
 import pandas as pd
@@ -412,3 +413,235 @@ def test_from_dict_valid_round_trip():
     assert spec.experiment_role == "main_factorial"
     assert spec.ssm_enabled is False
     assert spec.analysis_ttc_threshold_s == 3.0
+
+
+# ── P1（第二轮）：输入完整性 fail-open 收紧 + sidecar 全输入核验 ──
+
+
+def test_input_integrity_v42_without_raw_hashes_fails_closed(tmp_path):
+    """v0.4.2 run 缺 raw_output_sha256 → fail（不再 fail-open）。"""
+    from scripts.parsing.input_integrity import verify
+
+    rd = tmp_path / "run-1"
+    rd.mkdir()
+    (rd / "simulation_status.json").write_text(
+        json.dumps({"run_id": "run-1", "pipeline_version": "v0.4.2", "status": "SUCCESS"}),
+        encoding="utf-8",
+    )
+    ok, errors = verify(rd, _SpecStub())
+    assert not ok
+    assert any("missing raw_output_sha256" in e for e in errors)
+
+
+def test_input_integrity_sidecar_verifies_all_inputs(tmp_path):
+    """sidecar 记录的全部解析输入逐一核验：改 vehicle_type_map.json 必须检出。"""
+    from scripts.parsing.input_integrity import verify, write_sidecar
+
+    rd = tmp_path / "run-1"
+    rd.mkdir()
+    (rd / "stderr.log").write_text("log", encoding="utf-8")
+    perf = rd / "performance.xml"
+    perf.write_text("perf", encoding="utf-8")
+    vtm = rd / "vehicle_type_map.json"
+    vtm.write_text("{}", encoding="utf-8")
+    from scripts.provenance import sha256_file
+
+    _write_status_with_raw_hashes(rd, {"performance.xml": sha256_file(perf)})
+    write_sidecar(rd, _SpecStub())
+    assert verify(rd, _SpecStub())[0]
+    # 篡改 sidecar 记录的 vehicle_type_map.json（status 未覆盖）→ 检出
+    vtm.write_text('{"veh0": "HV"}', encoding="utf-8")
+    ok, errors = verify(rd, _SpecStub())
+    assert not ok
+    assert any("vehicle_type_map.json" in e for e in errors)
+
+
+# ── P1（第二轮）：SSM 未采集必须 NaN 的下游 fail-closed ──
+
+
+def test_contract_rejects_pseudo_zero_when_ssm_not_collected():
+    """ssm_not_collected=True 但 SSM 计数=0（伪零）→ 契约拒绝。"""
+    from scripts.parsing.metrics import compute_core_summary
+    from scripts.run_spec import PIPELINE_V4_2, RunSpec
+    from scripts.schema import validate_summary_contract
+
+    spec = RunSpec(
+        scenario="scenario_0",
+        model="IDM",
+        pcav=0.5,
+        vehicle_count=10,
+        seed=1,
+        run_id="x",
+        pipeline_version=PIPELINE_V4_2,
+        schema_version="2",
+        sumo_seed=101,
+        cav_count=5,
+        requested_pcav=None,
+        experiment_role="main_factorial",
+        ssm_enabled=False,
+    )
+    nan = float("nan")
+    ssm_pseudo_zero = {
+        "all": {
+            "ssm_raw_record_count": 0,  # 伪零
+            "ttc_conflict_event_count": 0,  # 伪零
+            "parse_success": True,
+            "ssm_not_collected": True,
+        },
+        "pair_HV_HV": {"ttc_event_count": nan, "drac_event_count": nan},
+        "pair_HV_CAV": {"ttc_event_count": nan, "drac_event_count": nan},
+        "pair_CAV_CAV": {"ttc_event_count": nan, "drac_event_count": nan},
+        "role_f_HV_l_HV": {"ttc_event_count": nan, "drac_event_count": nan},
+        "role_f_HV_l_CAV": {"ttc_event_count": nan, "drac_event_count": nan},
+        "role_f_CAV_l_HV": {"ttc_event_count": nan, "drac_event_count": nan},
+        "role_f_CAV_l_CAV": {"ttc_event_count": nan, "drac_event_count": nan},
+        "unclassified": {"ttc_event_count": nan, "drac_event_count": nan},
+    }
+    from scripts.parsing.metrics import SubgroupPrimitives
+
+    def _ee_zero():
+        return {
+            "total_CO2_kg": 0.0,
+            "total_NOx_g": 0.0,
+            "total_PMx_g": 0.0,
+            "total_fuel_kg": 0.0,
+            "non_internal_CO2_kg": 0.0,
+            "non_internal_NOx_g": 0.0,
+            "non_internal_PMx_g": 0.0,
+            "non_internal_fuel_kg": 0.0,
+            "parse_success": True,
+        }
+
+    prim = SubgroupPrimitives(
+        detector={
+            "all": {
+                "mean_flow_veh_h": 100.0,
+                "max_flow_veh_h": 100.0,
+                "mean_speed_m_s": 30.0,
+                "speed_variance": 0.0,
+                "window_count": 5,
+                "parse_success": True,
+            }
+        },
+        ssm=ssm_pseudo_zero,
+        lanechange={
+            "all": {
+                "lane_change_count": 0,
+                "unsafe_lc_gap_count": 0,
+                "unsafe_lc_gap_ratio": 0.0,
+                "parse_success": True,
+            }
+        },
+        edge_perf={
+            "all": {
+                "total_vehicle_km": 100.0,
+                "non_internal_edge_vehicle_km": 90.0,
+                "total_time_loss_s": 0.0,
+                "parse_success": True,
+            }
+        },
+        edge_emis={"all": _ee_zero()},
+        vehroute={"all": {"completed_lap_count": 0, "parse_success": True}, "HV": {}, "CAV": {}},
+        emerg_brake={
+            "all": {
+                "emergency_braking_count": 0,
+                "emergency_braking_affected_vehicle_count": 0,
+                "parse_success": True,
+            }
+        },
+        fcd=None,
+    )
+    core = compute_core_summary(prim, spec, {"HV": 100.0, "IDM": 100.0})
+    errors = validate_summary_contract(core, "2", pipeline_version="v0.4.2")
+    assert any("must be NaN when ssm_not_collected" in e for e in errors), errors
+
+
+def test_writer_subgroup_gate_rejects_pseudo_zero():
+    """未采集（main factorial）时 subgroup SSM 计数=0（伪零）→ 拒绝。"""
+    from scripts.results.writer import _expected_subgroup_keys, _valid_subgroup_rows
+
+    spec = {
+        "scenario": "scenario_0",
+        "model": "IDM",
+        "requested_pcav": None,
+        "cav_count": 5,
+        "vehicle_count": 10,
+        "seed": 1,
+        "sumo_seed": 101,
+        "fcd_profile": None,
+        "pipeline_version": "v0.4.2",
+        "ssm_enabled": False,
+    }
+    rows = []
+    for family, dimension, value, metric in _expected_subgroup_keys(False):
+        m = metric
+        if family == "safety_ssm" and m in {"ttc_event_count", "drac_event_count"}:
+            val = 0  # 伪零
+        elif m in {
+            "window_count",
+            "ttc_event_count",
+            "drac_event_count",
+            "emergency_braking_count",
+            "affected_vehicle_count",
+            "lane_change_count",
+            "unsafe_lc_gap_count",
+            "completed_lap_count",
+        }:
+            val = 0
+        else:
+            val = 0.0
+        rows.append(
+            {
+                "run_id": "run-1",
+                "scenario": "scenario_0",
+                "model": "IDM",
+                "requested_pcav": None,
+                "realized_pcav": 0.5,
+                "cav_count": 5,
+                "hv_count": 5,
+                "vehN": 10,
+                "assignment_seed": 1,
+                "sumo_seed": 101,
+                "metric_family": family,
+                "group_dimension": dimension,
+                "group_value": value,
+                "metric_name": m,
+                "metric_value": val,
+            }
+        )
+    assert not _valid_subgroup_rows(rows, "run-1", spec)
+
+
+def test_aggregate_subgroup_std_nan_for_empty_group(tmp_path):
+    """aggregate_subgroup：count=0（全 NaN 组）std 保 NaN，不得填 0。"""
+    from scripts.results.aggregate import aggregate_subgroup
+
+    df = pd.DataFrame(
+        [
+            {
+                "run_id": "r0",
+                "scenario": "scenario_0",
+                "model": "IDM",
+                "requested_pcav": 0.5,
+                "realized_pcav": 0.5,
+                "cav_count": 5,
+                "hv_count": 5,
+                "vehN": 10,
+                "assignment_seed": 1,
+                "sumo_seed": 101,
+                "metric_family": "safety_ssm",
+                "group_dimension": "pair_type",
+                "group_value": "HV-HV",
+                "metric_name": "ttc_event_count",
+                "metric_value": float("nan"),
+            }
+        ]
+        * 9
+    )
+    in_csv = tmp_path / "in.csv"
+    out_csv = tmp_path / "out.csv"
+    df.to_csv(in_csv, index=False)
+    out = aggregate_subgroup(in_csv, out_csv)
+    row = out.iloc[0]
+    assert row["count"] == 0
+    assert math.isnan(row["std"])

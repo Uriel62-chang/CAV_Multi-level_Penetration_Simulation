@@ -462,6 +462,17 @@ def validate_summary_contract(
             "whole_network_ttc_events_per_1000_non_internal_edge_veh_km",
         }
         keys_to_validate = [k for k in keys_to_validate if k not in ssm_skip]
+        # P1（第二轮）：v0.4.2 未采集必须为 NaN（fail-closed 双向）——"伪零"（计数填 0）
+        # 同样拒绝，不能只跳过类型检查。v0.4.1 的 ssm_not_collected 语义不同
+        # （parse 标记，非意图性未采集），不适用 NaN 强制。
+        if pipeline_version == "v0.4.2":
+            for key in sorted(ssm_skip):
+                if key in summary:
+                    value = summary[key]
+                    if not (isinstance(value, float) and math.isnan(value)):
+                        errors.append(
+                            f"summary {key} must be NaN when ssm_not_collected (got {value!r})"
+                        )
     for key in keys_to_validate:
         value = summary[key]
         if key in nullable and value is None:

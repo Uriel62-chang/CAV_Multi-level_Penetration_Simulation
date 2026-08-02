@@ -107,7 +107,11 @@ def verify(run_dir: Path, spec) -> tuple[bool, list[str]]:
         return False, ["simulation_status.json unreadable for input integrity check"]
     raw_hashes = status.get("raw_output_sha256")
     if not isinstance(raw_hashes, dict):
-        # 非 v0.4.2 或旧格式：无 raw 哈希契约，保持旧行为
+        # P1（第二轮）：v0.4.2 run 必须有 raw 哈希契约（或 sidecar 迁移路径），
+        # 不得 fail-open 静默通过；非 v0.4.2 旧格式保持旧行为。
+        if getattr(spec, "pipeline_version", "") == "v0.4.2":
+            errors.append("v0.4.2 run missing raw_output_sha256 in simulation_status")
+            return False, errors
         return True, []
 
     # 1) status 已覆盖的解析输入
@@ -119,7 +123,9 @@ def verify(run_dir: Path, spec) -> tuple[bool, list[str]]:
         if sha256_file(p) != expected:
             errors.append(f"raw input hash mismatch: {name}")
 
-    # 2) stderr.log：status 未覆盖 → 要求迁移 sidecar（不回填 status）
+    # 2) stderr.log：status 未覆盖 → 要求迁移 sidecar（不回填 status）。
+    #    P1（第二轮）：sidecar 记录的全部解析输入逐一核验（不只 stderr.log），
+    #    修改 vehicle_type_map.json 等任何 sidecar 输入都必须被检出。
     if "stderr.log" not in raw_hashes:
         sidecar_path = run_dir / SIDECAR_NAME
         if not sidecar_path.exists():
@@ -142,9 +148,12 @@ def verify(run_dir: Path, spec) -> tuple[bool, list[str]]:
                 anchor = sc.get("anchor_sha256")
                 if anchor != hashlib.sha256(canonical_json_bytes(files)).hexdigest():
                     errors.append("input integrity sidecar anchor_sha256 mismatch")
-                stderr_sha = files.get("stderr.log")
-                if not stderr_sha:
+                if "stderr.log" not in files:
                     errors.append("input integrity sidecar missing stderr.log")
-                elif sha256_file(run_dir / "stderr.log") != stderr_sha:
-                    errors.append("stderr.log hash mismatch vs input integrity sidecar")
+                for name, expected in files.items():
+                    p = run_dir / name
+                    if not p.exists():
+                        errors.append(f"sidecar input missing: {name}")
+                    elif sha256_file(p) != expected:
+                        errors.append(f"sidecar input hash mismatch: {name}")
     return not errors, errors

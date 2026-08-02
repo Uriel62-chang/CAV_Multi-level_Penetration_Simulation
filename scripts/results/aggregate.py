@@ -311,9 +311,12 @@ def aggregate_subgroup(input_csv: Path, output_csv: Path) -> pd.DataFrame:
         )
         .reset_index()
     )
+    # P1（第二轮）：subgroup 聚合与 aggregate() 同规则——仅 count==1 时 std 填 0，
+    # count==0（全 NaN 组，如 main 未采集 SSM）保留 NaN，不得填 0。
     std_cols = [c for c in grouped.columns if c == "std"]
     for c in std_cols:
-        grouped[c] = grouped[c].fillna(0.0)
+        single = grouped["count"] == 1
+        grouped.loc[single, c] = grouped.loc[single, c].fillna(0.0)
     grouped.to_csv(output_csv, index=False, encoding="utf-8")
     print(f"[WRITE] {len(grouped)} aggregated subgroup rows → {output_csv}")
     return grouped

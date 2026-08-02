@@ -79,6 +79,12 @@ def aggregate(
 ) -> pd.DataFrame:
     if schema_ver not in ("1", "2"):
         raise ValueError(f"schema_ver must be '1' or '2', got {schema_ver!r}")
+    # P1-2（审阅）：schema=2 在函数层强制 manifest（CLI 强制可被 import 调用绕过）。
+    if schema_ver == "2" and manifest is None:
+        raise ValueError(
+            "schema=2 aggregation requires experiment manifest (--manifest); "
+            "run_id / seed-pair completeness cannot be verified without it"
+        )
 
     group_keys = GROUP_KEYS_V4_1 if schema_ver == "2" else GROUP_KEYS_LEGACY
 
@@ -287,8 +293,62 @@ def aggregate(
     return grouped
 
 
-def aggregate_subgroup(input_csv: Path, output_csv: Path) -> pd.DataFrame:
+def aggregate_subgroup(
+    input_csv: Path, output_csv: Path, manifest: dict | None = None
+) -> pd.DataFrame:
+    """subgroup 长表聚合（P1-2 审阅：manifest 强制 + run_id/seed-pair/预期组检查）。
+
+    subgroup CSV 为 schema=2 产物，必须带实验 manifest 才能验证 run_id 集合、
+    每 treatment 的 seed pair 与预期 metric 组完整（缺失/多余/重复 fail-closed）。
+    """
+    if manifest is None:
+        raise ValueError(
+            "aggregate_subgroup requires experiment manifest; "
+            "run_id / seed-pair / expected-group completeness cannot be verified without it"
+        )
     df = pd.read_csv(input_csv)
+    # run_id 集合全等
+    manifest_run_ids = {r["run_id"] for r in (manifest.get("results") or []) if isinstance(r, dict)}
+    csv_run_ids = set(df["run_id"])
+    missing_ids = manifest_run_ids - csv_run_ids
+    extra_ids = csv_run_ids - manifest_run_ids
+    if missing_ids or extra_ids:
+        raise ValueError(
+            "subgroup run_id set mismatch vs manifest: "
+            f"missing={sorted(missing_ids)[:5]} extra={sorted(extra_ids)[:5]}"
+        )
+    # 每 treatment 的 seed pair 与冻结配置全等
+    for keys, grp in df.groupby(["scenario", "model", "vehN", "cav_count"], dropna=False):
+        if not isinstance(keys, tuple):
+            keys = (keys,)
+        actual = set(zip(grp["assignment_seed"], grp["sumo_seed"], strict=True))
+        expected = _expected_seed_pairs(manifest, int(keys[2]), int(keys[3]))
+        if actual != expected:
+            raise ValueError(
+                f"subgroup seed pair set mismatch for group {keys}: "
+                f"missing={sorted(expected - actual)[:6]} extra={sorted(actual - expected)[:6]}"
+            )
+    # 预期 metric 组（与 writer _expected_subgroup_keys 一致）
+    from scripts.results.writer import _expected_subgroup_keys
+
+    fcd_enabled = "headway" in set(df["metric_family"])
+    actual_keys = set(
+        zip(
+            df["metric_family"],
+            df["group_dimension"],
+            df["group_value"],
+            df["metric_name"],
+            strict=True,
+        )
+    )
+    expected_keys = set(_expected_subgroup_keys(fcd_enabled))
+    if actual_keys != expected_keys:
+        missing_keys = expected_keys - actual_keys
+        extra_keys = actual_keys - expected_keys
+        raise ValueError(
+            "subgroup metric-key set mismatch: "
+            f"missing={sorted(missing_keys)[:5]} extra={sorted(extra_keys)[:5]}"
+        )
     group_keys = [
         "scenario",
         "model",

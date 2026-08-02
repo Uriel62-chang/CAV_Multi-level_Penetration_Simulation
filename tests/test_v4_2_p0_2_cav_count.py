@@ -84,6 +84,7 @@ def test_aggregate_schema2_uses_realized_pcav(tmp_path):
             "vehN": [10] * 4,
             "assignment_seed": [0, 1, 2, 3],
             "sumo_seed": [101] * 4,
+            "run_id": [f"r{i}" for i in range(4)],
             "mean_flow_veh_h": [100.0, 110.0, 90.0, 120.0],
             "data_quality": ["ok"] * 4,
         }
@@ -91,7 +92,12 @@ def test_aggregate_schema2_uses_realized_pcav(tmp_path):
     in_csv = tmp_path / "in.csv"
     out_csv = tmp_path / "out.csv"
     df.to_csv(in_csv, index=False)
-    out = aggregate(in_csv, out_csv, "2")
+    manifest = {
+        "treatments": [{"vehicle_count": 10, "cav_counts": [5], "assignment_seeds": [0, 1, 2, 3]}],
+        "sumo_seeds": [101],
+        "results": [{"run_id": f"r{i}"} for i in range(4)],
+    }
+    out = aggregate(in_csv, out_csv, "2", manifest=manifest)
     row = out[out["vehN"] == 10].iloc[0]
     assert row["pCAV"] == pytest.approx(0.5)
     assert pd.isna(row["requested_pcav"])

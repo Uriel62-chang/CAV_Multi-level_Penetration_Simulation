@@ -304,7 +304,12 @@ def test_aggregate_all_nan_group_count_zero_std_nan(tmp_path):
     in_csv = tmp_path / "run_level.csv"
     out_csv = tmp_path / "aggregated.csv"
     df.to_csv(in_csv, index=False)
-    out = aggregate(in_csv, out_csv, schema_ver="2")
+    manifest = {
+        "treatments": [{"vehicle_count": 10, "cav_counts": [5], "assignment_seeds": [1, 2, 3]}],
+        "sumo_seeds": [101],
+        "results": [{"run_id": f"r{i}"} for i in range(3)],
+    }
+    out = aggregate(in_csv, out_csv, schema_ver="2", manifest=manifest)
 
     group = out[out["cav_count"] == 5].iloc[0]
     assert group["ssm_raw_count"] == 0

@@ -715,33 +715,61 @@ def test_writer_subgroup_gate_rejects_pseudo_zero():
 def test_aggregate_subgroup_std_nan_for_empty_group(tmp_path):
     """aggregate_subgroup：count=0（全 NaN 组）std 保 NaN，不得填 0。"""
     from scripts.results.aggregate import aggregate_subgroup
+    from scripts.results.writer import _expected_subgroup_keys
 
-    df = pd.DataFrame(
-        [
-            {
-                "run_id": "r0",
-                "scenario": "scenario_0",
-                "model": "IDM",
-                "requested_pcav": 0.5,
-                "realized_pcav": 0.5,
-                "cav_count": 5,
-                "hv_count": 5,
-                "vehN": 10,
-                "assignment_seed": 1,
-                "sumo_seed": 101,
-                "metric_family": "safety_ssm",
-                "group_dimension": "pair_type",
-                "group_value": "HV-HV",
-                "metric_name": "ttc_event_count",
-                "metric_value": float("nan"),
-            }
-        ]
-        * 9
-    )
+    nan = float("nan")
+    rows = []
+    for i, (a, s_) in enumerate((a, s_) for a in (1, 2, 3) for s_ in (101, 102, 103)):
+        for family, dimension, value, metric in _expected_subgroup_keys(False):
+            if family == "safety_ssm" and metric in {"ttc_event_count", "drac_event_count"}:
+                val = nan
+            elif metric in {
+                "window_count",
+                "ttc_event_count",
+                "drac_event_count",
+                "emergency_braking_count",
+                "affected_vehicle_count",
+                "lane_change_count",
+                "unsafe_lc_gap_count",
+                "completed_lap_count",
+            }:
+                val = 0
+            else:
+                val = 0.0
+            rows.append(
+                {
+                    "run_id": f"r{i}",
+                    "scenario": "scenario_0",
+                    "model": "IDM",
+                    "requested_pcav": None,
+                    "realized_pcav": 0.5,
+                    "cav_count": 5,
+                    "hv_count": 5,
+                    "vehN": 10,
+                    "assignment_seed": a,
+                    "sumo_seed": s_,
+                    "metric_family": family,
+                    "group_dimension": dimension,
+                    "group_value": value,
+                    "metric_name": metric,
+                    "metric_value": val,
+                }
+            )
+    df = pd.DataFrame(rows)
     in_csv = tmp_path / "in.csv"
     out_csv = tmp_path / "out.csv"
     df.to_csv(in_csv, index=False)
-    out = aggregate_subgroup(in_csv, out_csv)
-    row = out.iloc[0]
+    manifest = {
+        "treatments": [{"vehicle_count": 10, "cav_counts": [5], "assignment_seeds": [1, 2, 3]}],
+        "sumo_seeds": [101, 102, 103],
+        "results": [{"run_id": f"r{i}"} for i in range(9)],
+    }
+    out = aggregate_subgroup(in_csv, out_csv, manifest=manifest)
+    row = out[
+        (out["metric_family"] == "safety_ssm")
+        & (out["metric_name"] == "ttc_event_count")
+        & (out["group_value"] == "HV-HV")
+        & (out["cav_count"] == 5)
+    ].iloc[0]
     assert row["count"] == 0
     assert math.isnan(row["std"])

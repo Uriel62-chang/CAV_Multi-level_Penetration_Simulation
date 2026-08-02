@@ -100,6 +100,7 @@ def _make_v4_2_agg_input(tmp_path):
                 "vehN": 10,
                 "assignment_seed": a,
                 "sumo_seed": 101,
+                "run_id": f"r{a}",
                 "mean_flow_veh_h": 100.0,
                 "data_quality": "ok",
                 "non_internal_CO2_kg": 0.001 * a,
@@ -110,7 +111,18 @@ def _make_v4_2_agg_input(tmp_path):
     in_csv = tmp_path / "in.csv"
     out_csv = tmp_path / "out.csv"
     df.to_csv(in_csv, index=False)
-    return aggregate(in_csv, out_csv, "2")
+    manifest = {
+        "treatments": [
+            {
+                "vehicle_count": 10,
+                "cav_counts": [5],
+                "assignment_seeds": sorted({int(r["assignment_seed"]) for r in rows}),
+            }
+        ],
+        "sumo_seeds": [101],
+        "results": [{"run_id": r["run_id"]} for r in rows],
+    }
+    return aggregate(in_csv, out_csv, "2", manifest=manifest)
 
 
 def test_aggregate_includes_v4_2_emission_columns(tmp_path):

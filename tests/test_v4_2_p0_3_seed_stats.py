@@ -22,6 +22,7 @@ def _make_df(n_assign: int, n_sumo: int) -> pd.DataFrame:
                     "vehN": 10,
                     "assignment_seed": a,
                     "sumo_seed": 101 + s,
+                    "run_id": f"r{a}_{s}",
                     "mean_flow_veh_h": 100.0 + a + s,
                     "data_quality": "ok",
                 }
@@ -33,7 +34,18 @@ def _aggregate(df: pd.DataFrame, tmp_path):
     in_csv = tmp_path / "in.csv"
     out_csv = tmp_path / "out.csv"
     df.to_csv(in_csv, index=False)
-    return aggregate(in_csv, out_csv, "2")
+    manifest = {
+        "treatments": [
+            {
+                "vehicle_count": int(df["vehN"].iloc[0]),
+                "cav_counts": [int(df["cav_count"].iloc[0])],
+                "assignment_seeds": sorted(int(x) for x in df["assignment_seed"].unique()),
+            }
+        ],
+        "sumo_seeds": sorted(int(x) for x in df["sumo_seed"].unique()),
+        "results": [{"run_id": r} for r in sorted(df["run_id"])],
+    }
+    return aggregate(in_csv, out_csv, "2", manifest=manifest)
 
 
 def test_interior_seed_pair_stats(tmp_path):
@@ -66,8 +78,13 @@ def test_schema2_missing_seed_column_fails_closed(tmp_path):
     in_csv = tmp_path / "in.csv"
     out_csv = tmp_path / "out.csv"
     df.to_csv(in_csv, index=False)
+    manifest = {
+        "treatments": [{"vehicle_count": 10, "cav_counts": [5], "assignment_seeds": [0, 1]}],
+        "sumo_seeds": [101, 102],
+        "results": [{"run_id": r} for r in sorted(df["run_id"])],
+    }
     with pytest.raises(ValueError, match="sumo_seed"):
-        aggregate(in_csv, out_csv, "2")
+        aggregate(in_csv, out_csv, "2", manifest=manifest)
 
 
 def test_duplicate_seed_pair_rejected(tmp_path):

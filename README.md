@@ -704,7 +704,7 @@ The repository includes:
   the `(assignment_seed, sumo_seed)` combination unit (3 × 3 for main interior cells);
 - `results/v0.4.2/result_handover.json` — minimal provenance handover: simulation
   (`a8aa09a`), parsing (`a21e05e`), writer/aggregate (`6637519`) commits, main/safety
-  manifest SHA, and the SHA-256 of the thirteen archived result paths;
+  manifest SHA, and the SHA-256 of the fourteen archived result paths;
 - `results/v0.4.2/result_analysis.md` — structured results summary (peaks, s3 bottleneck
   reversal, Safety by vehN facet, cross-version comparison boundary, subgroup table);
 - the v0.4.2 figures under `graph/v0.4.2/` (main factorial × 3 + Safety × 1).

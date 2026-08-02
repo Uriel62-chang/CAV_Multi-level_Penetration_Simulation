@@ -80,10 +80,22 @@ python3 -m scripts.results.visualization \
 
 ## 当前版本
 
-**v0.4.1 内部里程碑**（2026-07-30，**未对外发布**；GitHub 最新公开版本为 v0.4.0.post3）
+**v0.4.2 发布目标**（跳号发布；GitHub 最新公开版本仍为 v0.4.0.post3）
 
-> 版本状态：v0.4.1 为内部里程碑，未发布，成果并入 v0.4.2 发布说明；已决定**跳号发布**，
-> **v0.4.2 为当前开发主线**。公开基线为 v0.4.0.post3；最近代码稳定提交为 `ad95058`。
+> 版本状态（2026-08 更新）：v0.4.1 为本地内部里程碑，**未对外发布**（pilot 未过旧资源
+> 门禁），tag 已删，成果并入 v0.4.2 发布说明；已决定**跳号发布**。v0.4.2 主线
+> 「设计 → 实现 → 数据 → 结论」四环节已闭环并获正式 Reviewer 背书：
+> A 线实现（`a8aa09a`）→ 正式网格 main 3,888 + safety 84（热修复
+> `a21e05e`/`6637519`/`439ace6`/`1a6da3c`）→ 结果分析与 release notes（`ef1e536`）。
+> 公开基线为 v0.4.0.post3；正式结果产物在 untracked 的 `raw_v0.4.2/`（约 34 GB）
+> 与 `out_v0.4.2/`（约 53 MB，含 result_handover.json / result_analysis.md）。
+
+### v0.4.2 正式网格（新）
+- main factorial：3,888 runs（SSM 关闭），关键数值 s2 CACC 全 CAV 网格内最大观测
+  流量 7,128 veh/h、s3 高密度全 CAV 瓶颈反转复现
+- safety experiment：84 runs，s1/s2 零检出（边界声明）；SSM-on 峰值 RSS 按场景
+  s0 6.52 / s1 1.81 / s2 8.91 / s3 1.50 GiB（与 B 线历史观测一致，不作硬预算）
+- subgroup HV/CAV 分拆、排放双口径（non-internal 主 + 全路网次要）、双 seed 统计单位
 
 ### 阶段 2 交付
 - HV/CAV 子群拆分（detector/edgeData/SSM/vehroute/lanechange/stderr + FCD headway）
@@ -112,9 +124,9 @@ python3 -m scripts.results.visualization \
 - S8 剩余项：PreparedRun.fcd_path（canonical_json_bytes、atomic_write_bytes、--acceptance 已在阶段 2 实现）
 
 ### 测试基线
-- 266 tests passed（A 线批次后基线；原 170 计数未含 v0.4.2 新增测试）
+- 309 tests passed（v0.4.2 正式网格热修复后基线）
 - Ruff / mypy / compileall / format 全通过
-- dry-run: v0.4.0 10,080 / pilot 162 / smoke 1
+- dry-run: v0.4.0 10,080 / pilot 162 / safety 84 / main 3,888
 - aggregate 现已要求 --schema-version 参数
 - 使用项目根目录的 `.venv` 虚拟环境运行所有 Python 命令（`ruff`、`mypy`、`pytest`、`compileall` 等）
   ```bash

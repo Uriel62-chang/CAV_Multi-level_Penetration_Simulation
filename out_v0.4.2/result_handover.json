@@ -1,0 +1,60 @@
+{
+  "title": "v0.4.2 formal-grid result handover (minimal provenance, P2 wording fix)",
+  "created_by": "Developer session (post reviewer P1 closure request)",
+  "commits": {
+    "simulation": {
+      "commit": "a8aa09a",
+      "clean": "main: NO (manifest git_dirty=true); safety: YES (manifest git_dirty=false)",
+      "note": "main manifest records git_dirty=true (untracked raw_v0.4.2 evidence dirs existed at launch; provenance used git status --porcelain); safety manifest git_dirty=false. Evidence cannot prove main runtime was a clean commit; disclosed as-is (reviewer P2-1). No rerun required."
+    },
+    "parsing": {
+      "final_commit": "a21e05e",
+      "clean_at_runtime": false,
+      "note": "runtime implementation = a8aa09a working tree + uncommitted tolerance fix, later committed as a21e05e; first pass ran on clean a8aa09a (3118 ok + 770 false INVALID_DATA), second pass reran 770 on the dirty working tree; final results depend on the uncommitted tolerance change"
+    },
+    "writer": {
+      "final_commit": "6637519",
+      "clean_at_runtime": false,
+      "note": "runtime implementation = a21e05e working tree + uncommitted NaN-rule fix, later committed as 6637519; writer outputs generated before that commit landed"
+    },
+    "aggregate": {
+      "commit": "6637519",
+      "clean": true,
+      "note": "ran after 6637519 was committed"
+    },
+    "hotfix_tests": "1a6da3c"
+  },
+  "simulation_note": "simulation ran on commit a8aa09a; main manifest git_dirty=true (untracked evidence dirs existed at launch, provenance used git status --porcelain — cannot prove zero tracked diff), safety manifest git_dirty=false. parsing/writer hotfixes (a21e05e/6637519) do not affect raw simulation outputs.",
+  "parsing_note": "first pass (clean a8aa09a): 3118 SUCCESS + 770 INVALID_DATA (additivity tolerance false positives); second pass (dirty working tree with tolerance fix, later a21e05e): 770 rerun -> all SUCCESS; final 3888 SUCCESS",
+  "final_status": {
+    "main": {
+      "runs": 3888,
+      "success": 3888,
+      "groups": 528
+    },
+    "safety": {
+      "runs": 84,
+      "success": 84,
+      "groups": 84
+    }
+  },
+  "writer_complete": {
+    "main": true,
+    "safety": true
+  },
+  "hashes": {
+    "raw_v0.4.2/main/manifest.json": "3e2c1e7e64569931016f27eef7c56fadc7dccaaa2bae2d7e00e072893d43146b",
+    "raw_v0.4.2/safety/manifest.json": "a9f97692d1f7e1bc0578e3a01d15e04c2752ba1fa8459fb05d1da70da1037151",
+    "raw_v0.4.2/main/parse_manifest.json": "9834d3d8d9929d19288c64626483ea9d848fce976090dac4f16b91b39ca2b1ae",
+    "raw_v0.4.2/safety/parse_manifest.json": "7577cb969a1b813bdd974d2c7aeacdc664d7745ec9df680d2754db3052548a58",
+    "out_v0.4.2/main/run_level_results.csv": "d12b2a3dc54289872a7f33320967a3b5d5f08deac75559d220004990d4cadfdf",
+    "out_v0.4.2/main/run_level_subgroup_results.csv": "ef6bd1662134927d96656b4e3ca1373e4b750a60a02b51f19fac545654cf601b",
+    "out_v0.4.2/main/aggregated_results.csv": "fbc9a527720c44d2da795b4a8bb8f96cff3895aa9f352f97f27ddb5d59d25261",
+    "out_v0.4.2/main/writer_report.json": "26483fac1524f26c94865bab43cfc45f9fcc2b335a382e343f925c5c294ba073",
+    "out_v0.4.2/safety/run_level_results.csv": "f92a37432679cee23ae959d391224797f2e448ca443cf2c88f0b1c5ca1ae3877",
+    "out_v0.4.2/safety/run_level_subgroup_results.csv": "f7da72084ccc73aed08c04ea0e6102fc6c437830b58bc9b00d18394cbb90e556",
+    "out_v0.4.2/safety/aggregated_results.csv": "e424ff1730619583026d024aaeea97c61adce53f5486a00e5ca6f8b3275ed9b6",
+    "out_v0.4.2/safety/writer_report.json": "00c31b99cf81413daaf7b45dab0c29007c8c6ee587e0592be9bd01c8d740b539"
+  },
+  "runtime_clean_commit_warning": "parsing/writer outputs were produced on working trees that were NOT provably clean commits at runtime; code was committed afterwards (a21e05e/6637519). This is a wording-level provenance caveat, not a data error; no rerun required (reviewer P2)."
+}

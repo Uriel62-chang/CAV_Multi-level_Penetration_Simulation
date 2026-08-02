@@ -604,6 +604,34 @@ The following files are not included because of storage size:
 
 After SSM compaction, the retained raw experiment directory is approximately 58 GB. The complete dataset can be regenerated through the pipeline above.
 
+### v0.4.2 formal grid (jump release)
+
+The repository includes:
+
+- `out_v0.4.2/main/aggregated_results.csv` and `out_v0.4.2/safety/aggregated_results.csv`
+  — 528 main-factorial groups (3,888 runs) and 84 safety groups, aggregated across
+  the `(assignment_seed, sumo_seed)` combination unit (3 × 3 for main interior cells);
+- `out_v0.4.2/result_handover.json` — minimal provenance handover: simulation
+  (`a8aa09a`), parsing (`a21e05e`), writer/aggregate (`6637519`) commits, main/safety
+  manifest SHA, and the SHA-256 of the twelve result files;
+- `out_v0.4.2/result_analysis.md` — structured results summary (peaks, s3 bottleneck
+  reversal, Safety by vehN facet, cross-version comparison boundary, subgroup table);
+- the v0.4.2 figures under `graph/v0.4.2/` (main factorial × 3 + Safety × 1).
+
+The following are **not** stored in Git (retained locally/externally, consistent with
+the v0.4.0 post3 archive practice):
+
+- `raw_v0.4.2/` — raw SUMO outputs, per-run `summary.json` / `simulation_status.json`
+  (main ≈ 34 GB, safety ≈ 0.8 GB);
+- `out_v0.4.2/{main,safety}/run_level_results.csv`,
+  `run_level_subgroup_results.csv`, `writer_report.json`, `failed_runs.csv`
+  (≈ 53 MB in total).
+
+The public repository can verify the aggregated CSVs, the handover SHA list and the
+figures; it cannot independently reproduce the v0.4.2 grid without the separately
+retained raw data. The handover SHA values identify that external intermediate; they
+are not a claim that those files are stored in Git.
+
 ---
 
 ## Repository Structure

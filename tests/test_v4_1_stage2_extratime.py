@@ -315,7 +315,7 @@ def test_runner_merge_gap_when_extratime_reduced(tmp_path, monkeypatch):
     # 不依赖 net/scenario_0/loop.net.xml 的生成物 SHA 或存在性。
     monkeypatch.setattr(
         "scripts.parsing.runner._load_free_flow_references",
-        lambda spec: {"HV": 100.0, "IDM": 100.0},
+        lambda spec, run_dir=None: {"HV": 100.0, "IDM": 100.0},
     )
 
     import scripts.parsing.ssm as ssm_mod
@@ -423,7 +423,7 @@ def test_runner_merge_gap_default_disabled(tmp_path, monkeypatch):
     # 脱离被忽略的真实路网：free-flow 参考固定为合法 fixture（Reviewer P1）。
     monkeypatch.setattr(
         "scripts.parsing.runner._load_free_flow_references",
-        lambda spec: {"HV": 100.0, "IDM": 100.0},
+        lambda spec, run_dir=None: {"HV": 100.0, "IDM": 100.0},
     )
 
     import scripts.parsing.ssm as ssm_mod

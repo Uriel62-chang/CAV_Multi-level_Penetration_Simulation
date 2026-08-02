@@ -43,7 +43,7 @@
 
 ### 测试与门禁
 
-- **309 tests**；Ruff / mypy / compileall / format 全通过
+- **362 tests**；Ruff / mypy / compileall / format 全通过
 - 四 dry-run：legacy 10,080 / pilot 162 / safety 84 / main 3,888
 - v0.4.0 config SHA `178dfcef…` 与 legacy SUMO 命令字节基线不变
 

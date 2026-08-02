@@ -19,7 +19,7 @@
 - [ ] `ruff format --check .`
 - [ ] `pytest -q`
 - [ ] `python -m scripts.simulation.batch_run --config configs/smoke.json --dry-run`
-- [ ] The complete pytest count matches the README release baseline (v0.4.2: 359).
+- [ ] The complete pytest count matches the README release baseline (v0.4.2: 362).
 - [ ] `python -m compileall -q scripts tests`
 - [ ] `mypy scripts/run_spec.py scripts/experiment_config.py scripts/provenance.py`
 - [ ] GitHub Actions `python-quality` succeeds.
@@ -64,7 +64,7 @@
 - [ ] **数据闭包**：main 3,888 + safety 84 simulation/parse 全 SUCCESS；
       聚合 main 528 / safety 84 组；writer 两份 `complete=true`、零排除；
       `raw_status_inventory.jsonl`（3,972 条目）与 `result_handover.json`
-      的 14 文件 SHA 与外部 raw/CSV 匹配。
+      的 15 文件 SHA 与外部 raw/CSV 匹配。
 - [ ] **provenance（如实记录，不声称 clean）**：main simulation manifest
       记录 `git_dirty=true`，不得表述为 runtime clean（porcelain 证据不能
       证明零 tracked diff）；parsing/writer 在未提交工作树修复后分别提交为

@@ -1,10 +1,16 @@
 {
-  "reference_id": "ff-v0.4.2-4scenarios",
+  "reference_id": "ff-v0.4.1-pilot-ff-1",
   "free_flow_version": "v0.4.1-pilot-ff-1",
   "sumo_version": "Eclipse SUMO sumo 1.27.1\n Build features: Linux-6.8.0-117-generic x86_64 GNU 11.4.0 Release FMI Proj GUI Intl SWIG Eigen GDAL GL2PS\n Copyright (C) 2001-2026 German Aerospace Center (DLR) and others; https://sumo.dlr.de\n\nEclipse SUMO sumo 1.27.1 is part of SUMO.\nThis program and the accompanying materials\nare made available under the terms of the Eclipse Public License v2.0\nwhich accompanies this distribution, and is available at\nhttp://www.eclipse.org/legal/epl-v20.html\nThis program may also be made available under the following Secondary\nLicenses when the conditions for such availability set forth in the Eclipse\nPublic License 2.0 are satisfied: GNU General Public License, version 2\nor later which is available at\nhttps://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html\nSPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later",
   "results": {
     "scenario_0": {
-      "net_sha256": "62a90124610b04bd23ef58e6f7008dcb14b3768c9936fd71e55f660df71c3de4",
+      "net_sha256": "49e099209bcea6cc0b40b4df4408c72809e8a7005910d1ad06a1dd60341ff65f",
+      "net_semantic_sha256": "b3731c5d97b105eac334bbf56790011a92bf0a9e74c922c08e87bed770dbd542",
+      "net_src_sha256": {
+        "nodes": "70cd3269fc716c4ba150bc1e072a131bd90390eb4c85fb766f1210127ed63bbc",
+        "edges": "387b42aa468a4fe3dccf4f4e44c5f251435d16764cec9b439894bae561e4576a"
+      },
+      "netconvert_version": "Eclipse SUMO netconvert 1.27.1",
       "references": {
         "CAV_IDM": {
           "lap_time_s": 98.80000000000004,
@@ -20,25 +26,14 @@
         }
       }
     },
-    "scenario_2": {
-      "net_sha256": "435ca1dc2215737824f68681adeabd1c63fba2c680c18cbfe37af8176518d90d",
-      "references": {
-        "CAV_IDM": {
-          "lap_time_s": 60.59999999999991,
-          "source_run_id": "ff_scenario_2_CAV_IDM"
-        },
-        "CAV_CACC": {
-          "lap_time_s": 60.59999999999991,
-          "source_run_id": "ff_scenario_2_CAV_CACC"
-        },
-        "HV": {
-          "lap_time_s": 61.5,
-          "source_run_id": "ff_scenario_2_HV"
-        }
-      }
-    },
     "scenario_1": {
       "net_sha256": "17c2a1759cab8703afea3cc8597c25a99698aa2c0411dc292ff30e88c91ddbab",
+      "net_semantic_sha256": "9973377deab0e3dc787f2f54e4203fa87696ad0aa914134c6cad5cef06acf732",
+      "net_src_sha256": {
+        "nodes": "df24fbc3d6e9caefbd5dac7a30b95423c67b6823ed95f3dd517242b7a80c7ac5",
+        "edges": "0f61acacee525df0e4eba1314a18e1aaf6420ecb11cf3c27c785db8502df5ac3"
+      },
+      "netconvert_version": "Eclipse SUMO netconvert 1.27.1",
       "references": {
         "CAV_IDM": {
           "lap_time_s": 60.30000000000001,
@@ -54,8 +49,37 @@
         }
       }
     },
+    "scenario_2": {
+      "net_sha256": "435ca1dc2215737824f68681adeabd1c63fba2c680c18cbfe37af8176518d90d",
+      "net_semantic_sha256": "335d3fd8c26385ca7057f190937befb6b8312ca3f8d4a8f36502547500cb0f30",
+      "net_src_sha256": {
+        "nodes": "df24fbc3d6e9caefbd5dac7a30b95423c67b6823ed95f3dd517242b7a80c7ac5",
+        "edges": "42226bd285c25ba0353856f152d43883a1a77a440878ce3e1d943dd34f2bf0e3"
+      },
+      "netconvert_version": "Eclipse SUMO netconvert 1.27.1",
+      "references": {
+        "CAV_IDM": {
+          "lap_time_s": 60.59999999999991,
+          "source_run_id": "ff_scenario_2_CAV_IDM"
+        },
+        "CAV_CACC": {
+          "lap_time_s": 60.59999999999991,
+          "source_run_id": "ff_scenario_2_CAV_CACC"
+        },
+        "HV": {
+          "lap_time_s": 61.5,
+          "source_run_id": "ff_scenario_2_HV"
+        }
+      }
+    },
     "scenario_3": {
       "net_sha256": "54b36edab680d1bdefffc06e9fc5f8396fe32131bfb9606a61c0f1247607effc",
+      "net_semantic_sha256": "b5703eae60604dbe36d52122b26fa92a7a9d1d035fa38bbd37621897273fc5b8",
+      "net_src_sha256": {
+        "nodes": "df24fbc3d6e9caefbd5dac7a30b95423c67b6823ed95f3dd517242b7a80c7ac5",
+        "edges": "d3a38bf5801a24ece4af322644589444066da77ed8c2b851a8b7e67b3870ef69"
+      },
+      "netconvert_version": "Eclipse SUMO netconvert 1.27.1",
       "references": {
         "CAV_IDM": {
           "lap_time_s": 60.59999999999991,
@@ -71,11 +95,5 @@
         }
       }
     }
-  },
-  "scenarios": [
-    "scenario_0",
-    "scenario_1",
-    "scenario_2",
-    "scenario_3"
-  ]
+  }
 }

@@ -86,6 +86,21 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def net_semantic_sha256(xml_path: str | Path) -> str:
+    """返回 SUMO 路网 XML 的语义 SHA（P1-2 新审阅）。
+
+    只对根元素（<net>）的标签、属性与子元素结构哈希：XML 声明与生成注释
+    （含 netconvert 生成时间戳与输出路径）不保留，因此同一 netconvert 版本、
+    同一源文件在任意时刻/路径下重建的路网得到相同语义 SHA。
+    """
+    import xml.etree.ElementTree as ET
+
+    tree = ET.parse(str(xml_path))
+    root = tree.getroot()
+    payload = ET.tostring(root, encoding="utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _command_output(command: list[str]) -> str:
     try:
         result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=15)

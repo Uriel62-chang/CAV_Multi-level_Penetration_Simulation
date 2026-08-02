@@ -10,6 +10,7 @@
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -52,7 +53,30 @@ GROUP_KEYS_LEGACY = ["scenario", "model", "requested_pcav", "vehN"]
 GROUP_KEYS_V4_1 = ["scenario", "model", "vehN", "cav_count"]
 
 
-def aggregate(input_csv: Path, output_csv: Path, schema_ver: str) -> pd.DataFrame:
+def _expected_seed_pairs(manifest: dict, vehN: int, cav_count: int) -> set[tuple[int, int]]:
+    """从实验 manifest（resolved config）推导某 treatment 的期望 (assignment, sumo) 对。
+
+    端点（cav=0 或 cav=vehN）assignment_seed 为失活 sentinel 0；interior 为
+    treatment.assignment_seeds × sumo_seeds（无显式时回退 [1,2,3]）。
+    """
+    cfg = manifest.get("resolved_config") or manifest
+    treatments = cfg.get("treatments") or []
+    treatment = next((t for t in treatments if int(t.get("vehicle_count", -1)) == vehN), None)
+    if treatment is None:
+        raise ValueError(f"manifest missing treatment for vehN={vehN}")
+    aseeds_raw = treatment.get("assignment_seeds") or cfg.get("seeds") or []
+    aseeds = [int(a) for a in aseeds_raw]
+    if not aseeds:
+        aseeds = [1] if cav_count in (0, vehN) else [1, 2, 3]
+    if cav_count == 0 or cav_count == vehN:
+        aseeds = [0]  # 失活 sentinel（_build_cav_count_specs 端点截断）
+    sumo_seeds = [int(s) for s in (cfg.get("sumo_seeds") or [])]
+    return {(a, s) for a in aseeds for s in sumo_seeds}
+
+
+def aggregate(
+    input_csv: Path, output_csv: Path, schema_ver: str, manifest: dict | None = None
+) -> pd.DataFrame:
     if schema_ver not in ("1", "2"):
         raise ValueError(f"schema_ver must be '1' or '2', got {schema_ver!r}")
 
@@ -76,6 +100,19 @@ def aggregate(input_csv: Path, output_csv: Path, schema_ver: str) -> pd.DataFram
                 f"columns; missing: "
                 f"{[c for c in ('assignment_seed', 'sumo_seed') if c not in df_ok.columns]}"
             )
+        # P1-5（新审阅）：manifest 提供时，CSV run_id 集合必须与 manifest 期望完全相等。
+        if manifest is not None:
+            manifest_run_ids = {
+                r["run_id"] for r in (manifest.get("results") or []) if isinstance(r, dict)
+            }
+            csv_run_ids = set(df["run_id"])
+            missing_ids = manifest_run_ids - csv_run_ids
+            extra_ids = csv_run_ids - manifest_run_ids
+            if missing_ids or extra_ids:
+                raise ValueError(
+                    "run_id set mismatch vs manifest: "
+                    f"missing={sorted(missing_ids)[:5]} extra={sorted(extra_ids)[:5]}"
+                )
         seed_groups = df_ok.groupby(list(group_keys), dropna=False)
         rows = []
         for keys, grp in seed_groups:
@@ -93,6 +130,17 @@ def aggregate(input_csv: Path, output_csv: Path, schema_ver: str) -> pd.DataFram
                         f"duplicate (assignment_seed={a}, sumo_seed={s}) in group {keys}"
                     )
                 seen.add(pair)
+            # P1-5（新审阅）：期望组合必须与冻结配置完全相等（缺失/多余均 fail-closed）。
+            if manifest is not None:
+                expected = _expected_seed_pairs(manifest, int(keys[2]), int(keys[3]))
+                actual = set(seen)
+                missing_pairs = expected - actual
+                extra_pairs = actual - expected
+                if missing_pairs or extra_pairs:
+                    raise ValueError(
+                        f"seed pair set mismatch for group {keys}: "
+                        f"missing={sorted(missing_pairs)[:6]} extra={sorted(extra_pairs)[:6]}"
+                    )
             rows.append(
                 {
                     **dict(zip(group_keys, keys, strict=True)),
@@ -221,10 +269,17 @@ def aggregate(input_csv: Path, output_csv: Path, schema_ver: str) -> pd.DataFram
         duplicates = grouped.columns[grouped.columns.duplicated()].tolist()
         raise RuntimeError(f"duplicate aggregated column names: {duplicates}")
 
-    # 标准差为 NaN（n_valid=1 时）填 0
+    # 标准差 NaN 规则（P0-1 新审阅修订）：仅 count==1（单样本无方差）时填 0；
+    # count==0（全 NaN 组，如 SSM 未采集的 main 网格）保留 NaN，不得填 0，
+    # 否则无法区分"未采集"与"单样本"。
     std_cols = [c for c in grouped.columns if c.endswith("_std")]
     for c in std_cols:
-        grouped[c] = grouped[c].fillna(0.0)
+        count_col = c[: -len("_std")] + "_count"
+        if count_col in grouped.columns:
+            single = grouped[count_col] == 1
+            grouped.loc[single, c] = grouped.loc[single, c].fillna(0.0)
+        else:
+            grouped[c] = grouped[c].fillna(0.0)
 
     grouped.to_csv(output_csv, index=False, encoding="utf-8")
     print(f"[WRITE] {len(grouped)} aggregated rows → {output_csv}")
@@ -271,6 +326,11 @@ def main():
     parser.add_argument(
         "--schema-version", required=True, help="schema version for column routing (1 or 2)"
     )
+    parser.add_argument(
+        "--manifest",
+        default=None,
+        help="实验 manifest.json 路径（schema=2 必需；用于期望 run_id/seed pair 集合校验）",
+    )
     args = parser.parse_args()
 
     input_csv = Path(args.input)
@@ -278,7 +338,22 @@ def main():
         print(f"[ERROR] {input_csv} not found")
         sys.exit(1)
 
-    df = aggregate(input_csv, Path(args.output), args.schema_version)
+    manifest_data = None
+    if args.schema_version == "2":
+        if not args.manifest:
+            print("[ERROR] --manifest is required for --schema-version 2 (P1-5 fail-closed)")
+            sys.exit(1)
+        manifest_path = Path(args.manifest)
+        if not manifest_path.exists():
+            print(f"[ERROR] manifest not found: {manifest_path}")
+            sys.exit(1)
+        try:
+            manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"[ERROR] manifest unreadable: {exc}")
+            sys.exit(1)
+
+    df = aggregate(input_csv, Path(args.output), args.schema_version, manifest=manifest_data)
 
     # 汇总
     groups = len(df)

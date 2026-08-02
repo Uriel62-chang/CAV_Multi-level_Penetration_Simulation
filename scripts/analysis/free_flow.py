@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 from scripts.parsing.vehroute import parse_lap_times
-from scripts.provenance import sha256_file
+from scripts.provenance import net_semantic_sha256, sha256_file
 from scripts.run_spec import PIPELINE_V4_1, RunSpec, atomic_write_json, write_run_spec
 from scripts.simulation.flow_generator import generate_flow
 from scripts.simulation.single_run import load_network_meta
@@ -78,8 +78,16 @@ def measure_free_flow(
             refs[f"CAV_{model}"] = {"lap_time_s": lap, "source_run_id": run_id}
 
         refs["HV"] = {"lap_time_s": hv_lap, "source_run_id": f"ff_{scenario}_HV"}
+        # P1-2（新审阅）：记录语义/源文件/版本身份，loader 以语义 SHA 为主门禁；
+        # net_sha256（原始字节）保留为历史审计。
         results[scenario] = {
             "net_sha256": sha256_file(network_file),
+            "net_semantic_sha256": net_semantic_sha256(network_file),
+            "net_src_sha256": {
+                "nodes": sha256_file(f"net/{scenario}/nodes.nod.xml"),
+                "edges": sha256_file(f"net/{scenario}/edges.edg.xml"),
+            },
+            "netconvert_version": _netconvert_version(),
             "references": refs,
         }
 
@@ -87,15 +95,27 @@ def measure_free_flow(
     out.mkdir(parents=True, exist_ok=True)
     sumo_out = subprocess.run(["sumo", "--version"], capture_output=True, text=True).stdout.strip()
     sumo_version = sumo_out if sumo_out else "unknown"
+    ff_version = cfg.get("free_flow_version", "")
+    # P2-2（新审阅）：reference_id 由配置版本派生，不再硬编码
     artifact = {
-        "reference_id": "ff-v0.4.1-pilot-ff-1",
-        "free_flow_version": cfg.get("free_flow_version", ""),
+        "reference_id": f"ff-{ff_version}",
+        "free_flow_version": ff_version,
         "sumo_version": sumo_version,
         "results": results,
     }
     atomic_write_json(out / "free_flow_references.json", artifact)
     print(f"[WRITE] free_flow_references.json → {out}")
     return artifact
+
+
+def _netconvert_version() -> str:
+    try:
+        out = subprocess.run(
+            ["netconvert", "--version"], capture_output=True, text=True, timeout=15
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return "unavailable"
+    return out.splitlines()[0] if out else "unavailable"
 
 
 def _run_free_flow(run_id, spec, network_file, net_meta, cfg):

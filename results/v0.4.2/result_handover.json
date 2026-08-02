@@ -8,9 +8,9 @@
    "note": "raw SUMO 输出与 simulation_status.json 未重跑、未修改（红线维持）"
   },
   "parsing": {
-   "artifact_generation_commit": "d963502",
-   "post_generation_validation_commit": "507a80d",
-   "note": "3,972 个正式 summary/parse_status 由 d963502 时代全量重解析生成；507a80d 仅收紧校验逻辑与 inventory/handover 元数据，未重跑解析。"
+   "artifact_generation_commit": "8544f75",
+   "post_generation_validation_commit": "8544f75",
+   "note": "2026-08 审阅 P1-1（结果-源码版本闭包）：全量重解析 3,972 runs（main 3888 + safety 84，全部 SUCCESS）；summary/subgroup_summary 字节级零变化（fail-closed 与 pair/role 修复对正式数据无数值影响），parse_status 仅运行时间戳/RSS 变化；writer/aggregate 重跑后run-level/aggregated CSV 哈希与重解析前一致。"
   },
   "writer": {
    "core_results_commit": "8f9ef4b",
@@ -47,8 +47,8 @@
  "hashes": {
   "raw_v0.4.2/main/manifest.json": "3e2c1e7e64569931016f27eef7c56fadc7dccaaa2bae2d7e00e072893d43146b",
   "raw_v0.4.2/safety/manifest.json": "a9f97692d1f7e1bc0578e3a01d15e04c2752ba1fa8459fb05d1da70da1037151",
-  "raw_v0.4.2/main/parse_manifest.json": "aac112a3ebaa9ca289c4cb20addf8bebf79d198443ad8001aa00eb407005496a",
-  "raw_v0.4.2/safety/parse_manifest.json": "357b26b6c1421d8d13b4545ed2b77f584696372ffc706c13b0e406a16d10e88a",
+  "raw_v0.4.2/main/parse_manifest.json": "290371c29f31c2b66c1ef27ecae6d6ceeb9df1b85b86d35c3b439022801de0b8",
+  "raw_v0.4.2/safety/parse_manifest.json": "dd19d030f9f3e3b8c20cf302f100bece10b7be843871c53196f0af853f41f45c",
   "results/v0.4.2/main/run_level_results.csv": "f8869b73e52b5b8f0369d10b24e8b9274d5c4a00245fd01a66059e0a5f0d06c0",
   "results/v0.4.2/main/run_level_subgroup_results.csv": "954e4b9696c395c39c22e7125237872e90be97c7f67e8848fb68bd0893037a6b",
   "results/v0.4.2/main/aggregated_results.csv": "ad6bbdd8d473ad22108b2d26214cb6151311ca66e1a37c5e027c74c779f48787",
@@ -57,7 +57,7 @@
   "results/v0.4.2/safety/run_level_subgroup_results.csv": "f7da72084ccc73aed08c04ea0e6102fc6c437830b58bc9b00d18394cbb90e556",
   "results/v0.4.2/safety/aggregated_results.csv": "a9a5d1ec4f9c54f79788916fe3dbf0a1de4d7f772f73ab9d34d418fe2c70e673",
   "results/v0.4.2/safety/writer_report.json": "00c31b99cf81413daaf7b45dab0c29007c8c6ee587e0592be9bd01c8d740b539",
-  "results/v0.4.2/raw_status_inventory.jsonl": "866e89a7c90646ee4aeedeb7f524a428b1d4703475235343fdb32704b26179e0",
+  "results/v0.4.2/raw_status_inventory.jsonl": "8e11e3a582547fe6b0f64fd35baa60a0e07b2036046e702563899a43086aecff",
   "results/v0.4.2/result_analysis.md": "3c9eceeaf89918bcb22f63bc12a07023f0a3d424bdeb907b72f4649d63e92c9d",
   "results/v0.4.2/pairing_report.json": "52b8c4a6dde1cbcec1988fe8bcce46356756a1c986449430dc5d75b0eeecbc2e"
  },
@@ -69,7 +69,12 @@
    "results/v0.4.2/safety/aggregated_results.csv": "bff5ef785d6a7487f3301858fee08f56e1b20ed9c1e2392f1a787050408b919c",
    "results/v0.4.2/safety/run_level_results.csv": "ebe9272f98a7a8fce6596f32e2fbe11e6b516228a39096e35b17259d97c112e1"
   },
-  "note": "审阅 P0-1（DRAC 空间配对事件率缺失）闭合：writer 重生成 run-level CSV（81→82 列，新增 drac_events_per_1000_veh_km = 全路网 DRAC 事件 / 全路网 veh-km，writer 层从 summary 已存计数重算，未重跑 SUMO/parse，summary 与 parse_status 未动）；aggregate 重生成（+drac_per_k 6 统计列）；result_analysis.md 增补 DRAC 段落。safety 84 文件 292,891 条 conflict 经 fail-closed 解析器（审阅 P1-2）全量复扫 0 违规。pairing 重跑 84/84 all_match。raw manifest/inventory/sidecar 锚定未变。"
+  "note": "审阅 P0-1（DRAC 空间配对事件率缺失）闭合：writer 重生成 run-level CSV（81→82 列，新增 drac_events_per_1000_veh_km = 全路网 DRAC 事件 / 全路网 veh-km，writer 层从 summary 已存计数重算，未重跑 SUMO/parse，summary 与 parse_status 未动）；aggregate 重生成（+drac_per_k 6 统计列）；result_analysis.md 增补 DRAC 段落。safety 84 文件 292,891 条 conflict 经 fail-closed 解析器（审阅 P1-2）全量复扫 0 违规。pairing 重跑 84/84 all_match。raw manifest/inventory/sidecar 锚定未变。",
+  "previous_p1_1_reparse_sha256": {
+   "raw_v0.4.2/main/parse_manifest.json": "aac112a3ebaa9ca289c4cb20addf8bebf79d198443ad8001aa00eb407005496a",
+   "raw_v0.4.2/safety/parse_manifest.json": "357b26b6c1421d8d13b4545ed2b77f584696372ffc706c13b0e406a16d10e88a",
+   "results/v0.4.2/raw_status_inventory.jsonl": "866e89a7c90646ee4aeedeb7f524a428b1d4703475235343fdb32704b26179e0"
+  }
  },
  "runtime_clean_commit_warning": "本轮 parsing/writer/aggregate 运行于已提交的修复代码（8f9ef4b/91c256f/d963502），工作区仅含未跟踪的 results/.regen 临时目录；raw 证据目录与 simulation_status.json 未动。",
  "sidecar_anchor_sha256": "4da31c8b664c25312ec0ef6981feaa09d125c1f6ff47fba8ce4ed446ad2bdc45",

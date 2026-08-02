@@ -1,0 +1,6 @@
+# 行尾统一 LF：避免跨平台/工具（如 WSL2/Windows 编辑器）引入 CRLF 混入仓库
+# （2026-08 归档审查曾因 .gitignore 区块 CRLF 触发 git diff --check 失败）
+* text=auto eol=lf
+
+# 二进制图（避免被 text 属性误伤）
+*.png binary

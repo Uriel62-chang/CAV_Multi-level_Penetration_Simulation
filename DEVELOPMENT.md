@@ -192,10 +192,10 @@
 
 ### 待处理
 
-- **v0.4.2（发布目标，跳号发布）**：四环节已闭环并获背书（见「已完成」）。剩余为发布动作：
-  1. **打 tag / 发布**：`git tag v0.4.2` + push + 执行 `docs/engineering/release-checklist.md`（需用户指示）；
-  2. **数据归档**：`raw_v0.4.2/`（34 GB）与 `out_v0.4.2/` 是否纳入外部归档/README 数据可用性说明；
-  3. **发布后同步**：AGENTS.md/DEVELOPMENT.md/roadmap 版本状态切换为已发布。
+- **v0.4.2（发布目标，跳号发布）**：四环节已闭环并获背书（见「已完成」）；发布正文（README/CHANGELOG/DEVELOPMENT）已切换为 v0.4.2 状态。剩余动作：
+  1. **打 tag / 发布**：`git tag v0.4.2`（指向新背书 SHA）+ push + 执行 `docs/engineering/release-checklist.md`（需用户指示）；
+  2. **数据归档**：`raw_v0.4.2/`（34 GB）与 `out_v0.4.2/` 是否纳入外部归档/README 数据可用性说明（README 已声明边界）；
+  3. **发布后同步**：AGENTS.md/DEVELOPMENT.md/roadmap 版本状态切换为已发布（若 tag 时点需要再校）。
 - **SUMO upstream（可选开源贡献，范围外 backlog，不在 v0.4.2 发布动作内）**：`raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md` 状态——
   - **Developer 预检认为**：issue 主内容（device-on/off 关联、零事件输出、可复现 RSS 差异）符合 D-014 表述边界，但 observation 2 含内部存储机制推断（引用旧 tag 源码），超出「只报告关联」范围；
   - **正式 Reviewer 尚未核验 issue 包**（此前背书范围是 A 线实现与正式网格，不含本包）；

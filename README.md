@@ -2,7 +2,7 @@
 
 > A reproducible SUMO experiment platform for evaluating how CAV penetration and car-following control affect **observed flow, safety, emissions, and reference-relative lap time** under different road constraints.
 
-`SUMO 1.27.1` · `Python 3.10+` · `10,080 simulations` · `v0.4.0.post3`
+`SUMO 1.27.1` · `Python 3.10+` · `10,080 + 3,888 + 84 simulations` · `v0.4.2`
 
 [Key Findings](#key-findings) ·
 [Scenario Design](#scenario-design) ·
@@ -480,7 +480,7 @@ python -m compileall -q scripts tests
 Expected result:
 
 ```text
-212 passed
+309 passed
 ```
 
 ### Run one simulation
@@ -716,7 +716,7 @@ docs/
 - Across-seed means and standard deviations are equal-weight descriptive
   summaries of assignment runs, not pooled exposure ratios, confidence
   intervals or significance tests.
-- The v0.4.0 results are not separated into HV and CAV sub-populations; v0.4.1 adds subgroup tooling (detector/edgeData/SSM/vehroute/lanechange/stderr + `parsing/metrics.py`), but no subgroup-based grid data has been produced yet.
+- The v0.4.0 results are not separated into HV and CAV sub-populations; v0.4.1 adds subgroup tooling (detector/edgeData/SSM/vehroute/lanechange/stderr + `parsing/metrics.py`), and the v0.4.2 formal grid provides HV/CAV subgroup results (run-level subgroup long table + aggregated subgroup metrics).
 - The absence of detected TTC conflicts in s2 applies only to the current `TTC < 3.0 s` threshold and tested parameter grid.
 - ACC is supported by earlier project versions but is not part of the formal v0.4.0 comparison.
 - TTC events have not yet been independently reproduced from FCD or TraCI trajectories; v0.4.1 provides the trajectory-validation tooling (FCD physical THW) but no new safety grid has been run.
@@ -738,20 +738,19 @@ docs/
 
 | Version | Focus |
 |---|---|
-| v0.4.1 | Measurement and experimental-design upgrade: HV/CAV subgroup metrics, physical THW, compact FCD/TraCI validation, TTC threshold sensitivity, space-matched exposure, independent SUMO/assignment seeds, model-specific free-flow references, and a bounded pilot |
-| v0.4.2 (planned) | Main factorial (efficiency/emissions/FCD, SSM disabled) + independent safety experiment design |
+| v0.4.0.post3 | Unified observation-window reanalysis of the frozen 10,080-run grid (public baseline) |
+| v0.4.1 | Measurement and experimental-design upgrade: HV/CAV subgroup metrics, physical THW, compact FCD/TraCI validation, TTC threshold sensitivity, space-matched exposure, independent SUMO/assignment seeds, model-specific free-flow references, and a bounded pilot (internal milestone, **not released**; engineering outcomes folded into v0.4.2) |
+| v0.4.2 | Formal grid (jump release): main factorial 3,888 runs (efficiency/emissions/FCD, SSM disabled) + independent safety experiment 84 runs |
 | v0.5.0 | Real-trajectory-driven car-following model calibration and simulation validation |
 | v0.6.0 | TraCI-based dynamic traffic control |
 | v0.7.0 | CACC communication degradation, including packet loss and latency |
 
-v0.4.1 delivers the measurement toolchain. Its micro-pilot Level 1 (10 runs)
-passed. Level 2 bounded factorial pilot (162 runs) was completed but failed the
-original resource gate (SSM memory exceeded 2 GiB at high density). A subsequent
-mitigation calibration (48 runs, extratime=1.0 + fragment merge) also failed to
-meet simultaneous fidelity and RSS gates for mixed traffic. The v0.4.0
-10,080-run grid was not re-run. v0.4.2 will explore a redesigned experiment
-structure with SSM disabled in the main factorial and a separate safety
-experiment design.
+v0.4.1 delivered the measurement toolchain; its micro-pilot Level 1 (10 runs)
+passed, and Level 2 bounded factorial pilot (162 runs) was completed but failed
+the original resource gate (SSM memory exceeded 2 GiB at high density). The
+v0.4.0 10,080-run grid was not re-run. v0.4.2 (jump release) ran the formal
+grid: a 3,888-run main factorial with SSM disabled and an independent 84-run
+safety experiment with space-matched exposure (see [Data Availability](#data-availability)).
 
 ---
 
@@ -773,7 +772,7 @@ When using this project, please cite the repository and release version:
 @software{cav_multi_level_penetration_simulation_2026,
   author  = {Uriel62-chang},
   title   = {CAV Multi-level Penetration Simulation},
-  version = {v0.4.0.post3},
+  version = {v0.4.2},
   year    = {2026},
   url     = {https://github.com/Uriel62-chang/CAV_Multi-level_Penetration_Simulation}
 }

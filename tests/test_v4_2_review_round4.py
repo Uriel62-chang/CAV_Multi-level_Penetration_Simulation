@@ -773,3 +773,96 @@ def test_aggregate_subgroup_std_nan_for_empty_group(tmp_path):
     ].iloc[0]
     assert row["count"] == 0
     assert math.isnan(row["std"])
+
+
+# ── P1-2（delta review）：subgroup 逐 run 完整性 + fcd 从 manifest 推导 ──
+
+
+def _subgroup_rows_all_keys(n_runs, fcd_enabled=False):
+    from scripts.results.writer import _expected_subgroup_keys
+
+    expected = list(_expected_subgroup_keys(fcd_enabled))
+    rows = []
+    for i in range(n_runs):
+        for family, dimension, value, metric in expected:
+            if family == "safety_ssm" and metric in {"ttc_event_count", "drac_event_count"}:
+                val = float("nan")
+            elif metric in {
+                "window_count",
+                "ttc_event_count",
+                "drac_event_count",
+                "emergency_braking_count",
+                "affected_vehicle_count",
+                "lane_change_count",
+                "unsafe_lc_gap_count",
+                "completed_lap_count",
+            }:
+                val = 0
+            else:
+                val = 0.0
+            rows.append(
+                {
+                    "run_id": f"r{i}",
+                    "scenario": "scenario_0",
+                    "model": "IDM",
+                    "requested_pcav": None,
+                    "realized_pcav": 0.5,
+                    "cav_count": 5,
+                    "hv_count": 5,
+                    "vehN": 10,
+                    "assignment_seed": 1,
+                    "sumo_seed": 101,
+                    "metric_family": family,
+                    "group_dimension": dimension,
+                    "group_value": value,
+                    "metric_name": metric,
+                    "metric_value": val,
+                }
+            )
+    return rows
+
+
+def _subgroup_manifest(n_runs, fcd_profile=None):
+    return {
+        "resolved_config": {
+            "scenarios": ["scenario_0"],
+            "models": ["IDM"],
+            "treatments": [{"vehicle_count": 10, "cav_counts": [5], "assignment_seeds": [1]}],
+            "sumo_seeds": [101],
+            "fcd_profile": fcd_profile,
+        },
+        "results": [{"run_id": f"r{i}"} for i in range(n_runs)],
+    }
+
+
+def test_aggregate_subgroup_rejects_run_missing_keys(tmp_path):
+    """r2 缺 1 个指标（其他 run 完整）→ 逐 run 校验必须拒绝。"""
+    from scripts.results.aggregate import aggregate_subgroup
+
+    rows = _subgroup_rows_all_keys(2)
+    # 删除 r1 的第一行（模拟单 run 缺行，其他 run 完整）
+    idx = next(i for i, r in enumerate(rows) if r["run_id"] == "r1")
+    del rows[idx]
+    df = pd.DataFrame(rows)
+    in_csv = tmp_path / "in.csv"
+    out_csv = tmp_path / "out.csv"
+    df.to_csv(in_csv, index=False)
+    with pytest.raises(ValueError, match="run r1"):
+        aggregate_subgroup(in_csv, out_csv, _subgroup_manifest(2))
+
+
+def test_aggregate_subgroup_fcd_derived_from_manifest(tmp_path):
+    """manifest 声明 fcd_profile=1s 但 CSV 无 headway 行 → 拒绝（不得误判未启用）。"""
+    from scripts.results.aggregate import aggregate_subgroup
+
+    rows = _subgroup_rows_all_keys(1, fcd_enabled=True)
+    df = pd.DataFrame(rows)
+    in_csv = tmp_path / "in.csv"
+    out_csv = tmp_path / "out.csv"
+    df.to_csv(in_csv, index=False)
+    # manifest fcd_profile=1s，但 CSV 缺 headway family
+    rows_no_headway = [r for r in rows if r["metric_family"] != "headway"]
+    df2 = pd.DataFrame(rows_no_headway)
+    df2.to_csv(in_csv, index=False)
+    with pytest.raises(ValueError, match="run r0"):
+        aggregate_subgroup(in_csv, out_csv, _subgroup_manifest(1, fcd_profile="1s"))

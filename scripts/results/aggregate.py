@@ -328,27 +328,33 @@ def aggregate_subgroup(
                 f"subgroup seed pair set mismatch for group {keys}: "
                 f"missing={sorted(expected - actual)[:6]} extra={sorted(actual - expected)[:6]}"
             )
-    # 预期 metric 组（与 writer _expected_subgroup_keys 一致）
+    # 预期 metric 组（与 writer _expected_subgroup_keys 一致）；fcd_enabled 从
+    # manifest resolved_config 推导（P1-2 审阅：不得从 CSV 是否还有 headway 行推断，
+    # 否则 headway 行被删会误判 FCD 未启用）。
     from scripts.results.writer import _expected_subgroup_keys
 
-    fcd_enabled = "headway" in set(df["metric_family"])
-    actual_keys = set(
-        zip(
-            df["metric_family"],
-            df["group_dimension"],
-            df["group_value"],
-            df["metric_name"],
-            strict=True,
-        )
-    )
+    cfg = manifest.get("resolved_config") or manifest
+    fcd_enabled = cfg.get("fcd_profile") is not None
     expected_keys = set(_expected_subgroup_keys(fcd_enabled))
-    if actual_keys != expected_keys:
-        missing_keys = expected_keys - actual_keys
-        extra_keys = actual_keys - expected_keys
-        raise ValueError(
-            "subgroup metric-key set mismatch: "
-            f"missing={sorted(missing_keys)[:5]} extra={sorted(extra_keys)[:5]}"
+    # 逐 run_id 验证完整且唯一的 metric-key 集（P1-2 审阅：其他 run 的完整
+    # 指标不得掩盖某个 run 的缺行）。
+    for run_id, grp in df.groupby("run_id", dropna=False):
+        keys = set(
+            zip(
+                grp["metric_family"],
+                grp["group_dimension"],
+                grp["group_value"],
+                grp["metric_name"],
+                strict=True,
+            )
         )
+        if keys != expected_keys:
+            missing_keys = expected_keys - keys
+            extra_keys = keys - expected_keys
+            raise ValueError(
+                f"subgroup metric-key set mismatch for run {run_id}: "
+                f"missing={sorted(missing_keys)[:5]} extra={sorted(extra_keys)[:5]}"
+            )
     group_keys = [
         "scenario",
         "model",

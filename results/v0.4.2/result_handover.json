@@ -57,7 +57,7 @@
   "results/v0.4.2/safety/writer_report.json": "00c31b99cf81413daaf7b45dab0c29007c8c6ee587e0592be9bd01c8d740b539",
   "results/v0.4.2/raw_status_inventory.jsonl": "866e89a7c90646ee4aeedeb7f524a428b1d4703475235343fdb32704b26179e0",
   "results/v0.4.2/result_analysis.md": "1290fc242aff940b0bcefa579564a581b071e18f6699440e552bd93d2ee691d5",
-  "results/v0.4.2/pairing_report.json": "815bbd7e426da14c9d829e99e3421f0964caa33f0bda86397596d742c593e156"
+  "results/v0.4.2/pairing_report.json": "52b8c4a6dde1cbcec1988fe8bcce46356756a1c986449430dc5d75b0eeecbc2e"
  },
  "supersedes": {
   "previous_inventory_sha256": "e02975a919756220c9a4c6e34753b6b8e7abe60945a37a56a5ab61b7acd9c9bc",
@@ -71,8 +71,9 @@
  "sidecar_anchor_algorithm": "sha256(canonical_json({'<role>/<run_id>': sha256_file(run_dir/input_integrity.sidecar.json)} for all 3,972 runs (role=main_factorial|safety by source dir), sort_keys=True, separators=(',', ':')))",
  "pairing_gate": {
   "checker": "scripts.results.pairing_checker",
+  "expected_safety_keys": 84,
   "shared_keys": 84,
   "all_match": true,
-  "note": "main/Safety 共享键（同 seed pair 配对）四类输入 SHA + 非 SSM 规范化 SUMO 命令全一致（P1-3 审阅）"
+  "note": "Safety 预期键从 manifest 推导（fail-closed：collected==expected、safety⊆main、shared==expected）；84 共享键四类输入 + 非 SSM 规范化命令全一致"
  }
 }

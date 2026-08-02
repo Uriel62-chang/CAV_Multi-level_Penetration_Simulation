@@ -1,8 +1,10 @@
 {
  "main_runs": 3888,
  "safety_runs": 84,
+ "expected_safety_keys": 84,
  "shared_keys": 84,
  "all_match": true,
+ "closure_errors": [],
  "mismatches": [],
- "checked_at": "2026-08-02T13:15:17.204637+00:00"
+ "checked_at": "2026-08-02T13:37:20.545201+00:00"
 }

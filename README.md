@@ -627,10 +627,20 @@ the v0.4.0 post3 archive practice):
   `run_level_subgroup_results.csv`, `writer_report.json`, `failed_runs.csv`
   (≈ 53 MB in total).
 
-The public repository can verify the aggregated CSVs, the handover SHA list and the
-figures; it cannot independently reproduce the v0.4.2 grid without the separately
-retained raw data. The handover SHA values identify that external intermediate; they
-are not a claim that those files are stored in Git.
+**Git-side integrity anchor for the external raw:** `out_v0.4.2/raw_status_inventory.jsonl`
+(≈ 8.4 MB, Git-tracked) fixes the SHA-256 of every `simulation_status.json` and
+`parse_status.json` for all 3,972 runs (main 3,888 + safety 84), sorted by
+`experiment_role, run_id`, and expands the status-embedded SHA for route/type-map/
+additional/network/net.json/raw-output/summary/subgroup. Its own SHA is recorded in
+`result_handover.json`. Verification: check the inventory SHA against the handover
+entry, then re-hash the status files under an external raw copy against the inventory
+per-line entries.
+
+The public repository can verify the aggregated CSVs, the handover SHA list, the raw
+status inventory anchor and the figures; it cannot independently reproduce the v0.4.2
+grid without the separately retained raw data. The handover/inventory SHA values
+identify that external intermediate; they are not a claim that those files are stored
+in Git.
 
 ---
 

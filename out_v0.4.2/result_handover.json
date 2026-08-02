@@ -54,7 +54,18 @@
     "out_v0.4.2/safety/run_level_results.csv": "f92a37432679cee23ae959d391224797f2e448ca443cf2c88f0b1c5ca1ae3877",
     "out_v0.4.2/safety/run_level_subgroup_results.csv": "f7da72084ccc73aed08c04ea0e6102fc6c437830b58bc9b00d18394cbb90e556",
     "out_v0.4.2/safety/aggregated_results.csv": "e424ff1730619583026d024aaeea97c61adce53f5486a00e5ca6f8b3275ed9b6",
-    "out_v0.4.2/safety/writer_report.json": "00c31b99cf81413daaf7b45dab0c29007c8c6ee587e0592be9bd01c8d740b539"
+    "out_v0.4.2/safety/writer_report.json": "00c31b99cf81413daaf7b45dab0c29007c8c6ee587e0592be9bd01c8d740b539",
+    "out_v0.4.2/raw_status_inventory.jsonl": "e02975a919756220c9a4c6e34753b6b8e7abe60945a37a56a5ab61b7acd9c9bc"
   },
-  "runtime_clean_commit_warning": "parsing/writer outputs were produced on working trees that were NOT provably clean commits at runtime; code was committed afterwards (a21e05e/6637519). This is a wording-level provenance caveat, not a data error; no rerun required (reviewer P2)."
+  "runtime_clean_commit_warning": "parsing/writer outputs were produced on working trees that were NOT provably clean commits at runtime; code was committed afterwards (a21e05e/6637519). This is a wording-level provenance caveat, not a data error; no rerun required (reviewer P2).",
+  "raw_status_inventory": {
+    "path": "out_v0.4.2/raw_status_inventory.jsonl",
+    "sha256": "e02975a919756220c9a4c6e34753b6b8e7abe60945a37a56a5ab61b7acd9c9bc",
+    "entries": 3972,
+    "closure": {
+      "main_factorial": 3888,
+      "safety": 84
+    },
+    "note": "Git-tracked anchor for external raw: per-run simulation_status.json / parse_status.json SHA + expanded input/raw-output/summary/subgroup SHA. Verify with: git show HEAD:out_v0.4.2/raw_status_inventory.jsonl | sha256sum -c (per-line SHA re-check script)."
+  }
 }

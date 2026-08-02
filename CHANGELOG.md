@@ -1,11 +1,67 @@
 # Changelog
 
-## v0.4.1 (2026-07-30)
+## v0.4.2 (计划发布目标，跳号发布)
+
+> **跳号发布说明**：v0.4.1 是本地内部里程碑，**未对外发布**（Level 2 pilot 未过旧资源
+> 门禁；D-012–D-015 技术证据已闭合、治理状态未闭合，本地 tag 已删）。其全部工程成果
+> 并入本版发布说明。本版为 v0.4.0.post3 之后的下一公开版本。
+
+### 正式实验（新）
+
+- **主 factorial 网格**：4 场景 × 2 模型 × 6 渗透率档（0.2 步长，cav_count 整数可实现）
+  × 12 vehN × 3 assignment seeds × 3 SUMO seeds = 3,888 runs，SSM 关闭。关键数值：
+  s2 CACC 全 CAV 网格内最大观测流量 7,128 veh/h；s3 高密度全 CAV 运行点 IDM 3,204 vs
+  CACC 1,536 veh/h（瓶颈反转复现 v0.4.0 定性结论）。
+- **独立 safety experiment**：84 runs（p∈{0,0.2,0.6,1.0} × vehN∈{30,60,120}），TTC/DRAC
+  事件率与暴露量空间配对（withInternal=true）；s1 与 s2 在当前阈值/配置下未检出事件
+  （边界声明，不升级为「无安全冲突」）。
+- **HV/CAV 子群拆分**：detector/edgeData/SSM/vehroute/lanechange/stderr + FCD THW，
+  排放双口径（non-internal 主强度 + 全路网次要强度）。
+- 双 seed 统计单位：`(assignment_seed, sumo_seed)` 组合等权汇总，报告每格有效 n 与
+  `seed_scope`；端点 assignment 失活、SUMO seed 保持活动。
+
+### A 线实现（v0.4.0 逻辑对齐，正式 Reviewer 背书）
+
+- cav_count 权威处理变量；resume 输入/输出 SHA 闭包（routes/type-map/additional/
+  network/net.json/raw 输出）；SSM 观测窗上界 [warmup, 3600)；SSM analysis 配置单源
+  （阈值/dedup/overlap/fragment）；sorted_greedy_80pct 真实实现；main/safety 报告分离；
+  Safety 图按 scenario × vehN 分面；emissionClass 显式化（仅 v0.4.2）；自由流逐类型
+  delay 参考；aggregate 双 seed fail-closed；schema=2 按 pipeline 分流。
+- 自由流 artifact 版本化（`artifacts/free_flow/`）。
+
+### v0.4.1 工程成果归属（内部里程碑，未发布）
+
+- schema=2 runner/writer/aggregate、HV/CAV 子群、FCD physical THW（numpy 内存方案）、
+  SSM pair/role provenance（D-006）、SSM 敏感性 CLI、自由流 artifact 链（D-008）、
+  withInternal=true additional、CLI `--assignment-seeds`/`--sumo-seeds` 命名。
+- **SSM 内存成本提示**（B 线历史观测，仅提示、不作硬预算、不再改进）：在 SUMO 1.27.1
+  特定冻结工况（TTC=5.0/range=50、s2 零事件 case）下，启用 SSM device 与约 8.86 GiB
+  额外 sampled peak RSS 相关（D-014 表述边界，不断言内部机制或内存泄漏）。v0.4.2
+  safety 网格显式固定 TTC/DRAC 参数后实测峰值约 0.81 GiB。
+
+### 测试与门禁
+
+- **309 tests**；Ruff / mypy / compileall / format 全通过
+- 四 dry-run：legacy 10,080 / pilot 162 / safety 84 / main 3,888
+- v0.4.0 config SHA `178dfcef…` 与 legacy SUMO 命令字节基线不变
+
+### 不做的事情（显式排除）
+
+- 不重跑 v0.4.0 10,080-run 网格，不修改其配置/哈希/命令字节
+- 不推进 B 线（SSM 内存诊断）与 SUMO upstream 提交——未获用户授权前不列为发布动作
+- 不引入 ACC 自由流参考（D-008 约束保持）
+
+---
+
+## v0.4.1 (2026-07-30) — 内部里程碑，未对外发布
+
+> **版本状态**：v0.4.1 为本地内部里程碑，未作为公开版本发布（GitHub 最新公开版本为
+> v0.4.0.post3）。本条目保留供追溯；工程成果并入 v0.4.2 发布说明（见上）。
 
 `v0.4.1` 是工具链功能发布，不包含正式实验结论。它构建了子群测量、FCD THW、
 SSM 敏感性分析、自由流参考等能力，并完成 micro-pilot Level 1 验证。
-Level 2 bounded factorial pilot 因 SUMO SSM encounter-tracking 在混合交通下的
-内存增长超出预算而标记为 calibration / failed gate。
+Level 2 bounded factorial pilot 因 SSM 内存超出旧资源门禁而标记为 calibration /
+failed gate（该门禁已废止，见 v0.4.2 跳号说明）。
 
 ### 新功能
 
@@ -31,26 +87,20 @@ Level 2 bounded factorial pilot 因 SUMO SSM encounter-tracking 在混合交通�
 
 ### 已知限制
 
-- **SSM 内存**：在 SUMO 1.27.1 下，extratime=1.0 可将全 CAV 场景 RSS 从
-  ~10 GiB 降至 ~155 MiB，但 s0 混合交通（vehN=120, 50/50 CAV/HV）仍约 3 GiB；
-  s2 无 SSM 事件时 RSS 仍可达 ~9 GiB（疑似 SUMO 内部 encounter-tracking 行为）。
+- **SSM 内存**（B 线历史观测，仅提示）：在 SUMO 1.27.1 特定冻结工况下，启用 SSM
+  device 与约 8.86 GiB 额外 sampled peak RSS 相关（D-014 表述边界，不断言内部机制
+  或内存泄漏）；受硬件与 SSM 参数配置影响，不作硬预算、不再改进（v0.4.0 曾以 74 次
+  OOM 重跑兜底）。
 - **CAV-CAV TTC**：extratime=1.0 + fragment merge 在混合交通下有 composition-
   dependent 低估（~13%，仅 vehN=60 IDM 混合）。
-- s2 的 SSM 内存问题独立于 extratime 参数，不适合在本版本通过参数调优解决。
 - fragment merge 默认禁用（`gap_s=0.0`）；仅在 `ssm_extratime_s < 5.0` 时由
   runner 自动启用到 5.0s gap。
 
 ### 测试
 
-- **170 tests**（85 legacy + 19 v0.4.1 + 66 stage2）
+- 当时基线 **170 tests**（85 legacy + 19 v0.4.1 + 66 stage2）；现行为 309（并入 v0.4.2）
 - Stage 2 设计基线冻结于 `docs/development/v0.4.1-stage2-design.md`
 - 门禁：Ruff / mypy / compileall / format 全通过
-
-### v0.4.2 计划
-
-- SSM 不进入主 factorial 实验；主实验关闭 SSM 运行效率/排放/FCD 完整网格
-- 独立 safety experiment：针对性地定义 TTC/DRAC estimand 与采样规则
-- SUMO 上游最小复现提交
 
 `v0.4.0.post3` 不重跑 SUMO；它从冻结的 10,080-run raw XML 修正 post2
 遗漏的跨解析器观测窗错配，并重新生成受影响的 run-level、聚合数据、图表与

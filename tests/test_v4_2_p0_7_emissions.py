@@ -12,14 +12,21 @@ from scripts.run_spec import PIPELINE_V4_2, RunSpec
 
 
 def _write_emissions(path, edges):
-    """edges: list of (edge_id, co2_mg, nox_mg)。"""
+    """edges: list of (edge_id, co2_mg, nox_mg)。sampledSeconds 模拟真实 SUMO 输出。"""
     root = ET.Element("edgeData")
     interval = ET.SubElement(root, "interval", {"begin": "600", "end": "900"})
     for eid, co2, nox in edges:
         ET.SubElement(
             interval,
             "edge",
-            {"id": eid, "CO2_abs": str(co2), "NOx_abs": str(nox), "PMx_abs": "0", "fuel_abs": "0"},
+            {
+                "id": eid,
+                "sampledSeconds": "100.0",
+                "CO2_abs": str(co2),
+                "NOx_abs": str(nox),
+                "PMx_abs": "0",
+                "fuel_abs": "0",
+            },
         )
     ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
@@ -48,11 +55,29 @@ def test_warmup_filter_applies(tmp_path):
     # warmup 前 interval 应被排除
     iv1 = ET.SubElement(root, "interval", {"begin": "0", "end": "300"})
     ET.SubElement(
-        iv1, "edge", {"id": "e0", "CO2_abs": "999", "NOx_abs": "9", "PMx_abs": "0", "fuel_abs": "0"}
+        iv1,
+        "edge",
+        {
+            "id": "e0",
+            "sampledSeconds": "100.0",
+            "CO2_abs": "999",
+            "NOx_abs": "9",
+            "PMx_abs": "0",
+            "fuel_abs": "0",
+        },
     )
     iv2 = ET.SubElement(root, "interval", {"begin": "600", "end": "900"})
     ET.SubElement(
-        iv2, "edge", {"id": "e0", "CO2_abs": "100", "NOx_abs": "1", "PMx_abs": "0", "fuel_abs": "0"}
+        iv2,
+        "edge",
+        {
+            "id": "e0",
+            "sampledSeconds": "100.0",
+            "CO2_abs": "100",
+            "NOx_abs": "1",
+            "PMx_abs": "0",
+            "fuel_abs": "0",
+        },
     )
     ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
     r = parse_edge_emissions(str(path), warmup_period=600)

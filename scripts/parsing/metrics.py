@@ -533,6 +533,15 @@ def validate_subgroup_invariants(primitives):
     ee_cav = primitives.edge_emis.get("CAV", {})
     for key in ("total_CO2_kg", "total_NOx_g", "total_PMx_g", "total_fuel_kg"):
         _check_additive(ee_all, ee_hv, ee_cav, key, 5e-4, 1e-9)
+    # 审阅 P1-2：non-internal 双口径加性校验（all/HV/CAV 各自文件内筛选，
+    # HV+CAV == all 应同样成立；此前仅覆盖全路网 total_* 四项）
+    for key in (
+        "non_internal_CO2_kg",
+        "non_internal_NOx_g",
+        "non_internal_PMx_g",
+        "non_internal_fuel_kg",
+    ):
+        _check_additive(ee_all, ee_hv, ee_cav, key, 5e-4, 1e-9)
 
     # Exact counts
     for src_name, src_key in [

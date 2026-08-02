@@ -365,6 +365,8 @@ SUMMARY_NAN_RULES = {
     "ttc_events_per_1000_veh_km": ("total_vehicle_km", 0),
     "emergency_brakes_per_1000_veh_km": ("total_vehicle_km", 0),
     "lane_changes_per_1000_veh_km": ("total_vehicle_km", 0),
+    # legacy（schema=1 / v0.4.1 schema=2）冻结 companion：total_vehicle_km。
+    # 不得改动：legacy summary 不含 non_internal_edge_vehicle_km 键。
     "CO2_g_per_veh_km": ("total_vehicle_km", 0),
     "NOx_mg_per_veh_km": ("total_vehicle_km", 0),
     "PMx_mg_per_veh_km": ("total_vehicle_km", 0),
@@ -375,6 +377,19 @@ SUMMARY_NAN_RULES = {
         0,
     ),
 }
+
+# 审阅 P1-2（v0.4.2 专属）：主 estimand 为 non-internal（metrics.py P0-7），
+# 排放强度 NaN companion 跟随 non-internal veh-km。仅用于 schema=2 +
+# pipeline v0.4.2，不污染 legacy 契约。
+SUMMARY_NAN_RULES_V4_2 = dict(SUMMARY_NAN_RULES)
+SUMMARY_NAN_RULES_V4_2.update(
+    {
+        "CO2_g_per_veh_km": ("non_internal_edge_vehicle_km", 0),
+        "NOx_mg_per_veh_km": ("non_internal_edge_vehicle_km", 0),
+        "PMx_mg_per_veh_km": ("non_internal_edge_vehicle_km", 0),
+        "fuel_g_per_veh_km": ("non_internal_edge_vehicle_km", 0),
+    }
+)
 
 
 def validate_summary_contract(
@@ -393,6 +408,13 @@ def validate_summary_contract(
         )
     else:
         required = SUMMARY_REQUIRED_KEYS
+    # 审阅 P1-2：NaN companion 表按 pipeline 分流——v0.4.2 用 non-internal
+    # 主 estimand 覆盖表，legacy（schema=1 / v0.4.1 schema=2）保持冻结表。
+    nan_rules = (
+        SUMMARY_NAN_RULES_V4_2
+        if schema_version == "2" and pipeline_version == "v0.4.2"
+        else SUMMARY_NAN_RULES
+    )
     errors = [f"summary missing required key: {key}" for key in required if key not in summary]
     if errors:
         return errors
@@ -447,6 +469,21 @@ def validate_summary_contract(
         "total_PMx_g",
         "total_fuel_kg",
         "total_time_loss_s",
+        # 审阅 P1-2 / delta review：主强度与 v0.4.2 新增排放双口径字段纳入非负门禁
+        # （NaN 由 SUMMARY_NAN_RULES_V4_2 放行，数值必须非负）
+        "CO2_g_per_veh_km",
+        "NOx_mg_per_veh_km",
+        "PMx_mg_per_veh_km",
+        "fuel_g_per_veh_km",
+        "non_internal_CO2_kg",
+        "non_internal_NOx_g",
+        "non_internal_PMx_g",
+        "non_internal_fuel_kg",
+        "whole_network_CO2_g_per_veh_km",
+        "whole_network_NOx_mg_per_veh_km",
+        "whole_network_PMx_mg_per_veh_km",
+        "whole_network_fuel_g_per_veh_km",
+        "whole_network_ttc_events_per_1000_non_internal_edge_veh_km",
     }
     strictly_positive = {
         "step_length_s",
@@ -502,7 +539,7 @@ def validate_summary_contract(
             errors.append(f"summary {key} must be numeric")
         elif math.isinf(float(value)):
             errors.append(f"summary {key} must not be infinite")
-        elif math.isnan(float(value)) and key not in SUMMARY_NAN_RULES:
+        elif math.isnan(float(value)) and key not in nan_rules:
             errors.append(f"summary {key} must be finite")
         elif key in finite_nonnegative and float(value) < 0:
             errors.append(f"summary {key} must be non-negative")
@@ -513,7 +550,7 @@ def validate_summary_contract(
     if errors:
         return errors
     nan_skip = ssm_skip if ssm_not_collected else set()
-    for metric, (companion, max_value) in SUMMARY_NAN_RULES.items():
+    for metric, (companion, max_value) in nan_rules.items():
         if metric not in summary or metric in nan_skip:
             continue
         if companion not in summary:

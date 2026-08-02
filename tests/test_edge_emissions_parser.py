@@ -80,13 +80,18 @@ def test_missing_file_returns_nan():
 
 
 def test_missing_fields_default_to_zero_contribution():
-    """Edge without emission attributes: skip, parse whatever else is there."""
+    """Edge without emission attributes: 记录不完整 → fail-closed（P1-1）。
+
+    缺失必需属性（CO2_abs 等）的 edge 计为 invalid 记录并跳过；parse_success=False。
+    其余有效记录仍累计（此处无有效记录 → totals 0.0）。
+    """
     result = parse_edge_emissions(
         os.path.join(FIXTURES, "edge_emissions_missing.xml"),
     )
-    assert result["parse_success"] is True
-    # All emission attributes missing → totals should be 0.0, but parse_success=True
-    # (file was valid, just no emission data)
+    assert result["parse_success"] is False
+    assert result["invalid_record_count"] >= 1
+    # All emission attributes missing → totals are 0.0, but parse_success=False
+    # (records incomplete → fail-closed, not silently treated as zero)
     assert result["total_CO2_kg"] == 0.0
     assert result["total_NOx_g"] == 0.0
     assert result["total_PMx_g"] == 0.0

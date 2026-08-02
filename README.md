@@ -703,8 +703,9 @@ The repository includes:
   — 528 main-factorial groups (3,888 runs) and 84 safety groups, aggregated across
   the `(assignment_seed, sumo_seed)` combination unit (3 × 3 for main interior cells);
 - `results/v0.4.2/result_handover.json` — minimal provenance handover: simulation
-  (`a8aa09a`), parsing (`a21e05e`), writer/aggregate (`6637519`) commits, main/safety
-  manifest SHA, and the SHA-256 of the fourteen archived result paths;
+  (`a8aa09a`), parsing artifacts (`d963502` + post-generation validation `507a80d`),
+  writer (`8f9ef4b` + schema-only rerun `e99cd89`), aggregate (`91c256f`) commits,
+  main/safety manifest SHA, and the SHA-256 of the fifteen archived result paths;
 - `results/v0.4.2/result_analysis.md` — structured results summary (peaks, s3 bottleneck
   reversal, Safety by vehN facet, cross-version comparison boundary, subgroup table);
 - the v0.4.2 figures under `graph/v0.4.2/` (main factorial × 3 + Safety × 1).

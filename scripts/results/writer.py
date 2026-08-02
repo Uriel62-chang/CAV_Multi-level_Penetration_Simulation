@@ -39,10 +39,12 @@ SUBGROUP_NAN_RULES = {
     "lap_time_std_s": ("efficiency", "completed_lap_count", 0),
     "mean_lap_delay_s": ("efficiency", "completed_lap_count", 0),
     "p95_lap_delay_s": ("efficiency", "completed_lap_count", 0),
-    "CO2_g_per_veh_km": ("efficiency", "total_vehicle_km", 0),
-    "NOx_mg_per_veh_km": ("efficiency", "total_vehicle_km", 0),
-    "PMx_mg_per_veh_km": ("efficiency", "total_vehicle_km", 0),
-    "fuel_g_per_veh_km": ("efficiency", "total_vehicle_km", 0),
+    # 审阅 P1-2：主 estimand 为 non-internal（metrics.py P0-7），subgroup NaN companion
+    # 跟随 non-internal veh-km（efficiency family 内同名 metric）。
+    "CO2_g_per_veh_km": ("efficiency", "non_internal_edge_vehicle_km", 0),
+    "NOx_mg_per_veh_km": ("efficiency", "non_internal_edge_vehicle_km", 0),
+    "PMx_mg_per_veh_km": ("efficiency", "non_internal_edge_vehicle_km", 0),
+    "fuel_g_per_veh_km": ("efficiency", "non_internal_edge_vehicle_km", 0),
     # P0-4 新增全路网次要强度：空子群（端点 run）时 0/0=NaN 合法（companion veh-km=0）
     "whole_network_CO2_g_per_veh_km": ("efficiency", "total_vehicle_km", 0),
     "whole_network_NOx_mg_per_veh_km": ("efficiency", "total_vehicle_km", 0),
@@ -390,6 +392,15 @@ def _valid_subgroup_rows(rows: list[dict], run_id: str, spec: dict) -> bool:
         "median_thw_s",
         "p05_thw_s",
         "thw_lt_1s_ratio",
+        # 审阅 P1-2 / delta review：v0.4.2 新增排放双口径字段（绝对量与全路网次要强度）
+        "non_internal_CO2_kg",
+        "non_internal_NOx_g",
+        "non_internal_PMx_g",
+        "non_internal_fuel_kg",
+        "whole_network_CO2_g_per_veh_km",
+        "whole_network_NOx_mg_per_veh_km",
+        "whole_network_PMx_mg_per_veh_km",
+        "whole_network_fuel_g_per_veh_km",
     }
     for row in rows:
         value = row["metric_value"]

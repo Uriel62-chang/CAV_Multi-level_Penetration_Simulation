@@ -58,19 +58,22 @@ def test_missing_file_returns_nan():
 
 
 def test_missing_fields():
-    """Edge without speed or sampledSeconds: skip that edge, parse the rest."""
+    """Edge without speed or sampledSeconds: 记录不完整 → fail-closed（P1-1）。
+
+    缺失必需属性（speed/sampledSeconds）的 edge 计为 invalid 记录并跳过；
+    parse_success=False。其余有效记录仍累计。
+    """
     result = parse_edge_performance(
         os.path.join(FIXTURES, "edge_performance_missing.xml"),
     )
-    assert result["parse_success"] is True
-    # Only interval 2 has valid data: speed=10.95, sampledSeconds=11454.87
+    assert result["parse_success"] is False
+    assert result["invalid_record_count"] >= 1
+    # 仅 interval 2 有完整数据：speed=10.95, sampledSeconds=11454.87
     expected_km = (10.95 * 11454.87) / 1000.0
     assert math.isclose(result["total_vehicle_km"], expected_km, rel_tol=1e-6)
-    # Both intervals' timeLoss values are counted:
-    # interval 1: timeLoss=13074.01 (speed is missing → defaults to 0 → distance 0,
-    #              but timeLoss is still parsed from the attribute)
-    # interval 2: timeLoss=7583.95
-    assert math.isclose(result["total_time_loss_s"], 20657.96, rel_tol=1e-6)
+    # interval 1 的 edge 缺 speed → 整条跳过（含其 timeLoss 13074.01）；
+    # interval 2 的 timeLoss=7583.95 仍计入
+    assert math.isclose(result["total_time_loss_s"], 7583.95, rel_tol=1e-6)
 
 
 def test_malformed_xml_returns_nan():

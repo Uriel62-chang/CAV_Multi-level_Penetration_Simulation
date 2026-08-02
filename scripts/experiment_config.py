@@ -144,17 +144,20 @@ class ExperimentConfig:
         if grid_mode == GRID_MODE_REQUESTED_PCAV:
             _check_required(data, _PCAV_MODE_EXTRA)
             pcav = tuple(float(Decimal(str(x))) for x in data["pcav_levels"])
-            vct = tuple(int(x) for x in data["vehicle_counts"])
-            seeds = tuple(int(x) for x in data["seeds"])
+            vct = tuple(_coerce_int(x, "vehicle_counts") for x in data["vehicle_counts"])
+            seeds = tuple(_coerce_int(x, "seeds") for x in data["seeds"])
             treatments: tuple[dict[str, Any], ...] = ()
             sumo_seeds: tuple[int, ...] = ()
         else:
             _check_required(data, _CAV_COUNT_MODE_EXTRA)
             treatments = tuple(dict(t) for t in data["treatments"])
-            sumo_seeds = tuple(int(x) for x in data["sumo_seeds"])
+            sumo_seeds = tuple(_coerce_int(x, "sumo_seeds") for x in data["sumo_seeds"])
             pcav = ()
             vct = ()
-            seeds = tuple(int(x) for x in data.get("assignment_seeds", data.get("seeds", ())))
+            seeds = tuple(
+                _coerce_int(x, "assignment_seeds")
+                for x in data.get("assignment_seeds", data.get("seeds", ()))
+            )
 
         config = cls(
             config_version=str(data["config_version"]),
@@ -166,9 +169,9 @@ class ExperimentConfig:
             simulation_end=float(data["simulation_end"]),
             warmup=float(data["warmup"]),
             step_length=float(data["step_length"]),
-            detector_frequency=int(data["detector_frequency"]),
-            edge_data_frequency=int(data["edge_data_frequency"]),
-            loops=int(data["loops"]),
+            detector_frequency=_coerce_int(data["detector_frequency"], "detector_frequency"),
+            edge_data_frequency=_coerce_int(data["edge_data_frequency"], "edge_data_frequency"),
+            loops=_coerce_int(data["loops"], "loops"),
             network_files={str(k): str(v) for k, v in data["network_files"].items()},
             grid_mode=grid_mode,
             pcav_levels=pcav,
@@ -445,7 +448,7 @@ class ExperimentConfig:
             raise ValueError("duplicate assignment_seeds at config level")
         seen_vn = set()
         for t in self.treatments:
-            vn = int(t.get("vehicle_count", 0))
+            vn = _coerce_int(t.get("vehicle_count", 0), "vehicle_count")
             if vn <= 0:
                 raise ValueError(f"treatment vehicle_count must be positive, got {vn}")
             if vn in seen_vn:
@@ -456,14 +459,15 @@ class ExperimentConfig:
                 raise ValueError(f"cav_counts must not be empty for vehicle_count={vn}")
             seen_c = set()
             for c in cavs:
-                c = int(c)
+                c = _coerce_int(c, "cav_counts")
                 if c < 0 or c > vn:
                     raise ValueError(f"cav_count {c} out of range [0, {vn}] for vehicle_count={vn}")
                 if c in seen_c:
                     raise ValueError(f"duplicate cav_count {c} for vehicle_count={vn}")
                 seen_c.add(c)
-            # 校验 treatment 级 assignment_seeds 无重复
+            # 校验 treatment 级 assignment_seeds：严格整数 + 无重复（审阅 P1-3 / delta review）
             aseeds = t.get("assignment_seeds", [])
+            aseeds = tuple(_coerce_int(a, "assignment_seeds") for a in aseeds)
             if aseeds and len(aseeds) != len(set(aseeds)):
                 raise ValueError(f"duplicate assignment_seeds in treatment vehN={vn}")
 
@@ -498,12 +502,42 @@ def _optional_float(data: dict[str, Any], key: str) -> float | None:
     return float(value) if value is not None else None
 
 
+def _coerce_int(value: Any, key: str) -> int:
+    """严格整数强制（审阅 P1-3）：接受 int、整数值 float、整数字符串。
+
+    拒绝小数、非有限值与数字型 bool——不再静默 ``int()`` 截断（10.9 → 10）。
+    """
+    if isinstance(value, bool):
+        raise ValueError(f"{key}: must be an integer, got boolean {value!r}")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value) or value != int(value):
+            raise ValueError(f"{key}: must be an integer, got {value!r}")
+        return int(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        try:
+            dec = Decimal(stripped)
+        except Exception:
+            raise ValueError(f"{key}: must be an integer, got {value!r}") from None
+        # 审阅 P2-2：Decimal("Infinity") 的 to_integral_value() == 自身，需显式有限性检查，
+        # 否则 int(dec) 抛 OverflowError（入口只捕获 ValueError → traceback）。
+        if not dec.is_finite() or dec != dec.to_integral_value():
+            raise ValueError(f"{key}: must be an integer, got {value!r}")
+        return int(dec)
+    raise ValueError(f"{key}: must be an integer, got {value!r}")
+
+
 def _parse_bool(data: dict[str, Any], key: str, default: bool) -> bool:
     """类型化布尔解析：接受 JSON bool 及字符串 "true"/"false"（P0-5）。
 
     修复 bool("false") == True 的字符串解析缺陷：配置中写 "false" 必须解析为 False。
+    审阅 P1-3：数字型值（0/1/2 等）不再被 ``bool()`` 静默强转，直接拒绝。
     """
     value = data.get(key, default)
+    if isinstance(value, bool):
+        return value
     if isinstance(value, str):
         lowered = value.strip().lower()
         if lowered in ("true", "1", "yes"):
@@ -511,7 +545,7 @@ def _parse_bool(data: dict[str, Any], key: str, default: bool) -> bool:
         if lowered in ("false", "0", "no"):
             return False
         raise ValueError(f"{key}: invalid boolean string {value!r}")
-    return bool(value)
+    raise ValueError(f"{key}: must be a boolean, got {value!r}")
 
 
 def _require_nonempty_unique(name: str, values: tuple[Any, ...]) -> None:

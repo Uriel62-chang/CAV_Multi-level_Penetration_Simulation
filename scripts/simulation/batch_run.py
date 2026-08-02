@@ -33,7 +33,11 @@ from scripts.config import (
     DEFAULT_STEP_LENGTH,
     DEFAULT_WARMUP,
 )
-from scripts.experiment_config import load_experiment_config, validate_analysis_windows
+from scripts.experiment_config import (
+    _coerce_int,
+    load_experiment_config,
+    validate_analysis_windows,
+)
 from scripts.provenance import collect_provenance, freeze_input_pair, sha256_file
 from scripts.run_spec import (
     PIPELINE_V4_1,
@@ -380,8 +384,8 @@ def _build_cav_count_specs(
 
     for scenario in scenarios:
         for treatment in treatments:
-            vn = int(treatment["vehicle_count"])
-            cav_counts = [int(c) for c in treatment["cav_counts"]]
+            vn = _coerce_int(treatment["vehicle_count"], "vehicle_count")
+            cav_counts = [_coerce_int(c, "cav_counts") for c in treatment["cav_counts"]]
             for cav_count in cav_counts:
                 for s_seed in sumo_seeds:
                     # model 维度：cav_count=0 时无 CAV，model 固定为 None
@@ -393,7 +397,7 @@ def _build_cav_count_specs(
                         if not aseeds_raw:
                             aseeds = _default_assignment_seeds(cav_count, vn)
                         else:
-                            aseeds = [int(a) for a in aseeds_raw]
+                            aseeds = [_coerce_int(a, "assignment_seeds") for a in aseeds_raw]
                         # inactive 维度：无 CAV 或全 CAV 时 assignment_seed 不可区分
                         if cav_count == 0 or cav_count == vn:
                             aseeds = aseeds[:1]
@@ -582,8 +586,8 @@ def _validate_cav_count_specs(
     expected_combos: dict[tuple[str, int, int], tuple[set[str], set[int]]] = {}
     for _scenario in scenarios:
         for t in treatments:
-            vn = int(t["vehicle_count"])
-            cav_counts = [int(c) for c in t["cav_counts"]]
+            vn = _coerce_int(t["vehicle_count"], "vehicle_count")
+            cav_counts = [_coerce_int(c, "cav_counts") for c in t["cav_counts"]]
             for cc in cav_counts:
                 n_models = 1 if cc == 0 else len(models)
                 aseeds = t.get("assignment_seeds", _default_assignment_seeds(cc, vn))
@@ -592,7 +596,7 @@ def _validate_cav_count_specs(
                 for scenario in scenarios:
                     key = (scenario, vn, cc)
                     allowed_models = set(models)
-                    allowed_seeds = set(int(a) for a in aseeds)
+                    allowed_seeds = set(_coerce_int(a, "assignment_seeds") for a in aseeds)
                     if key not in expected_combos:
                         expected_combos[key] = (allowed_models, allowed_seeds)
                     else:
@@ -605,8 +609,8 @@ def _validate_cav_count_specs(
     for scenario in scenarios:
         treatment_set[scenario] = {}
     for t in treatments:
-        vn = int(t["vehicle_count"])
-        cavs = set(int(c) for c in t["cav_counts"])
+        vn = _coerce_int(t["vehicle_count"], "vehicle_count")
+        cavs = set(_coerce_int(c, "cav_counts") for c in t["cav_counts"])
         for scenario in scenarios:
             treatment_set[scenario][vn] = cavs
 

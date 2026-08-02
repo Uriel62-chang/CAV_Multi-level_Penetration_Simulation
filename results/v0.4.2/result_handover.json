@@ -1,5 +1,5 @@
 {
- "title": "v0.4.2 formal-grid result handover (P0-1/P0-2 re-parse, supersedes previous handover)",
+ "title": "v0.4.2 formal-grid result handover (P0/P1 closure + evidence-chain anchors, round-2 delta review)",
  "created_by": "Developer session (post new-review P0/P1/P2 closure)",
  "commits": {
   "simulation": {
@@ -8,9 +8,9 @@
    "note": "raw SUMO 输出与 simulation_status.json 未重跑、未修改（红线维持）"
   },
   "parsing": {
-   "final_commit": "d963502",
+   "final_commit": "507a80d",
    "clean_at_runtime": true,
-   "note": "全量重解析（无 --resume）在修复提交 8f9ef4b/91c256f/d963502 之后运行；旧 run 先经 --freeze-input-integrity 生成 sidecar；3,888 main + 84 safety 全 SUCCESS"
+   "note": "全量重解析（无 --resume）在修复提交之后运行；旧 run 经 --freeze-input-integrity 生成 sidecar（3,972 个，SHA 锚定于 inventory sidecar_sha256 列与 sidecar_anchor_sha256）；3,888 main + 84 safety 全 SUCCESS。P1（round-2）修复 input_integrity fail-open 与 sidecar 全输入核验。"
   },
   "writer": {
    "final_commit": "8f9ef4b",
@@ -25,7 +25,7 @@
   "hotfix_tests": "1a6da3c"
  },
  "simulation_note": "raw SUMO XML/FCD/stderr 与 simulation_status.json 未修改（红线）；main manifest git_dirty=true 历史 caveat 维持。",
- "parsing_note": "2026-08 重解析：修复提交后全量重解析（不用 --resume），3,972 run 全部 SUCCESS。P0-1（SSM 未采集 NaN + 状态列）、P0-2（p95 pooled 参考）修复反映到所有派生物。summary/subgroup_summary/parse_status 为重建派生物（旧哈希链见 supersedes）。",
+ "parsing_note": "2026-08 重解析：修复提交后全量重解析（不用 --resume），3,972 run 全部 SUCCESS。P0-1（SSM 未采集 NaN + 状态列）、P0-2（p95 pooled 参考）修复反映到所有派生物。inventory 含 experiment_role（按来源）与 sidecar_sha256 外部锚定（round-2 P1 修复）。",
  "final_status": {
   "main": {
    "runs": 3888,
@@ -55,14 +55,16 @@
   "results/v0.4.2/safety/run_level_subgroup_results.csv": "f7da72084ccc73aed08c04ea0e6102fc6c437830b58bc9b00d18394cbb90e556",
   "results/v0.4.2/safety/aggregated_results.csv": "bff5ef785d6a7487f3301858fee08f56e1b20ed9c1e2392f1a787050408b919c",
   "results/v0.4.2/safety/writer_report.json": "00c31b99cf81413daaf7b45dab0c29007c8c6ee587e0592be9bd01c8d740b539",
-  "results/v0.4.2/raw_status_inventory.jsonl": "2f71c26edf02066a80417bf544cebdaadf8ab4d15863b05944e16c4cb60f2e68",
+  "results/v0.4.2/raw_status_inventory.jsonl": "866e89a7c90646ee4aeedeb7f524a428b1d4703475235343fdb32704b26179e0",
   "results/v0.4.2/result_analysis.md": "1290fc242aff940b0bcefa579564a581b071e18f6699440e552bd93d2ee691d5"
  },
  "supersedes": {
   "previous_inventory_sha256": "e02975a919756220c9a4c6e34753b6b8e7abe60945a37a56a5ab61b7acd9c9bc",
   "previous_main_aggregated_sha256": "fbc9a527720c44d2da795b4a8bb8f96cff3895aa9f352f97f27ddb5d59d25261",
   "previous_safety_aggregated_sha256": "e424ff1730619583026d024aaeea97c61adce53f5486a00e5ca6f8b3275ed9b6",
-  "note": "P0-1/P0-2 数据正确性重解析（2026-08）：run-level/subgroup/aggregated/parse_manifest/inventory 均为重解析产物；raw simulation manifest 与 SUMO 输出未动。新 inventory 覆盖旧 inventory（supersedes 链）。"
+  "note": "P0-1/P0-2 数据正确性重解析（2026-08）：run-level/subgroup/aggregated/parse_manifest/inventory 均为重解析产物；raw simulation manifest 与 SUMO 输出未动。新 inventory 覆盖旧 inventory（supersedes 链）。",
+  "interim_inventory_sha256": "2f71c26edf02066a"
  },
- "runtime_clean_commit_warning": "本轮 parsing/writer/aggregate 运行于已提交的修复代码（8f9ef4b/91c256f/d963502），工作区仅含未跟踪的 results/.regen 临时目录；raw 证据目录与 simulation_status.json 未动。"
+ "runtime_clean_commit_warning": "本轮 parsing/writer/aggregate 运行于已提交的修复代码（8f9ef4b/91c256f/d963502），工作区仅含未跟踪的 results/.regen 临时目录；raw 证据目录与 simulation_status.json 未动。",
+ "sidecar_anchor_sha256": "7fe29958a124f580"
 }

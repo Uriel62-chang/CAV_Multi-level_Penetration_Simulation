@@ -19,7 +19,7 @@
 - [ ] `ruff format --check .`
 - [ ] `pytest -q`
 - [ ] `python -m scripts.simulation.batch_run --config configs/smoke.json --dry-run`
-- [ ] The complete pytest count matches the README release baseline (v0.4.2: 309).
+- [ ] The complete pytest count matches the README release baseline (v0.4.2: 347).
 - [ ] `python -m compileall -q scripts tests`
 - [ ] `mypy scripts/run_spec.py scripts/experiment_config.py scripts/provenance.py`
 - [ ] GitHub Actions `python-quality` succeeds.
@@ -74,6 +74,7 @@
 - [ ] **归档边界**：Git 内 = 2 份 aggregated CSV + handover + inventory +
       analysis + 4 图；raw_v0.4.2/ 与 run-level/subgroup/failed CSV、
       writer report 由 `.gitignore` 覆盖（外部保留）。
+- [ ] **main/Safety 配对静态验收**：`scripts.results.pairing_checker --main-root raw_v0.4.2/main --safety-root raw_v0.4.2/safety` 输出 `all_match=true`（84 共享键四类输入 SHA + 非 SSM 规范化命令一致）；`results/v0.4.2/pairing_report.json` SHA 记录于 handover。
 - [ ] **文档一致性**：README/report 的 v0.4.2 数值可定位到 tracked
       aggregate/result_analysis；`--v4-2`/`--safety`/`--outDir` 与 CLI 一致；
       Markdown 相对链接有效；禁止性措辞扫描通过。

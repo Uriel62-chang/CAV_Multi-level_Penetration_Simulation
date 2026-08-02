@@ -66,6 +66,6 @@
       "main_factorial": 3888,
       "safety": 84
     },
-    "note": "Git-tracked anchor for external raw: per-run simulation_status.json / parse_status.json SHA + expanded input/raw-output/summary/subgroup SHA. Verify with: git show HEAD:out_v0.4.2/raw_status_inventory.jsonl | sha256sum -c (per-line SHA re-check script)."
+    "note": "Verification (two steps): (1) compute the SHA-256 of out_v0.4.2/raw_status_inventory.jsonl and compare with the sha256 entry here; (2) parse the JSONL line by line, and for each run re-hash the external simulation_status.json / parse_status.json (and expanded files) against the recorded per-run SHA. The JSONL is data, not a sha256sum -c checklist."
   }
 }

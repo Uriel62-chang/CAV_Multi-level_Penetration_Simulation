@@ -87,9 +87,10 @@ python3 -m scripts.results.visualization \
 > 「设计 → 实现 → 数据 → 结论」四环节已闭环并获正式 Reviewer 背书：
 > A 线实现（`a8aa09a`）→ 正式网格 main 3,888 + safety 84（热修复
 > `a21e05e`/`6637519`/`439ace6`/`1a6da3c`）→ 结果分析与 release notes（`ef1e536`）。
-> 公开基线为 v0.4.0.post3；`raw_v0.4.2/`（约 34 GB）与 run-level CSV 外部保留
-> （untracked，.gitignore 保护）；`out_v0.4.2/` 聚合/交接/分析/图已跟踪（Git，
-> 含 result_handover.json、raw_status_inventory.jsonl、result_analysis.md）。
+> 公开基线为 v0.4.0.post3；`raw_v0.4.2/`（约 34 GB）与 run-level/subgroup/writer/failed CSV 外部保留
+> （untracked，.gitignore 保护）；已跟踪（Git）：`out_v0.4.2/` 聚合/交接/分析
+> （aggregated_results.csv、result_handover.json、raw_status_inventory.jsonl、result_analysis.md）
+> + `graph/v0.4.2/` 图（main 3 + Safety 1）。
 
 ### v0.4.2 正式网格（新）
 - main factorial：3,888 runs（SSM 关闭），关键数值 s2 CACC 全 CAV 网格内最大观测

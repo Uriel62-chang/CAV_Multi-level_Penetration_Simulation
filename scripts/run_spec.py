@@ -249,8 +249,12 @@ class RunSpec:
                 "sorted_greedy_80pct",
             ):
                 raise ValueError(f"invalid ssm_dedup_method: {self.ssm_dedup_method!r}")
-            if self.ssm_mirror_overlap_ratio <= 0 or self.ssm_mirror_overlap_ratio > 1:
-                raise ValueError("ssm_mirror_overlap_ratio must be in (0, 1]")
+            if (
+                not self._finite(self.ssm_mirror_overlap_ratio)
+                or self.ssm_mirror_overlap_ratio <= 0
+                or self.ssm_mirror_overlap_ratio > 1
+            ):
+                raise ValueError("ssm_mirror_overlap_ratio must be finite in (0, 1]")
             if self.ssm_fragment_merge_gap_s < 0 or not self._finite(self.ssm_fragment_merge_gap_s):
                 raise ValueError("ssm_fragment_merge_gap_s must be non-negative and finite")
             # P1-4：与 ExperimentConfig.validate() 一致的 role×ssm_enabled 与阈值包络约束，

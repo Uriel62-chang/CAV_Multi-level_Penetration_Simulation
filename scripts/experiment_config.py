@@ -280,6 +280,17 @@ class ExperimentConfig:
     def sha256(self) -> str:
         return hashlib.sha256(canonical_json(self.to_dict()).encode("utf-8")).hexdigest()
 
+    def _allowed_models(self) -> set[str]:
+        """pipeline 模型白名单（P1-1 审阅）。
+
+        v0.4.1/v0.4.2 阶段二解析要求自由流基准（D-008），仅 IDM/CACC 有 artifact；
+        ACC 需补充基准后才开放，避免「通过校验 → 跑完昂贵仿真 → 批量解析失败」。
+        v0.4.0.post1 legacy 保持全模型（ACC 由更早版本支持）。
+        """
+        if self.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2):
+            return {"IDM", "CACC"}
+        return set(CAV_MODELS)
+
     def validate(self) -> None:
         # pipeline/schema 版本配对
         if self.pipeline_version == PIPELINE_V4_1:
@@ -352,9 +363,11 @@ class ExperimentConfig:
                 f"unsupported pipeline_version: {self.pipeline_version!r}, "
                 f"allowed: {sorted(allowed_pipelines)}"
             )
-        unsupported = sorted(set(self.models) - set(CAV_MODELS))
+        unsupported = sorted(set(self.models) - self._allowed_models())
         if unsupported:
-            raise ValueError(f"unsupported models: {', '.join(unsupported)}")
+            raise ValueError(
+                f"unsupported models for pipeline {self.pipeline_version}: {', '.join(unsupported)}"
+            )
         if set(self.network_files) != set(self.scenarios):
             raise ValueError("network_files keys must exactly match scenarios")
         if self.seed_scope != SEED_SCOPE:
@@ -387,10 +400,29 @@ class ExperimentConfig:
             self._validate_cav_count_mode()
         if self.fcd_profile is not None and self.fcd_max_leader_distance_m is None:
             raise ValueError("fcd_max_leader_distance_m is required when fcd_profile is set")
-        if self.pipeline_version == PIPELINE_V4_1 and (
-            self.ssm_range_m <= 0 or not math.isfinite(self.ssm_range_m)
-        ):
+        # P2-1（审阅）：ssm_range_m 对全部 pipeline 校验（原仅 v0.4.1）；
+        # 分析阈值/镜像重叠率统一有限性（NaN 曾绕过 → 静默关闭镜像去重）
+        if self.ssm_range_m <= 0 or not math.isfinite(self.ssm_range_m):
             raise ValueError(f"ssm_range_m must be positive and finite, got {self.ssm_range_m}")
+        if not math.isfinite(self.ssm_mirror_overlap_ratio) or not (
+            0 < self.ssm_mirror_overlap_ratio <= 1
+        ):
+            raise ValueError(
+                f"ssm_mirror_overlap_ratio must be finite in (0, 1], got {self.ssm_mirror_overlap_ratio}"
+            )
+        if not math.isfinite(self.analysis_ttc_threshold_s) or self.analysis_ttc_threshold_s <= 0:
+            raise ValueError(
+                f"analysis_ttc_threshold_s must be positive and finite, "
+                f"got {self.analysis_ttc_threshold_s}"
+            )
+        if (
+            not math.isfinite(self.analysis_drac_threshold_mps2)
+            or self.analysis_drac_threshold_mps2 <= 0
+        ):
+            raise ValueError(
+                f"analysis_drac_threshold_mps2 must be positive and finite, "
+                f"got {self.analysis_drac_threshold_mps2}"
+            )
         if self.ssm_extratime_s <= 0 or not math.isfinite(self.ssm_extratime_s):
             raise ValueError(
                 f"ssm_extratime_s must be positive and finite, got {self.ssm_extratime_s}"

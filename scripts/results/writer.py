@@ -43,6 +43,11 @@ SUBGROUP_NAN_RULES = {
     "NOx_mg_per_veh_km": ("efficiency", "total_vehicle_km", 0),
     "PMx_mg_per_veh_km": ("efficiency", "total_vehicle_km", 0),
     "fuel_g_per_veh_km": ("efficiency", "total_vehicle_km", 0),
+    # P0-4 新增全路网次要强度：空子群（端点 run）时 0/0=NaN 合法（companion veh-km=0）
+    "whole_network_CO2_g_per_veh_km": ("efficiency", "total_vehicle_km", 0),
+    "whole_network_NOx_mg_per_veh_km": ("efficiency", "total_vehicle_km", 0),
+    "whole_network_PMx_mg_per_veh_km": ("efficiency", "total_vehicle_km", 0),
+    "whole_network_fuel_g_per_veh_km": ("efficiency", "total_vehicle_km", 0),
     "time_loss_s_per_veh_km": ("efficiency", "total_vehicle_km", 0),
     "mean_thw_s": ("headway", "valid_thw_sample_count", 0),
     "median_thw_s": ("headway", "valid_thw_sample_count", 0),

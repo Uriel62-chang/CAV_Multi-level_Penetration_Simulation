@@ -196,9 +196,12 @@
   1. **打 tag / 发布**：`git tag v0.4.2` + push + 执行 `docs/engineering/release-checklist.md`（需用户指示）；
   2. **数据归档**：`raw_v0.4.2/`（34 GB）与 `out_v0.4.2/` 是否纳入外部归档/README 数据可用性说明；
   3. **发布后同步**：AGENTS.md/DEVELOPMENT.md/roadmap 版本状态切换为已发布。
-- **SUMO upstream（可选开源贡献，范围外 backlog，不在 v0.4.2 发布动作内）**：`raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md` 核查结论——主内容合规（D-014 关联表述），但 observation 2 含内部存储机制推断（引用旧 tag 源码），超出「只报告关联」边界；**当前任务不授权**修订/复核/提交，恢复历史 backlog 表述：先由正式 Reviewer 核验 issue 包、获用户另行授权后才可对外提交（B 线门禁维持：不修改原证据或提交外部 issue）。
+- **SUMO upstream（可选开源贡献，范围外 backlog，不在 v0.4.2 发布动作内）**：`raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md` 状态——
+  - **Developer 预检认为**：issue 主内容（device-on/off 关联、零事件输出、可复现 RSS 差异）符合 D-014 表述边界，但 observation 2 含内部存储机制推断（引用旧 tag 源码），超出「只报告关联」范围；
+  - **正式 Reviewer 尚未核验 issue 包**（此前背书范围是 A 线实现与正式网格，不含本包）；
+  - **当前任务不授权**修订、复核或提交；
+  - 仅在用户另行授权后恢复流程（先由正式 Reviewer 核验 `ISSUE_DRAFT.md`、archive 与 inventory，再决定对外提交；B 线门禁维持：不修改原证据或提交外部 issue）。
 - **B 线收尾文案（已完成，随 v0.4.2 CHANGELOG 落地）**：SSM 全量采集内存成本（9,292,312 KiB/run，零事件 case）已作为提示性信息写入 CHANGELOG（v0.4.1 已知限制 + v0.4.2 SSM 内存成本提示），注明受硬件影响、不作硬预算、不再改进；正式 safety 网格实测峰值 s2 8.91 GiB 与历史观测一致。
-- **SUMO upstream（可选开源贡献）**：先由正式 Reviewer 核验本地 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md`、archive 与 inventory；获用户另行授权后才可对外提交。issue 只报告 SSM device-on/off 关联、零事件输出和可复现 RSS 差异（已含现象二/三及 GiB 修正）。
 - **发布治理（v0.4.2 发布前）**：本地 `v0.4.1` tag 已删（2026-07-31）；release notes 显式说明跳号原因（pilot 未过门禁；D-012–D-015 技术证据已闭合、治理状态未闭合）并列明 v0.4.1 全部工程成果归属；AGENTS.md/DEVELOPMENT.md 版本状态已同步（本次提交）。
 - **known gaps**：SSM sensitivity 三种 dedup 未覆盖 crossing/merging 探针。
 - **非阻塞工程遗留（随 v0.4.2 顺带处理，不单独立项）**：① `scripts/config.py:50-51` `SSM_TTC_THRESHOLD_S=3.0`/`SSM_DRAC_THRESHOLD_MPS2=3.0` 与 RunSpec 传入的 5.0/3.0 构成阈值双源，v0.4.2 重定 estimand 时应统一为单一来源；② `scripts/config.py:59-64` `FREE_FLOW_LAP_TIME_S` 残留表（含 98.8）已被 D-008 自由流 artifact 取代，应废弃（不得恢复硬编码 fallback）；③ `scripts/parsing/ssm.py:7,10` `_MIRROR_OVERLAP_RATIO=0.8`/`_FRAGMENT_MERGE_GAP_S=0.0` 不可配置，v0.4.2 若改 dedup/merge 规则需参数化。风险可控（post1 领域分组先例 + 基线护栏：10,080 run ID / legacy hash / dry-run / 85+ tests）。

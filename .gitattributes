@@ -2,5 +2,12 @@
 # （2026-08 归档审查曾因 .gitignore 区块 CRLF 触发 git diff --check 失败）
 * text=auto eol=lf
 
+# 正式运行输入（provenance 字节锚点）：resume 按字节 SHA fail-closed 校验
+# （run_spec.py is_simulation_complete），禁止 EOL 转换——checkout 必须保持
+# 与正式运行一致的 CRLF 字节（2026-08 曾因全局 LF 规则改写导致 993 runs 潜在拒绝）
+net/scenario_1/net.json -text
+net/scenario_2/net.json -text
+net/scenario_3/net.json -text
+
 # 二进制图（避免被 text 属性误伤）
 *.png binary

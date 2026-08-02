@@ -30,6 +30,9 @@ include = ["scripts*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = [
+    "sumo: integration test requiring the SUMO binary and a built SUMO network; excluded from unit-test jobs (-m 'not sumo'), executed by the sumo-smoke CI job (-m sumo)",
+]
 
 [tool.mypy]
 python_version = "3.10"

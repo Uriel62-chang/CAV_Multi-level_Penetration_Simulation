@@ -7,6 +7,7 @@
 - is_simulation_complete 对主 factorial 的意图性缺失判定。
 """
 
+import json
 from pathlib import Path
 
 from scripts.provenance import sha256_file
@@ -106,11 +107,12 @@ def test_v4_2_safety_keeps_ssm_options():
 
 
 def test_v4_2_main_factorial_missing_ssm_is_complete(tmp_path: Path):
+    net_file, net_sha = _dummy_network(tmp_path)
     spec = _spec_v4_2(
         experiment_role="main_factorial",
         ssm_enabled=False,
-        network_file=NET,
-        network_sha256=sha256_file(NET),
+        network_file=net_file,
+        network_sha256=net_sha,
     )
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True)
@@ -124,11 +126,12 @@ def test_v4_2_main_factorial_missing_ssm_is_complete(tmp_path: Path):
 
 
 def test_v4_2_safety_requires_ssm(tmp_path: Path):
+    net_file, net_sha = _dummy_network(tmp_path)
     spec = _spec_v4_2(
         experiment_role="safety",
         ssm_enabled=True,
-        network_file=NET,
-        network_sha256=sha256_file(NET),
+        network_file=net_file,
+        network_sha256=net_sha,
     )
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True)
@@ -138,6 +141,20 @@ def test_v4_2_safety_requires_ssm(tmp_path: Path):
     assert is_simulation_complete(spec, run_dir, "v0.4.2") is False
     (run_dir / "ssm.xml").write_text("<SSMLog/>", encoding="utf-8")
     assert is_simulation_complete(spec, run_dir, "v0.4.2") is True
+
+
+def _dummy_network(tmp_path: Path) -> tuple[str, str]:
+    """创建 dummy 路网（loop.net.xml + net.json），返回 (network_file, sha256)。
+
+    不依赖被 Git 忽略的 net/scenario_0/loop.net.xml（clean checkout 不存在），
+    net.json 提供 is_simulation_complete 所需的 num_lanes。
+    """
+    net_dir = tmp_path / "net"
+    net_dir.mkdir()
+    net_file = net_dir / "loop.net.xml"
+    net_file.write_text("<net/>", encoding="utf-8")
+    (net_dir / "net.json").write_text(json.dumps({"num_lanes": 1}), encoding="utf-8")
+    return str(net_file), sha256_file(str(net_file))
 
 
 def _dummy_prepared():
@@ -206,8 +223,8 @@ def _write_status(run_dir: Path, spec: RunSpec, pipeline: str) -> None:
     if spec.pipeline_version == "v0.4.2":
         status["additional_file_sha256"] = _h("additional.add.xml")
         status["network_xml_sha256"] = spec.network_sha256
-        # P0-1：net.json 与 raw 输出 SHA 闭包
-        net_meta = Path(NET).with_name("net.json")
+        # P0-1：net.json 与 raw 输出 SHA 闭包（使用 spec.network_file 同目录的 net.json）
+        net_meta = Path(spec.network_file).with_name("net.json")
         status["net_json_sha256"] = sha256_file(str(net_meta))
         raw_names = [
             "performance.xml",
@@ -229,11 +246,12 @@ def _write_status(run_dir: Path, spec: RunSpec, pipeline: str) -> None:
 
 def test_v4_2_resume_rejects_additional_change(tmp_path: Path):
     """P0-10：additional.add.xml 被修改后 resume 判定失败。"""
+    net_file, net_sha = _dummy_network(tmp_path)
     spec = _spec_v4_2(
         experiment_role="main_factorial",
         ssm_enabled=False,
-        network_file=NET,
-        network_sha256=sha256_file(NET),
+        network_file=net_file,
+        network_sha256=net_sha,
     )
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True)

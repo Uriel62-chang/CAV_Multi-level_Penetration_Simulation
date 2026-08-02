@@ -29,8 +29,8 @@ from scripts.schema import (
     validate_summary_contract,
 )
 
-# a424cb8 之前 legacy schema=1 summary.json 必需键（producer 真实输出形状，无 fragment）。
-# 硬编码：若 consumer 契约错误扩张，此 fixture 不会跟着扩张。
+# a424cb8 之前 legacy schema=1 summary.json 必需键（冻结的历史 producer/contract 形状，
+# 无 fragment）。硬编码：若 consumer 契约错误扩张，此 fixture 不会跟着扩张。
 LEGACY_SUMMARY_KEYS = [
     "run_id",
     "scenario",
@@ -192,7 +192,7 @@ def test_legacy_sets_digests_match_frozen_history():
     )
 
 
-def test_legacy_writer_complete_on_real_legacy_shape(tmp_path):
+def test_frozen_legacy_writer_complete(tmp_path):
     import hashlib
 
     from scripts.results.writer import build_run_level_results

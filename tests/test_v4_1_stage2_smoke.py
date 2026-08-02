@@ -1,20 +1,46 @@
-"""v0.4.1 stage2 smoke: full sim→parse→write→aggregate pipeline"""
+"""v0.4.1 stage2 smoke: full sim→parse→write→aggregate pipeline
 
+集成测试（``@pytest.mark.sumo``）：需要真实 SUMO 二进制与已构建的 SUMO 路网
+（``net/scenario_0/loop.net.xml``，gitignored 生成物）。普通单测门禁默认排除
+（``pytest -q -m "not sumo"``），由已安装 SUMO 并构建路网的 sumo-smoke CI job
+显式执行（``pytest -q -m sumo``）。
+
+测试不会临时修改被 Git 跟踪的 ``net/scenario_0/net.json``：将路网复制到临时
+目录并 patch 副本的 ``free_flow_reference_path``，再以 ``--net/--scenario``
+指向副本。
+"""
+
+import copy
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.sumo
+
 
 def test_smoke_v4_1_full_pipeline():
     root = Path(tempfile.mkdtemp(prefix="smoke_v4_1_"))
+    net_copy_dir = None
+    ff_dir = None
     try:
-        # Create free-flow artifact in temp path, patched via net.json
+        # ── 复制 scenario_0 路网到临时目录，patch 副本 net.json（不动 tracked 原件）──
+        net_src = Path("net/scenario_0")
+        net_copy_dir = Path(tempfile.mkdtemp(prefix="net_copy_"))
+        shutil.copy2(net_src / "loop.net.xml", net_copy_dir / "loop.net.xml")
+        net_meta_patched = copy.deepcopy(
+            json.loads((net_src / "net.json").read_text(encoding="utf-8"))
+        )
+
+        # Create free-flow artifact in temp path, referenced from the copied net.json
         ff_dir = Path(tempfile.mkdtemp(prefix="ff_art_"))
         from scripts.provenance import sha256_file
 
-        net_sha = sha256_file("net/scenario_0/loop.net.xml")
+        net_sha = sha256_file(str(net_copy_dir / "loop.net.xml"))
         ff_artifact = {
             "reference_id": "ff-smoke",
             "free_flow_version": "v0.4.1-pilot-ff-1",
@@ -38,15 +64,10 @@ def test_smoke_v4_1_full_pipeline():
         acceptance_path = ff_dir / "pilot_acceptance.json"
         atomic_write_json(acceptance_path, {"purpose": "post1 smoke only"})
 
-        import copy
-
-        net_meta_path = Path("net/scenario_0/net.json")
-        orig_content = net_meta_path.read_bytes()
-        net_meta_patched = copy.deepcopy(json.loads(orig_content.decode()))
         net_meta_patched["free_flow_reference_path"] = str(ff_dir / "free_flow_references.json")
-        net_meta_path.write_text(json.dumps(net_meta_patched))
+        (net_copy_dir / "net.json").write_text(json.dumps(net_meta_patched), encoding="utf-8")
 
-        # Stage 1: simulation
+        # Stage 1: simulation（--net/--scenario 指向临时副本路网）
         result = subprocess.run(
             [
                 sys.executable,
@@ -60,6 +81,10 @@ def test_smoke_v4_1_full_pipeline():
                 "1",
                 "--acceptance",
                 str(acceptance_path),
+                "--net",
+                str(net_copy_dir / "loop.net.xml"),
+                "--scenario",
+                "scenario_0",
             ],
             capture_output=True,
             text=True,
@@ -167,8 +192,10 @@ def test_smoke_v4_1_full_pipeline():
         assert (agg_dir / "aggregated_results.csv").exists()
 
     finally:
-        import shutil as _shutil
-
-        _shutil.rmtree(root, ignore_errors=True)
-        _shutil.rmtree(ff_dir, ignore_errors=True)
-        Path("net/scenario_0/net.json").write_bytes(orig_content)
+        # 各临时目录均先初始化，setup 提前失败时 cleanup 不会引用未定义变量
+        if root is not None:
+            shutil.rmtree(root, ignore_errors=True)
+        if net_copy_dir is not None:
+            shutil.rmtree(net_copy_dir, ignore_errors=True)
+        if ff_dir is not None:
+            shutil.rmtree(ff_dir, ignore_errors=True)

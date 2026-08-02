@@ -73,7 +73,7 @@ Under the current `TTC < 3.0 s` SSM configuration:
 
 The observed distribution is consistent with road geometry and loss of lateral freedom being major contributors to conflict formation.
 
-> This interpretation is limited to the current SSM threshold, model parameters, and experiment grid. v0.4.1 delivers trajectory-level validation tooling and threshold sensitivity analysis; v0.4.2 will explore redesigned safety experiments independent of the main factorial grid.
+> This interpretation is limited to the current SSM threshold, model parameters, and experiment grid. v0.4.1 delivered trajectory-level validation tooling and threshold sensitivity analysis; v0.4.2 ran a redesigned safety experiment (84 runs, space-matched exposure) independent of the main factorial grid.
 
 ---
 
@@ -719,7 +719,7 @@ docs/
 - The v0.4.0 results are not separated into HV and CAV sub-populations; v0.4.1 adds subgroup tooling (detector/edgeData/SSM/vehroute/lanechange/stderr + `parsing/metrics.py`), and the v0.4.2 formal grid provides HV/CAV subgroup results (run-level subgroup long table + aggregated subgroup metrics).
 - The absence of detected TTC conflicts in s2 applies only to the current `TTC < 3.0 s` threshold and tested parameter grid.
 - ACC is supported by earlier project versions but is not part of the formal v0.4.0 comparison.
-- TTC events have not yet been independently reproduced from FCD or TraCI trajectories; v0.4.1 provides the trajectory-validation tooling (FCD physical THW) but no new safety grid has been run.
+- TTC events have not yet been independently reproduced from FCD or TraCI trajectories; v0.4.1 provides the trajectory-validation tooling (FCD physical THW), and the v0.4.2 safety experiment (84 runs) provides SSM-based event rates, but independent FCD/TraCI reproduction is still outstanding.
 - SSM mirror deduplication is an analysis heuristic: opposite-direction records
   for the same vehicle pair are matched one-to-one when their encounter
   intervals overlap by at least 80% of the shorter duration. SUMO provides no

@@ -1,6 +1,6 @@
 # v0.4.2 正式网格结果分析（结构化摘要）
 
-> 数据：`out_v0.4.2/{main,safety}/aggregated_results.csv`（schema=2，双 seed 统计单位）
+> 数据：`results/v0.4.2/{main,safety}/aggregated_results.csv`（schema=2，双 seed 统计单位）
 > 状态：main 3,888 runs / 528 组、safety 84 runs / 84 组，全部 data_quality=ok，writer complete=true
 > 图：`graph/v0.4.2/`（main 3 张 + safety 按 scenario × vehN 分面）
 > 口径说明：流量/排放主强度用 non-internal 配对；全路网次要强度用 `wn_*` 列；Safety 每格仅 1 个 seed pair，结果为描述性。
@@ -41,7 +41,7 @@ IDM 流量约为 CACC 2.1 倍、delay 约 1/3、排放强度更低——v0.4.0 �
 
 ## 5. Subgroup（HV/CAV 分拆）
 
-数据：`out_v0.4.2/main/run_level_subgroup_results.csv`（长表）+ `aggregate_subgroup` 按 (scenario, model, vehN, cav_count, family, group, metric) 聚合（mean 跨 9 个 seed 组合）。示例运行点 vehN=120、cav=96（HV 24 辆 / CAV 96 辆——HV 子群流量与 veh_km 低首先与 24:96 车辆组成有关；单凭总量不能断言不存在单位车辆性能差异；`co2_ni` 为每类车辆强度）：
+数据：`results/v0.4.2/main/run_level_subgroup_results.csv`（长表）+ `aggregate_subgroup` 按 (scenario, model, vehN, cav_count, family, group, metric) 聚合（mean 跨 9 个 seed 组合）。示例运行点 vehN=120、cav=96（HV 24 辆 / CAV 96 辆——HV 子群流量与 veh_km 低首先与 24:96 车辆组成有关；单凭总量不能断言不存在单位车辆性能差异；`co2_ni` 为每类车辆强度）：
 
 | 场景 模型 v120 cav=96 | 子群 | flow (veh/h) | veh_km | non-internal CO₂ (g/veh-km) |
 |---|---|---|---:|---:|

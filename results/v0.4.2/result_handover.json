@@ -55,7 +55,8 @@
     "results/v0.4.2/safety/run_level_subgroup_results.csv": "f7da72084ccc73aed08c04ea0e6102fc6c437830b58bc9b00d18394cbb90e556",
     "results/v0.4.2/safety/aggregated_results.csv": "e424ff1730619583026d024aaeea97c61adce53f5486a00e5ca6f8b3275ed9b6",
     "results/v0.4.2/safety/writer_report.json": "00c31b99cf81413daaf7b45dab0c29007c8c6ee587e0592be9bd01c8d740b539",
-    "results/v0.4.2/raw_status_inventory.jsonl": "e02975a919756220c9a4c6e34753b6b8e7abe60945a37a56a5ab61b7acd9c9bc"
+    "results/v0.4.2/raw_status_inventory.jsonl": "e02975a919756220c9a4c6e34753b6b8e7abe60945a37a56a5ab61b7acd9c9bc",
+    "results/v0.4.2/result_analysis.md": "b2dc353419f148bb04e3ba251d0e0820be342c003f9c11556fb269ad489ba3ab"
   },
   "runtime_clean_commit_warning": "parsing/writer outputs were produced on working trees that were NOT provably clean commits at runtime; code was committed afterwards (a21e05e/6637519). This is a wording-level provenance caveat, not a data error; no rerun required (reviewer P2).",
   "raw_status_inventory": {
@@ -66,6 +67,6 @@
       "main_factorial": 3888,
       "safety": 84
     },
-    "note": "Verification (two steps): (1) compute the SHA-256 of out_v0.4.2/raw_status_inventory.jsonl and compare with the sha256 entry here; (2) parse the JSONL line by line, and for each run re-hash the external simulation_status.json / parse_status.json (and expanded files) against the recorded per-run SHA. The JSONL is data, not a sha256sum -c checklist."
+    "note": "Verification (two steps): (1) compute the SHA-256 of results/v0.4.2/raw_status_inventory.jsonl and compare with the sha256 entry here; (2) parse the JSONL line by line, and for each run re-hash the external simulation_status.json / parse_status.json (and expanded files) against the recorded per-run SHA. The JSONL is data, not a sha256sum -c checklist."
   }
 }

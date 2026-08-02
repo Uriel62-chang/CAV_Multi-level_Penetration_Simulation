@@ -169,7 +169,7 @@
 - **已验证（2026-08-01）**：266 tests passed；Ruff/mypy/format/compileall 通过；legacy 10,080 / pilot 162 / safety 84 三 dry-run 通过；legacy SUMO 命令字节与路由 SHA 基线未变（P0-9 参数隔离验证）。
 - **正式 Reviewer 背书（2026-08，三轮复检后无 P0/P1/P2）**：A 线实现批次 `a8aa09a` 获背书；复检驱动修复——delay 键（`metrics.py` 读 `spec.model`）、Safety 配对列 fail-closed、subgroup 排放双口径、schema=2 按 pipeline 分流（V4_2 集合）、RunSpec role×SSM/阈值包络约束、resume 闭包扩展（net.json + raw 输出 SHA）。
 - **v0.4.2 正式网格完成（2026-08）**：main 3,888 runs + safety 84 runs 全部 SUCCESS（main 累计 per-run SUMO wall time 9.8 h，resume 续跑）。热修复（正式数据驱动）：①可加性容差放宽（实测浮点噪声 vehicle_km 2.0e-4/time_loss 1.1e-3/PMx 3.2e-4，旧容差误报 770 个 INVALID_DATA → `a21e05e`）；②writer subgroup NaN 规则补 whole-network 强度（端点 run 空子群 432 个被排除 → `6637519`）；③Safety 图按 scenario × vehN 分面（`439ace6`）；④热修复回归测试（`1a6da3c`）。
-- **结果分析与 release notes 已背书（2026-08）**：`results/v0.4.2/`（run-level/aggregated/subgroup CSV + result_handover.json + result_analysis.md）与 CHANGELOG v0.4.2 条目获 Reviewer 短复检通过（`ef1e536`）；309 tests 基线。v0.4.2 发布前审阅修复后基线为 347 tests（P0/P1/P2 修复 + 重算）。
+- **结果分析与 release notes 已背书（2026-08）**：`results/v0.4.2/`（run-level/aggregated/subgroup CSV + result_handover.json + result_analysis.md）与 CHANGELOG v0.4.2 条目获 Reviewer 短复检通过（`ef1e536`）；309 tests 基线。v0.4.2 发布前审阅修复后基线为 359 tests（P0/P1/P2 修复 + 重算 + 门禁补齐）。
 - **已提交**：`7ea2e08`、`f675717`（D-012）；`7145a2d`（D-013 设计）；`6a5d772`、`ad95058`（A/B 实现和命令等价回归）。
 - **主线回归交接（2026-07-31，`47e72c5`）**：v0.4.1 确认为未发布内部里程碑（GitHub 最新 v0.4.0.post3，tag 已删）；跳号发布决定；B 线（SSM 内存诊断）宣告结束，降级为 REPORT/README 提示信息；v0.4.2 为唯一开发主线（设计→实现→数据→结论四环节对齐）；主线纪律约束生效。
 

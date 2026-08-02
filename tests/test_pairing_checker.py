@@ -56,6 +56,7 @@ def _safety_manifest(keys):
         for vn in vns
     ]
     return {
+        "experiment_role": "safety",
         "scenarios": scenarios,
         "models": models,
         "treatments": treatments,
@@ -221,3 +222,13 @@ def test_normalize_strips_ssm_and_run_paths(tmp_path):
     assert "--device.ssm" not in normalized
     assert "<run>" in normalized
     assert str(tmp_path) not in normalized
+
+
+def test_pairing_empty_manifest_rejected(tmp_path):
+    """空 {} manifest（无 experiment_role/字段）→ 拒绝，不得返回成功。"""
+    main = tmp_path / "main"
+    safety = tmp_path / "safety"
+    main.mkdir()
+    safety.mkdir()
+    with pytest.raises(ValueError, match="experiment_role"):
+        check_pairing(main, safety, {})

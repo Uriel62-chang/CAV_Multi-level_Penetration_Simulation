@@ -85,6 +85,15 @@ def _expected_safety_keys(manifest: dict) -> set:
     from scripts.results.aggregate import _expected_seed_pairs
 
     cfg = manifest.get("resolved_config") or manifest
+    # round-delta P1：manifest 完整性校验（空 {} manifest 不得推导出 0 键）。
+    if cfg.get("experiment_role") != "safety":
+        raise ValueError(
+            "safety manifest must declare experiment_role='safety' "
+            f"(got {cfg.get('experiment_role')!r})"
+        )
+    for field in ("scenarios", "models", "treatments", "sumo_seeds"):
+        if not cfg.get(field):
+            raise ValueError(f"safety manifest missing or empty field: {field}")
     keys: set = set()
     for scenario in cfg.get("scenarios", []):
         for model in cfg.get("models", []):
@@ -96,6 +105,8 @@ def _expected_safety_keys(manifest: dict) -> set:
                     eff_model = "IDM" if int(cav) == 0 else str(model)
                     for a, s in _expected_seed_pairs(manifest, vn, int(cav)):
                         keys.add((str(scenario), eff_model, vn, int(cav), a, s))
+    if not keys:
+        raise ValueError("safety manifest yields zero expected pairing keys")
     return keys
 
 

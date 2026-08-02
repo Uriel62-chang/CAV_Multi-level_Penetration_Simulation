@@ -337,7 +337,7 @@ def aggregate_subgroup(
     fcd_enabled = cfg.get("fcd_profile") is not None
     expected_keys = set(_expected_subgroup_keys(fcd_enabled))
     # 逐 run_id 验证完整且唯一的 metric-key 集（P1-2 审阅：其他 run 的完整
-    # 指标不得掩盖某个 run 的缺行）。
+    # 指标不得掩盖某个 run 的缺行；重复行会被 set 消除，必须用 len 一并拒绝）。
     for run_id, grp in df.groupby("run_id", dropna=False):
         keys = set(
             zip(
@@ -348,12 +348,14 @@ def aggregate_subgroup(
                 strict=True,
             )
         )
-        if keys != expected_keys:
+        if keys != expected_keys or len(grp) != len(expected_keys):
             missing_keys = expected_keys - keys
             extra_keys = keys - expected_keys
+            duplicates = len(grp) - len(keys) if len(grp) > len(keys) else 0
             raise ValueError(
                 f"subgroup metric-key set mismatch for run {run_id}: "
-                f"missing={sorted(missing_keys)[:5]} extra={sorted(extra_keys)[:5]}"
+                f"missing={sorted(missing_keys)[:5]} extra={sorted(extra_keys)[:5]} "
+                f"duplicate_rows={duplicates}"
             )
     group_keys = [
         "scenario",

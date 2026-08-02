@@ -866,3 +866,17 @@ def test_aggregate_subgroup_fcd_derived_from_manifest(tmp_path):
     df2.to_csv(in_csv, index=False)
     with pytest.raises(ValueError, match="run r0"):
         aggregate_subgroup(in_csv, out_csv, _subgroup_manifest(1, fcd_profile="1s"))
+
+
+def test_aggregate_subgroup_rejects_duplicate_metric_rows(tmp_path):
+    """同一 run 内重复 metric-key 行 → 拒绝（set 消除后仍参与聚合）。"""
+    from scripts.results.aggregate import aggregate_subgroup
+
+    rows = _subgroup_rows_all_keys(1)
+    rows.append(dict(rows[0]))  # 重复第一行
+    df = pd.DataFrame(rows)
+    in_csv = tmp_path / "in.csv"
+    out_csv = tmp_path / "out.csv"
+    df.to_csv(in_csv, index=False)
+    with pytest.raises(ValueError, match="duplicate_rows"):
+        aggregate_subgroup(in_csv, out_csv, _subgroup_manifest(1))

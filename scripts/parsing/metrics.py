@@ -77,9 +77,10 @@ def compute_core_summary(primitives, spec, free_flow_refs):
     wn_fuel_per = _safe_div(ee.get("total_fuel_kg", 0) * 1000.0, total_veh_km)
     tl_per = _safe_div(ep.get("total_time_loss_s", 0), total_veh_km)
 
-    # P0-8：逐 lap 按车辆类型减对应参考后汇总（HV→HV ref；CAV→CAV_model ref）
-    # mean_delay = Σ_vt (mean_lap[vt] - ref[vt]) * lap_count[vt] / lap_count_total
-    p95 = vr.get("p95_lap_time_s", float("nan"))
+    # P0-8 修订（新审阅 P0-2）：逐 lap 转换后 pooled 求 delay 统计。
+    # 对每个有效 lap：delay_i = lap_time_i - reference[vehicle_type_i]；
+    # mean/p95 全部基于 pooled delay 样本直接计算，不得用 subgroup 分位数
+    # 加权近似（分位数不满足加权线性关系，加权 subgroup p95 ≠ pooled p95）。
     # 键契约（与 runner._load_free_flow_references 一致）：{"HV", spec.model}
     hv_ref = free_flow_refs.get("HV", float("nan"))
     cav_ref = (
@@ -88,23 +89,24 @@ def compute_core_summary(primitives, spec, free_flow_refs):
         else float("nan")
     )
 
+    from scripts.parsing.vehroute import _quantile_higher
+
     vr_hv = primitives.vehroute.get("HV", {})
     vr_cav = primitives.vehroute.get("CAV", {})
-    n_hv = vr_hv.get("completed_lap_count", 0)
-    n_cav = vr_cav.get("completed_lap_count", 0)
-    n_total = n_hv + n_cav
+    delay_samples: list[float] = []
+    for vr, ref in ((vr_hv, hv_ref), (vr_cav, cav_ref)):
+        laps = vr.get("lap_times_s") or []
+        if not laps or _math.isnan(ref):
+            continue
+        delay_samples.extend(t - ref for t in laps)
 
-    if n_total > 0 and not _math.isnan(hv_ref):
-        d_hv = (vr_hv.get("mean_lap_time_s", float("nan")) - hv_ref) if n_hv else 0.0
-        mean_delay = d_hv * n_hv / n_total
-        if n_cav and not _math.isnan(cav_ref):
-            d_cav = vr_cav.get("mean_lap_time_s", float("nan")) - cav_ref
-            mean_delay += d_cav * n_cav / n_total
+    if delay_samples:
+        n_delay = len(delay_samples)
+        mean_delay = sum(delay_samples) / n_delay
+        p95_delay = _quantile_higher(sorted(delay_samples), 0.95)
     else:
         mean_delay = float("nan")
-
-    # p95 delay：沿用 all-level 参考（保持与 v0.4.0 近似口径；P0-8 主修复在 mean）
-    p95_delay = p95 - hv_ref if not _math.isnan(p95) and not _math.isnan(hv_ref) else float("nan")
+        p95_delay = float("nan")
 
     # Build flat dict compatible with current parse_run_outputs
     return {
@@ -152,6 +154,9 @@ def compute_core_summary(primitives, spec, free_flow_refs):
         "ssm_valid_record_count": ssm_all.get("ssm_valid_record_count", 0),
         "ssm_mirrored_record_count": ssm_all.get("ssm_mirrored_record_count", 0),
         "ssm_fragment_merged_count": ssm_all.get("ssm_fragment_merged_count", 0),
+        # P0-1（新审阅）：采集状态写入 run-level CSV，区分未采集/解析失败/合法零检出
+        "experiment_role": getattr(spec, "experiment_role", "main_factorial"),
+        "ssm_enabled": bool(getattr(spec, "ssm_enabled", False)),
         "ssm_not_collected": ssm_all.get("ssm_not_collected", False),
         "ttc_conflict_event_count": ssm_all.get("ttc_conflict_event_count", 0),
         "min_ttc_s": ssm_all.get("min_ttc_s", float("nan")),
@@ -541,30 +546,32 @@ def validate_subgroup_invariants(primitives):
         if h + c != a:
             errors.append(f"{src_name}.{src_key}: HV({h})+CAV({c}) != all({a})")
 
-    # SSM pair closure
-    ssm_all_ttc = primitives.ssm.get("all", {}).get("ttc_conflict_event_count", 0)
-    ssm_all_drac = primitives.ssm.get("all", {}).get("drac_conflict_event_count", 0)
-    pair_ttc = 0
-    pair_drac = 0
-    for pair in ("HV_HV", "HV_CAV", "CAV_CAV"):
-        pair_ttc += primitives.ssm.get(f"pair_{pair}", {}).get("ttc_event_count", 0) or 0
-        pair_drac += primitives.ssm.get(f"pair_{pair}", {}).get("drac_event_count", 0) or 0
-    if pair_ttc != ssm_all_ttc:
-        errors.append(f"SSM pair TTC sum {pair_ttc} != all {ssm_all_ttc}")
-    if pair_drac != ssm_all_drac:
-        errors.append(f"SSM pair DRAC sum {pair_drac} != all {ssm_all_drac}")
+    # SSM pair closure（未采集时跳过：NaN 无法参与等式校验）
+    ssm_not_collected = primitives.ssm.get("all", {}).get("ssm_not_collected", False)
+    if not ssm_not_collected:
+        ssm_all_ttc = primitives.ssm.get("all", {}).get("ttc_conflict_event_count", 0)
+        ssm_all_drac = primitives.ssm.get("all", {}).get("drac_conflict_event_count", 0)
+        pair_ttc = 0
+        pair_drac = 0
+        for pair in ("HV_HV", "HV_CAV", "CAV_CAV"):
+            pair_ttc += primitives.ssm.get(f"pair_{pair}", {}).get("ttc_event_count", 0) or 0
+            pair_drac += primitives.ssm.get(f"pair_{pair}", {}).get("drac_event_count", 0) or 0
+        if pair_ttc != ssm_all_ttc:
+            errors.append(f"SSM pair TTC sum {pair_ttc} != all {ssm_all_ttc}")
+        if pair_drac != ssm_all_drac:
+            errors.append(f"SSM pair DRAC sum {pair_drac} != all {ssm_all_drac}")
 
-    # SSM role closure
-    role_ttc = 0
-    role_drac = 0
-    for role in ("f_HV_l_HV", "f_HV_l_CAV", "f_CAV_l_HV", "f_CAV_l_CAV"):
-        role_ttc += primitives.ssm.get(f"role_{role}", {}).get("ttc_event_count", 0) or 0
-        role_drac += primitives.ssm.get(f"role_{role}", {}).get("drac_event_count", 0) or 0
-    uncl_ttc = primitives.ssm.get("unclassified", {}).get("ttc_event_count", 0) or 0
-    uncl_drac = primitives.ssm.get("unclassified", {}).get("drac_event_count", 0) or 0
-    if role_ttc + uncl_ttc != ssm_all_ttc:
-        errors.append(f"SSM role+uncl TTC {role_ttc + uncl_ttc} != all {ssm_all_ttc}")
-    if role_drac + uncl_drac != ssm_all_drac:
-        errors.append(f"SSM role+uncl DRAC {role_drac + uncl_drac} != all {ssm_all_drac}")
+        # SSM role closure
+        role_ttc = 0
+        role_drac = 0
+        for role in ("f_HV_l_HV", "f_HV_l_CAV", "f_CAV_l_HV", "f_CAV_l_CAV"):
+            role_ttc += primitives.ssm.get(f"role_{role}", {}).get("ttc_event_count", 0) or 0
+            role_drac += primitives.ssm.get(f"role_{role}", {}).get("drac_event_count", 0) or 0
+        uncl_ttc = primitives.ssm.get("unclassified", {}).get("ttc_event_count", 0) or 0
+        uncl_drac = primitives.ssm.get("unclassified", {}).get("drac_event_count", 0) or 0
+        if role_ttc + uncl_ttc != ssm_all_ttc:
+            errors.append(f"SSM role+uncl TTC {role_ttc + uncl_ttc} != all {ssm_all_ttc}")
+        if role_drac + uncl_drac != ssm_all_drac:
+            errors.append(f"SSM role+uncl DRAC {role_drac + uncl_drac} != all {ssm_all_drac}")
 
     return errors

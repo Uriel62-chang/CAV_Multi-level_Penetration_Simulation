@@ -87,8 +87,21 @@ SAFETY_SSM_COLUMNS = [
 
 # v0.4.1 fragment merge 扩展（a424cb8）：仅 schema=2 producer/parser 输出该键。
 # 独立于 SAFETY_SSM_COLUMNS，避免改变 legacy schema=1 的冻结字段集（仿
-# EMISSIONS_COLUMNS_V4_2 先例）；V4_1/V4_2 集合保留，正式 v0.4.2 CSV 不丢列。
-SAFETY_SSM_COLUMNS_V4_1 = SAFETY_SSM_COLUMNS + ["ssm_fragment_merged_count"]
+# EMISSIONS_COLUMNS_V4_2 先例）。fragment 恢复历史相对位置（ssm_mirrored_record_count
+# 与 ttc_conflict_event_count 之间，与正式 v0.4.2 CSV header 一致）。
+SAFETY_SSM_COLUMNS_V4_1 = [
+    "ssm_raw_record_count",
+    "ssm_invalid_record_count",
+    "ssm_warmup_filtered_count",
+    "ssm_valid_record_count",
+    "ssm_mirrored_record_count",
+    "ssm_fragment_merged_count",
+    "ttc_conflict_event_count",
+    "min_ttc_s",
+    "ttc_affected_vehicle_count",
+    "drac_conflict_event_count",
+    "max_drac_mps2",
+]
 
 SAFETY_EB_COLUMNS = [
     "emergency_braking_count",
@@ -106,6 +119,14 @@ EMISSIONS_COLUMNS = [
     "total_NOx_g",
     "total_PMx_g",
     "total_fuel_kg",
+]
+
+# P0-1（新审阅）：v0.4.2 run-level 采集状态列，区分未采集/解析失败/合法零检出。
+# 仅 v0.4.2（V4_2）输出；v0.4.1/V4_1 冻结集不含。
+STATUS_COLUMNS_V4_2 = [
+    "experiment_role",
+    "ssm_enabled",
+    "ssm_not_collected",
 ]
 
 # v0.4.2 排放双口径扩展（P0-7/P0-4）：non-internal 绝对量与全路网次要强度。
@@ -215,13 +236,56 @@ SUMMARY_REQUIRED_KEYS_V4_1 = (
 )
 
 # ═══════════════════════════════════════════════════════════════
-# v0.4.2 schema_version=2 扩展（P0-4/P1-1）
-# v0.4.2 在 v0.4.1 schema=2 契约之上新增排放双口径字段；
-# V4_1 集合保持冻结，V4_2 = V4_1 + 扩展，validator/writer 按 pipeline_version 分流。
+# v0.4.2 schema_version=2 扩展（P0-4/P1-1；P0-1 采集状态列）
+# v0.4.2 在 v0.4.1 schema=2 契约之上新增：采集状态列（experiment_role /
+# ssm_enabled / ssm_not_collected，位于 IDENTIFIER 之后）与排放双口径字段。
+# V4_1 集合保持冻结；validator/writer 按 pipeline_version 分流。
 # ═══════════════════════════════════════════════════════════════
 
-RUN_LEVEL_COLUMNS_V4_2 = list(RUN_LEVEL_COLUMNS_V4_1) + list(EMISSIONS_COLUMNS_V4_2)
-SUMMARY_REQUIRED_KEYS_V4_2 = list(SUMMARY_REQUIRED_KEYS_V4_1) + list(EMISSIONS_COLUMNS_V4_2)
+RUN_LEVEL_COLUMNS_V4_2 = (
+    list(IDENTIFIER_COLUMNS_V4_1)
+    + list(STATUS_COLUMNS_V4_2)
+    + list(CONFIG_COLUMNS_V4_1)
+    + list(CAPACITY_COLUMNS)
+    + list(SAFETY_SSM_COLUMNS_V4_1)
+    + list(SAFETY_EB_COLUMNS)
+    + list(LANECHANGE_COLUMNS)
+    + list(EMISSIONS_COLUMNS)
+    + list(EFFICIENCY_COLUMNS)
+    + list(NORMALIZED_COLUMNS)
+    + list(DELAY_COLUMNS)
+    + list(QUALITY_COLUMNS)
+    + list(EMISSIONS_COLUMNS_V4_2)
+)
+
+
+def _dedup_keep_order(items):
+    """去重并保持首次出现顺序（summary 必需键中 ssm_not_collected 同时属于
+    STATUS_COLUMNS_V4_2 与 AUDIT_COLUMNS_V4_1，需合并为单键）。"""
+    seen = set()
+    out = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
+
+
+SUMMARY_REQUIRED_KEYS_V4_2 = _dedup_keep_order(
+    list(IDENTIFIER_COLUMNS_V4_1)
+    + list(STATUS_COLUMNS_V4_2)
+    + list(CONFIG_COLUMNS_V4_1)
+    + list(CAPACITY_COLUMNS)
+    + list(SAFETY_SSM_COLUMNS_V4_1)
+    + list(SAFETY_EB_COLUMNS)
+    + list(LANECHANGE_COLUMNS)
+    + list(EMISSIONS_COLUMNS)
+    + list(EFFICIENCY_COLUMNS)
+    + list(NORMALIZED_COLUMNS)
+    + list(DELAY_COLUMNS)
+    + list(AUDIT_COLUMNS_V4_1)
+    + list(EMISSIONS_COLUMNS_V4_2)
+)
 
 # ── summary.json 完整必需字段 = CSV 列（去掉 quality 列）+ 审计字段 ──
 
@@ -321,10 +385,13 @@ def validate_summary_contract(
     if errors:
         return errors
 
-    string_keys = {"run_id", "scenario", "model", "det_xml"}
-    bool_keys = set(AUDIT_COLUMNS_V4_1 if schema_version == "2" else AUDIT_COLUMNS) | {
-        "with_internal"
-    }
+    string_keys = {"run_id", "scenario", "model", "det_xml", "experiment_role"}
+    bool_keys = (
+        set(AUDIT_COLUMNS_V4_1 if schema_version == "2" else AUDIT_COLUMNS)
+        | {"with_internal"}
+        # P0-1（新审阅）：SSM 采集状态列（仅 schema=2）为 bool
+        | ({"ssm_enabled", "ssm_not_collected"} if schema_version == "2" else set())
+    )
     integer_keys = {
         "vehN",
         "seed",
@@ -378,6 +445,10 @@ def validate_summary_contract(
         "non_internal_edge_vehicle_km",
     }
     nullable = {"requested_pcav"}
+    # P0-1（新审阅）：SSM 未采集（ssm_not_collected=True）时，SSM 原始/处理计数、
+    # 事件数、极值、受影响车辆数与事件率均为 NaN（"未采集"语义），跳过这些键的
+    # 类型与有限性检查；safety 合法零检出仍为数值 0（不走此分支）。
+    ssm_not_collected = schema_version == "2" and summary.get("ssm_not_collected") is True
     keys_to_validate = list(required)
     for optional_key in (
         "non_internal_edge_vehicle_km",
@@ -385,6 +456,12 @@ def validate_summary_contract(
     ):
         if optional_key in summary and optional_key not in keys_to_validate:
             keys_to_validate.append(optional_key)
+    if ssm_not_collected:
+        ssm_skip = set(SAFETY_SSM_COLUMNS_V4_1) | {
+            "ttc_events_per_1000_veh_km",
+            "whole_network_ttc_events_per_1000_non_internal_edge_veh_km",
+        }
+        keys_to_validate = [k for k in keys_to_validate if k not in ssm_skip]
     for key in keys_to_validate:
         value = summary[key]
         if key in nullable and value is None:
@@ -412,8 +489,9 @@ def validate_summary_contract(
             errors.append(f"summary {key} must be within [0, 1]")
     if errors:
         return errors
+    nan_skip = ssm_skip if ssm_not_collected else set()
     for metric, (companion, max_value) in SUMMARY_NAN_RULES.items():
-        if metric not in summary:
+        if metric not in summary or metric in nan_skip:
             continue
         if companion not in summary:
             errors.append(f"summary {metric} requires companion key: {companion}")

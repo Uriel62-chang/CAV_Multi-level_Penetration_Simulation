@@ -129,6 +129,7 @@ def parse_lap_times_subgroup(
                 "p95_lap_time_s": float("nan"),
                 "lap_time_std_s": float("nan"),
                 "parse_success": False,
+                "lap_times_s": [],
             }
             for label in ("all", "HV", "CAV")
         }
@@ -183,6 +184,7 @@ def parse_lap_times_subgroup(
                 "p95_lap_time_s": float("nan"),
                 "lap_time_std_s": float("nan"),
                 "parse_success": True,
+                "lap_times_s": [],
             }
         values.sort()
         n = len(values)
@@ -196,6 +198,7 @@ def parse_lap_times_subgroup(
             "p95_lap_time_s": _quantile_higher(values, 0.95),
             "lap_time_std_s": std_val,
             "parse_success": True,
+            "lap_times_s": values,
         }
 
     return {

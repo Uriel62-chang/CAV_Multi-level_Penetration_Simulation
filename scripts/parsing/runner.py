@@ -175,37 +175,39 @@ def _validate_invariants(summary: dict) -> list[str]:
     errors = []
     s = summary
 
-    # SSM 台账
-    raw = s.get("ssm_raw_record_count", 0)
-    inv = s.get("ssm_invalid_record_count", 0)
-    warm = s.get("ssm_warmup_filtered_count", 0)
-    valid = s.get("ssm_valid_record_count", 0)
-    mirrored = s.get("ssm_mirrored_record_count", 0)
-    ttc = s.get("ttc_conflict_event_count", 0)
-    drac = s.get("drac_conflict_event_count", 0)
-    ttc_veh = s.get("ttc_affected_vehicle_count", 0)
+    # SSM 台账（P0-1 新审阅：未采集时全部 NaN，跳过台账/极值检查）
+    if s.get("ssm_not_collected") is not True:
+        raw = s.get("ssm_raw_record_count", 0)
+        inv = s.get("ssm_invalid_record_count", 0)
+        warm = s.get("ssm_warmup_filtered_count", 0)
+        valid = s.get("ssm_valid_record_count", 0)
+        mirrored = s.get("ssm_mirrored_record_count", 0)
+        ttc = s.get("ttc_conflict_event_count", 0)
+        drac = s.get("drac_conflict_event_count", 0)
+        ttc_veh = s.get("ttc_affected_vehicle_count", 0)
+
+        if raw != inv + warm + valid:
+            errors.append(f"SSM ledger: raw({raw}) != inv({inv}) + warm({warm}) + valid({valid})")
+        if valid - mirrored >= 0 and valid - mirrored != valid - mirrored:
+            pass  # NaN guard
+        elif valid < mirrored:
+            errors.append(f"SSM: valid({valid}) < mirrored({mirrored})")
+        if ttc > valid:
+            errors.append(f"TTC events({ttc}) > valid({valid})")
+        if drac > valid:
+            errors.append(f"DRAC events({drac}) > valid({valid})")
+        if (
+            isinstance(ttc_veh, (int, float))
+            and not math.isnan(ttc_veh)
+            and ttc_veh > s.get("vehN", 9999)
+        ):
+            errors.append(f"TTC affected({ttc_veh}) > vehN({s.get('vehN')})")
     eb_veh = s.get("emergency_braking_affected_vehicle_count", 0)
     lc = s.get("lane_change_count", 0)
     unsafe_lc = s.get("unsafe_lc_gap_count", 0)
     veh_km = s.get("total_vehicle_km", float("nan"))
     laps = s.get("completed_lap_count", 0)
 
-    if raw != inv + warm + valid:
-        errors.append(f"SSM ledger: raw({raw}) != inv({inv}) + warm({warm}) + valid({valid})")
-    if valid - mirrored >= 0 and valid - mirrored != valid - mirrored:
-        pass  # NaN guard
-    elif valid < mirrored:
-        errors.append(f"SSM: valid({valid}) < mirrored({mirrored})")
-    if ttc > valid:
-        errors.append(f"TTC events({ttc}) > valid({valid})")
-    if drac > valid:
-        errors.append(f"DRAC events({drac}) > valid({valid})")
-    if (
-        isinstance(ttc_veh, (int, float))
-        and not math.isnan(ttc_veh)
-        and ttc_veh > s.get("vehN", 9999)
-    ):
-        errors.append(f"TTC affected({ttc_veh}) > vehN({s.get('vehN')})")
     if isinstance(eb_veh, (int, float)) and not math.isnan(eb_veh) and eb_veh > s.get("vehN", 9999):
         errors.append(f"EB affected({eb_veh}) > vehN({s.get('vehN')})")
     if isinstance(unsafe_lc, (int, float)) and not math.isnan(unsafe_lc) and unsafe_lc > lc:
@@ -295,6 +297,16 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
         # ── 只从 run_spec.json 重建 RunSpec；目录名仅作标识 ──
         sim_status = json.loads((run_dir / "simulation_status.json").read_text(encoding="utf-8"))
         spec = load_run_spec(run_dir, expected_sha256=sim_status["run_spec_sha256"])
+
+        # P1-4（新审阅）：解析前置 raw 输入完整性校验（v0.4.2，fail-closed）。
+        # 新 run 校验 simulation_status.raw_output_sha256（含 stderr.log）；
+        # 旧 run（status 未哈希 stderr.log）必须显式提供迁移 sidecar。
+        if spec.pipeline_version == PIPELINE_V4_2:
+            from scripts.parsing.input_integrity import verify as _verify_input_integrity
+
+            _integrity_ok, _integrity_errors = _verify_input_integrity(run_dir, spec)
+            if not _integrity_ok:
+                raise ValueError("input integrity: " + "; ".join(_integrity_errors))
 
         # ── 解析 ──
         net_file = network_file or spec.network_file
@@ -397,6 +409,7 @@ def _load_free_flow_references(spec):
     import json as _json
     from pathlib import Path as _Path
 
+    from scripts.provenance import net_semantic_sha256 as _net_semantic_sha256
     from scripts.provenance import sha256_file as _sha256_file
 
     net_meta = load_network_meta(spec.network_file)
@@ -413,13 +426,35 @@ def _load_free_flow_references(spec):
     if not scenario_data:
         raise ValueError(f"scenario {spec.scenario} not in free-flow artifact")
 
-    artifact_net_sha = scenario_data.get("net_sha256", "")
-    current_net_sha = _sha256_file(spec.network_file)
-    if artifact_net_sha != current_net_sha:
+    # P2-2（新审阅）：artifact 身份（reference_id / free_flow_version）必须自洽
+    ref_id = data.get("reference_id", "")
+    ff_version = data.get("free_flow_version", "")
+    if not ref_id or not ff_version:
+        raise ValueError("free-flow artifact missing reference_id/free_flow_version")
+    if ref_id != f"ff-{ff_version}":
         raise ValueError(
-            f"free-flow artifact net_sha256 ({artifact_net_sha[:12]}...) "
-            f"!= network ({current_net_sha[:12]}...)"
+            f"free-flow artifact reference_id ({ref_id!r}) inconsistent with "
+            f"free_flow_version ({ff_version!r})"
         )
+
+    # P1-2（新审阅）：以语义 SHA 为主兼容门禁（忽略生成时间戳/输出路径）；
+    # 旧 artifact 无 semantic 字段时回退完整字节比较（历史审计路径）。
+    artifact_semantic = scenario_data.get("net_semantic_sha256")
+    if artifact_semantic:
+        current_semantic = _net_semantic_sha256(spec.network_file)
+        if artifact_semantic != current_semantic:
+            raise ValueError(
+                f"free-flow artifact net_semantic_sha256 ({artifact_semantic[:12]}...) "
+                f"!= network semantic ({current_semantic[:12]}...)"
+            )
+    else:
+        artifact_net_sha = scenario_data.get("net_sha256", "")
+        current_net_sha = _sha256_file(spec.network_file)
+        if artifact_net_sha != current_net_sha:
+            raise ValueError(
+                f"free-flow artifact net_sha256 ({artifact_net_sha[:12]}...) "
+                f"!= network ({current_net_sha[:12]}...)"
+            )
 
     import subprocess as _sp
 
@@ -506,25 +541,35 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
         edge_perf[label] = parse_edge_performance(str(perf_path), warmup)
         edge_emis[label] = parse_edge_emissions(str(emis_path), warmup)
 
-    # SSM：v0.4.2 主 factorial 为意图性缺失（ssm_enabled=False），不解析
+    # SSM：v0.4.2 主 factorial 为意图性缺失（ssm_enabled=False），不解析。
+    # P0-1（新审阅）：未采集 ≠ 零事件 —— 全部 SSM 计数/极值置 NaN（"未采集"语义），
+    # 不得伪装为零检出；safety 的合法零检出仍为数值 0（见 parse_ssm_subgroup）。
     if getattr(spec, "pipeline_version", "") == "v0.4.2" and not spec.ssm_enabled:
+        _ssm_nan = float("nan")
         ssm = {
             "all": {
-                "ssm_raw_record_count": 0,
-                "ssm_valid_record_count": 0,
-                "ttc_conflict_event_count": 0,
-                "drac_conflict_event_count": 0,
+                "ssm_raw_record_count": _ssm_nan,
+                "ssm_invalid_record_count": _ssm_nan,
+                "ssm_warmup_filtered_count": _ssm_nan,
+                "ssm_valid_record_count": _ssm_nan,
+                "ssm_mirrored_record_count": _ssm_nan,
+                "ssm_fragment_merged_count": _ssm_nan,
+                "ttc_conflict_event_count": _ssm_nan,
+                "min_ttc_s": _ssm_nan,
+                "ttc_involved_vehicle_count": _ssm_nan,
+                "drac_conflict_event_count": _ssm_nan,
+                "max_drac_mps2": _ssm_nan,
                 "parse_success": True,
                 "ssm_not_collected": True,
             },
-            "pair_HV_HV": {"ttc_event_count": 0, "drac_event_count": 0},
-            "pair_HV_CAV": {"ttc_event_count": 0, "drac_event_count": 0},
-            "pair_CAV_CAV": {"ttc_event_count": 0, "drac_event_count": 0},
-            "role_f_HV_l_HV": {"ttc_event_count": 0, "drac_event_count": 0},
-            "role_f_HV_l_CAV": {"ttc_event_count": 0, "drac_event_count": 0},
-            "role_f_CAV_l_HV": {"ttc_event_count": 0, "drac_event_count": 0},
-            "role_f_CAV_l_CAV": {"ttc_event_count": 0, "drac_event_count": 0},
-            "unclassified": {"ttc_event_count": 0, "drac_event_count": 0},
+            "pair_HV_HV": {"ttc_event_count": _ssm_nan, "drac_event_count": _ssm_nan},
+            "pair_HV_CAV": {"ttc_event_count": _ssm_nan, "drac_event_count": _ssm_nan},
+            "pair_CAV_CAV": {"ttc_event_count": _ssm_nan, "drac_event_count": _ssm_nan},
+            "role_f_HV_l_HV": {"ttc_event_count": _ssm_nan, "drac_event_count": _ssm_nan},
+            "role_f_HV_l_CAV": {"ttc_event_count": _ssm_nan, "drac_event_count": _ssm_nan},
+            "role_f_CAV_l_HV": {"ttc_event_count": _ssm_nan, "drac_event_count": _ssm_nan},
+            "role_f_CAV_l_CAV": {"ttc_event_count": _ssm_nan, "drac_event_count": _ssm_nan},
+            "unclassified": {"ttc_event_count": _ssm_nan, "drac_event_count": _ssm_nan},
         }
     else:
         ssm_file = run_dir / "ssm_compact.xml"

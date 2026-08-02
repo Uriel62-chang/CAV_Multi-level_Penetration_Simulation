@@ -328,6 +328,12 @@ def _valid_subgroup_rows(rows: list[dict], run_id: str, spec: dict) -> bool:
     cav_count = spec.get("cav_count")
     if type(vehicle_count) is not int or type(cav_count) is not int or vehicle_count <= 0:
         return False
+    # P0-1（新审阅）：SSM 未采集（v0.4.2 主 factorial）时 subgroup SSM 计数为
+    # NaN（"未采集"语义），不得按非法类型拒绝；safety 合法零检出仍为 int 0。
+    ssm_not_collected = (
+        spec.get("pipeline_version") == "v0.4.2" and spec.get("ssm_enabled") is False
+    )
+    ssm_nan_ok = {"ttc_event_count", "drac_event_count"} if ssm_not_collected else set()
     expected_identity = {
         "scenario": spec.get("scenario"),
         "model": spec.get("model"),
@@ -389,7 +395,9 @@ def _valid_subgroup_rows(rows: list[dict], run_id: str, spec: dict) -> bool:
         value = row["metric_value"]
         if not isinstance(value, (int, float)) or isinstance(value, bool) or math.isinf(value):
             return False
-        if row["metric_name"] in count_metrics and (type(value) is not int or value < 0):
+        if row["metric_name"] in count_metrics and (
+            row["metric_name"] not in ssm_nan_ok and (type(value) is not int or value < 0)
+        ):
             return False
         if row["metric_name"] in nonnegative_metrics and not math.isnan(value) and value < 0:
             return False
@@ -399,7 +407,11 @@ def _valid_subgroup_rows(rows: list[dict], run_id: str, spec: dict) -> bool:
             and not 0 <= value <= 1
         ):
             return False
-        if math.isnan(value) and row["metric_name"] not in SUBGROUP_NAN_RULES:
+        if (
+            math.isnan(value)
+            and row["metric_name"] not in SUBGROUP_NAN_RULES
+            and row["metric_name"] not in ssm_nan_ok
+        ):
             return False
         group = (row["group_dimension"], row["group_value"])
         prerequisite = SUBGROUP_NAN_RULES.get(row["metric_name"])

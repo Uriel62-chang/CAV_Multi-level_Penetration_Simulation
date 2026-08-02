@@ -63,9 +63,9 @@
   "previous_main_aggregated_sha256": "fbc9a527720c44d2da795b4a8bb8f96cff3895aa9f352f97f27ddb5d59d25261",
   "previous_safety_aggregated_sha256": "e424ff1730619583026d024aaeea97c61adce53f5486a00e5ca6f8b3275ed9b6",
   "note": "P0-1/P0-2 数据正确性重解析（2026-08）：run-level/subgroup/aggregated/parse_manifest/inventory 均为重解析产物；raw simulation manifest 与 SUMO 输出未动。新 inventory 覆盖旧 inventory（supersedes 链）。",
-  "interim_inventory_sha256": "2f71c26edf02066a"
+  "interim_inventory_sha256": "2f71c26edf02066a80417bf544cebdaadf8ab4d15863b05944e16c4cb60f2e68"
  },
  "runtime_clean_commit_warning": "本轮 parsing/writer/aggregate 运行于已提交的修复代码（8f9ef4b/91c256f/d963502），工作区仅含未跟踪的 results/.regen 临时目录；raw 证据目录与 simulation_status.json 未动。",
- "sidecar_anchor_sha256": "0bb7cac567e05aa2cc70c1f252c770ce921a4322377de6921927cf63e73f6c94",
+ "sidecar_anchor_sha256": "4da31c8b664c25312ec0ef6981feaa09d125c1f6ff47fba8ce4ed446ad2bdc45",
  "sidecar_anchor_algorithm": "sha256(canonical_json({'<role>/<run_id>': sha256_file(run_dir/input_integrity.sidecar.json)} for all 3,972 runs (role=main_factorial|safety by source dir), sort_keys=True, separators=(',', ':')))"
 }

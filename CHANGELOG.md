@@ -100,7 +100,7 @@ failed gate（该门禁已废止，见 v0.4.2 跳号说明）。
 
 ### 测试
 
-- 当时基线 **170 tests**（85 legacy + 19 v0.4.1 + 66 stage2）；现行为 362（v0.4.2 发布前修复后基线）
+- 当时基线 **170 tests**（85 legacy + 19 v0.4.1 + 66 stage2）；现行为 365（v0.4.2 发布前修复后基线）
 - Stage 2 设计基线冻结于 `docs/development/v0.4.1-stage2-design.md`
 - 门禁：Ruff / mypy / compileall / format 全通过
 

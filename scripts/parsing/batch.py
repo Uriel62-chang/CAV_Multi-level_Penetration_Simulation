@@ -92,6 +92,12 @@ def main():
     parser.add_argument(
         "--progress-interval", type=int, default=50, help="每 N 个 run 输出一次进度 (默认: 50)"
     )
+    parser.add_argument(
+        "--freeze-input-integrity",
+        action="store_true",
+        help="P1-4 迁移：为旧 v0.4.2 run 生成 input_integrity.sidecar.json "
+        "（重解析前冻结全部解析输入 SHA，不回填 simulation_status；随后解析默认 fail-closed）",
+    )
     args = parser.parse_args()
 
     input_root = Path(args.input_root)
@@ -152,6 +158,25 @@ def main():
 
     if args.limit > 0:
         run_dirs = run_dirs[: args.limit]
+
+    # P1-4（新审阅）：迁移路径——为旧 v0.4.2 run 冻结输入完整性 sidecar。
+    if args.freeze_input_integrity:
+        from scripts.parsing.input_integrity import write_sidecar
+        from scripts.run_spec import load_run_spec
+
+        frozen = 0
+        for d in run_dirs:
+            try:
+                spec = load_run_spec(d)
+            except Exception as exc:
+                print(f"[SKIP] {d.name}: cannot load run_spec ({exc})")
+                continue
+            if spec.pipeline_version != "v0.4.2":
+                continue
+            write_sidecar(d, spec)
+            frozen += 1
+        print(f"[FROZEN] {frozen} v0.4.2 input-integrity sidecars written (no status backfill)")
+        return
 
     print(
         f"[SCAN] {total_found} run directories found"

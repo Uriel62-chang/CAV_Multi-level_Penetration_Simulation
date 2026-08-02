@@ -355,12 +355,11 @@ class RunSpec:
         raise ValueError(f"unsupported pipeline_version: {pv}")
 
     @classmethod
-    def _from_dict_v4_1(cls, data: dict) -> RunSpec:
-        required = _LEGACY_TO_DICT_KEYS | _V4_1_EXTRA_KEYS
-        missing = sorted(required - data.keys())
-        if missing:
-            raise ValueError(f"v0.4.1 run_spec.json missing fields: {', '.join(missing)}")
+    def _identity_from_v4_1_dict(cls, data: dict) -> tuple[int, float, int, float | None]:
+        """v0.4.1/v0.4.2 共享的身份字段解析与不变量校验（from_dict 共用）。
 
+        返回 (vn, pcav, cav_count, requested_pcav)。
+        """
         vn = int(data["vehicle_count"])
         pcav = float(data["pcav"])
         cav_count = int(data["cav_count"])
@@ -369,7 +368,6 @@ class RunSpec:
         requested_pcav_raw = data.get("requested_pcav")
         requested_pcav = float(requested_pcav_raw) if requested_pcav_raw is not None else None
 
-        # 不变量校验
         if cav_count < 0 or cav_count > vn:
             raise ValueError(f"stored cav_count={cav_count} out of range [0, {vn}]")
         if hv_count != vn - cav_count:
@@ -382,6 +380,16 @@ class RunSpec:
             )
         if requested_pcav is not None and abs(requested_pcav - pcav) > 1e-9:
             raise ValueError(f"stored requested_pcav={requested_pcav} != pcav={pcav}")
+        return vn, pcav, cav_count, requested_pcav
+
+    @classmethod
+    def _from_dict_v4_1(cls, data: dict) -> RunSpec:
+        required = _LEGACY_TO_DICT_KEYS | _V4_1_EXTRA_KEYS
+        missing = sorted(required - data.keys())
+        if missing:
+            raise ValueError(f"v0.4.1 run_spec.json missing fields: {', '.join(missing)}")
+
+        vn, pcav, cav_count, requested_pcav = cls._identity_from_v4_1_dict(data)
 
         return cls(
             scenario=str(data["scenario"]),
@@ -418,62 +426,65 @@ class RunSpec:
 
     @classmethod
     def _from_dict_v4_2(cls, data: dict) -> RunSpec:
-        """v0.4.2 run_spec：v4_1 全部字段 + experiment_role/ssm_enabled。"""
+        """v0.4.2 run_spec：一次性完整字段构造，__post_init__ 自动执行。
+
+        P2-1（新审阅）：消除 object.__setattr__ 二次突变——直构与反序列化
+        只有 __post_init__ 一个约束实现（role×ssm_enabled、阈值包络、
+        dedup/overlap/gap、正数/有限性全部在构造时校验）。
+        """
         required = _LEGACY_TO_DICT_KEYS | _V4_1_EXTRA_KEYS
         missing = sorted(required - data.keys())
         if missing:
             raise ValueError(f"v0.4.2 run_spec.json missing fields: {', '.join(missing)}")
 
-        spec = cls._from_dict_v4_1(data)
-        object.__setattr__(
-            spec, "experiment_role", str(data.get("experiment_role", "main_factorial"))
-        )
+        vn, pcav, cav_count, requested_pcav = cls._identity_from_v4_1_dict(data)
+
         # P0-6：显式布尔解析（"false"/"0"/"" → False），避免 bool("false")=True
         raw_ssm_enabled = data.get("ssm_enabled", False)
         if isinstance(raw_ssm_enabled, str):
             ssm_enabled = raw_ssm_enabled.strip().lower() in ("1", "true", "yes")
         else:
             ssm_enabled = bool(raw_ssm_enabled)
-        object.__setattr__(spec, "ssm_enabled", ssm_enabled)
-        object.__setattr__(
-            spec, "analysis_ttc_threshold_s", float(data.get("analysis_ttc_threshold_s", 3.0))
+
+        return cls(
+            scenario=str(data["scenario"]),
+            model=str(data["model"]),
+            pcav=pcav,
+            vehicle_count=vn,
+            seed=int(data["seed"]),
+            run_id=str(data["run_id"]),
+            simulation_end=float(data["simulation_end"]),
+            warmup=float(data["warmup"]),
+            step_length=float(data["step_length"]),
+            detector_frequency=int(data["detector_frequency"]),
+            edge_data_frequency=int(data["edge_data_frequency"]),
+            loops=int(data["loops"]),
+            network_file=str(data["network_file"]),
+            seed_scope=str(data["seed_scope"]),
+            pipeline_version=str(data["pipeline_version"]),
+            schema_version=str(data["schema_version"]),
+            config_sha256=str(data.get("config_sha256", "")),
+            network_sha256=str(data.get("network_sha256", "")),
+            experiment_id=str(data.get("experiment_id", "")),
+            sumo_seed=int(data["sumo_seed"]),
+            cav_count=cav_count,
+            requested_pcav=requested_pcav,
+            ssm_capture_ttc_threshold_s=float(data["ssm_capture_ttc_threshold_s"]),
+            ssm_capture_drac_threshold_mps2=float(data["ssm_capture_drac_threshold_mps2"]),
+            ssm_range_m=float(data["ssm_range_m"]),
+            ssm_trajectories=bool(data["ssm_trajectories"]),
+            ssm_extratime_s=float(data.get("ssm_extratime_s", 5.0)),
+            with_internal=bool(data["with_internal"]),
+            fcd_profile=_optional_str(data, "fcd_profile"),
+            fcd_max_leader_distance_m=_optional_float(data, "fcd_max_leader_distance_m"),
+            experiment_role=str(data.get("experiment_role", "main_factorial")),
+            ssm_enabled=ssm_enabled,
+            analysis_ttc_threshold_s=float(data.get("analysis_ttc_threshold_s", 3.0)),
+            analysis_drac_threshold_mps2=float(data.get("analysis_drac_threshold_mps2", 3.0)),
+            ssm_dedup_method=str(data.get("ssm_dedup_method", "greedy_one_to_one_80pct")),
+            ssm_mirror_overlap_ratio=float(data.get("ssm_mirror_overlap_ratio", 0.8)),
+            ssm_fragment_merge_gap_s=float(data.get("ssm_fragment_merge_gap_s", 0.0)),
         )
-        object.__setattr__(
-            spec,
-            "analysis_drac_threshold_mps2",
-            float(data.get("analysis_drac_threshold_mps2", 3.0)),
-        )
-        object.__setattr__(
-            spec,
-            "ssm_dedup_method",
-            str(data.get("ssm_dedup_method", "greedy_one_to_one_80pct")),
-        )
-        object.__setattr__(
-            spec, "ssm_mirror_overlap_ratio", float(data.get("ssm_mirror_overlap_ratio", 0.8))
-        )
-        object.__setattr__(
-            spec, "ssm_fragment_merge_gap_s", float(data.get("ssm_fragment_merge_gap_s", 0.0))
-        )
-        # P0-6：反序列化后显式校验（frozen 对象 setattr 绕过 __post_init__）
-        if spec.experiment_role not in ("main_factorial", "safety"):
-            raise ValueError(f"invalid experiment_role: {spec.experiment_role}")
-        if spec.analysis_ttc_threshold_s <= 0 or not spec._finite(spec.analysis_ttc_threshold_s):
-            raise ValueError("analysis_ttc_threshold_s must be positive and finite")
-        if spec.analysis_drac_threshold_mps2 <= 0 or not spec._finite(
-            spec.analysis_drac_threshold_mps2
-        ):
-            raise ValueError("analysis_drac_threshold_mps2 must be positive and finite")
-        if spec.ssm_dedup_method not in (
-            "none",
-            "greedy_one_to_one_80pct",
-            "sorted_greedy_80pct",
-        ):
-            raise ValueError(f"invalid ssm_dedup_method: {spec.ssm_dedup_method!r}")
-        if not (0 < spec.ssm_mirror_overlap_ratio <= 1):
-            raise ValueError("ssm_mirror_overlap_ratio must be in (0, 1]")
-        if spec.ssm_fragment_merge_gap_s < 0 or not spec._finite(spec.ssm_fragment_merge_gap_s):
-            raise ValueError("ssm_fragment_merge_gap_s must be non-negative and finite")
-        return spec
 
     @classmethod
     def _from_dict_legacy(cls, data: dict) -> RunSpec:

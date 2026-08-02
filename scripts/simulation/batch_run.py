@@ -780,6 +780,9 @@ def _collect_v4_2_raw_hashes(run_dir: Path, spec: RunSpec) -> dict[str, str]:
         "performance_CAV.xml",
         "emissions_HV.xml",
         "emissions_CAV.xml",
+        # P1-4（新审阅）：stderr.log 也是解析输入（emergency braking 来源），
+        # 必须进入 raw 哈希清单；3,972 个既有 run 未记录，走迁移 sidecar。
+        "stderr.log",
     ]
     if getattr(spec, "ssm_enabled", False):
         names.append("ssm.xml")
@@ -1334,6 +1337,110 @@ async def run_batch(
 # ═══════════════════════════════════════════════════════════════════
 
 
+def _resolve_cli_overrides(config, args, parser) -> dict:
+    """P1-3（新审阅）：CLI 覆盖语义提取为可测函数。
+
+    - --vehN-list 为过滤语义：只选择配置已有 treatment，未知 vehN 报错；
+    - --assignment-seeds 无条件替换 interior assignment seeds（端点由
+      _build_cav_count_specs 截断为失活 sentinel 0）。
+    """
+    scenarios = [args.scenario] if args.scenario else list(config.scenarios)
+    # 校验 --scenario 是否在配置的场景列表中
+    if args.scenario and args.scenario not in config.scenarios:
+        parser.error(
+            f"scenario {args.scenario!r} not in config scenarios: {list(config.scenarios)}"
+        )
+    models = [args.model] if args.model else list(config.models)
+    network_files = dict(config.network_files)
+    if args.net:
+        if not args.scenario:
+            parser.error("--net requires --scenario")
+        network_files[args.scenario] = args.net
+
+    # 按 grid_mode 构造 resolved_config
+    common_overrides = {
+        "scenarios": tuple(scenarios),
+        "models": tuple(models),
+        "network_files": {s: network_files[s] for s in scenarios},
+    }
+
+    if config.grid_mode == "cav_count":
+        # cav_count 模式：CLI 覆盖 treatments/sumo_seeds 可选
+        treatments = list(config.treatments)
+        if args.vehN_list is not None:
+            try:
+                veh_levels = [int(x.strip()) for x in args.vehN_list.split(",") if x.strip()]
+            except ValueError:
+                parser.error(f"invalid --vehN-list value: {args.vehN_list}")
+            # P1-3（新审阅）：--vehN-list 为过滤语义，只允许选择配置中已有的
+            # vehN treatment；未知 vehN 直接报错，不得"发明"新的 treatment。
+            known_vehN = {int(t["vehicle_count"]) for t in config.treatments}
+            unknown = [vn for vn in veh_levels if vn not in known_vehN]
+            if unknown:
+                parser.error(
+                    f"--vehN-list contains vehN not present in config treatments: {unknown}"
+                )
+            treatments = [
+                t for t in config.treatments if int(t["vehicle_count"]) in set(veh_levels)
+            ]
+        sumo_seeds = list(config.sumo_seeds)
+        if args.sumo_seeds is not None:
+            try:
+                sumo_seeds = [int(x.strip()) for x in args.sumo_seeds.split(",") if x.strip()]
+            except ValueError:
+                parser.error(f"invalid --sumo-seeds value: {args.sumo_seeds}")
+        # 注入全局 assignment_seeds 到 treatments（CLI 覆盖优先）
+        aseeds = list(config.seeds)
+        seeds_arg = args.assignment_seeds or args.seeds
+        if seeds_arg is not None:
+            try:
+                aseeds = [int(x.strip()) for x in seeds_arg.split(",") if x.strip()]
+            except ValueError:
+                parser.error(f"invalid assignment seeds value: {seeds_arg}")
+            # P1-3（新审阅）：无条件替换所有 interior treatments 的 assignment
+            # seeds（不得因 treatment 已有 assignment_seeds 键而静默跳过，否则
+            # 例如 --assignment-seeds 9 会继续生成 config 的 as01）；
+            # 端点（cav=0/vehN）由 _build_cav_count_specs 截断为失活 sentinel 0。
+            for t in treatments:
+                t["assignment_seeds"] = aseeds
+        else:
+            for t in treatments:
+                if "assignment_seeds" not in t and aseeds:
+                    t["assignment_seeds"] = aseeds
+        return {
+            **common_overrides,
+            "treatments": treatments,
+            "sumo_seeds": sumo_seeds,
+        }
+
+    # requested_pcav 模式（兼容旧行为）
+    veh_levels = list(config.vehicle_counts)
+    if args.vehN_list is not None:
+        try:
+            veh_levels = [int(x.strip()) for x in args.vehN_list.split(",") if x.strip()]
+        except ValueError:
+            parser.error(f"invalid --vehN-list value: {args.vehN_list}")
+    seeds = list(config.seeds)
+    seeds_arg = args.assignment_seeds or args.seeds
+    if seeds_arg is not None:
+        try:
+            seeds = [int(x.strip()) for x in seeds_arg.split(",") if x.strip()]
+        except ValueError:
+            parser.error(f"invalid assignment seeds value: {seeds_arg}")
+    try:
+        pcav_levels = (
+            generate_pcav_levels(args.pstep) if args.pstep is not None else list(config.pcav_levels)
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
+    return {
+        **common_overrides,
+        "veh_levels": veh_levels,
+        "seeds": seeds,
+        "pcav_levels": pcav_levels,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="批量并行仿真")
     parser.add_argument(
@@ -1394,57 +1501,17 @@ def main():
     if args.seeds is not None:
         print("[WARNING] --seeds is deprecated, use --assignment-seeds")
 
-    scenarios = [args.scenario] if args.scenario else list(config.scenarios)
-    # 校验 --scenario 是否在配置的场景列表中
-    if args.scenario and args.scenario not in config.scenarios:
-        parser.error(
-            f"scenario {args.scenario!r} not in config scenarios: {list(config.scenarios)}"
-        )
-    models = [args.model] if args.model else list(config.models)
-    network_files = dict(config.network_files)
-    if args.net:
-        if not args.scenario:
-            parser.error("--net requires --scenario")
-        network_files[args.scenario] = args.net
-
-    # 按 grid_mode 构造 resolved_config
-    common_overrides = {
-        "scenarios": tuple(scenarios),
-        "models": tuple(models),
-        "network_files": {s: network_files[s] for s in scenarios},
-    }
-
+    overrides = _resolve_cli_overrides(config, args, parser)
+    scenarios = list(overrides["scenarios"])
+    models = list(overrides["models"])
     if config.grid_mode == "cav_count":
-        # cav_count 模式：CLI 覆盖 treatments/sumo_seeds 可选
-        treatments = list(config.treatments)
-        if args.vehN_list is not None:
-            try:
-                veh_levels = [int(x.strip()) for x in args.vehN_list.split(",") if x.strip()]
-            except ValueError:
-                parser.error(f"invalid --vehN-list value: {args.vehN_list}")
-            treatments = [
-                {"vehicle_count": vn, "cav_counts": [0, vn // 2, vn]} for vn in veh_levels
-            ]
-        sumo_seeds = list(config.sumo_seeds)
-        if args.sumo_seeds is not None:
-            try:
-                sumo_seeds = [int(x.strip()) for x in args.sumo_seeds.split(",") if x.strip()]
-            except ValueError:
-                parser.error(f"invalid --sumo-seeds value: {args.sumo_seeds}")
-        # 注入全局 assignment_seeds 到 treatments（CLI 覆盖优先）
-        aseeds = list(config.seeds)
-        seeds_arg = args.assignment_seeds or args.seeds
-        if seeds_arg is not None:
-            try:
-                aseeds = [int(x.strip()) for x in seeds_arg.split(",") if x.strip()]
-            except ValueError:
-                parser.error(f"invalid assignment seeds value: {seeds_arg}")
-        for t in treatments:
-            if "assignment_seeds" not in t and aseeds:
-                t["assignment_seeds"] = aseeds
-
         resolved_config = replace(
-            config, treatments=tuple(treatments), sumo_seeds=tuple(sumo_seeds), **common_overrides
+            config,
+            treatments=tuple(overrides["treatments"]),
+            sumo_seeds=tuple(overrides["sumo_seeds"]),
+            scenarios=tuple(scenarios),
+            models=tuple(models),
+            network_files=overrides["network_files"],
         )
         spec_kwargs = {
             "treatments": list(resolved_config.treatments),
@@ -1454,35 +1521,14 @@ def main():
             "seeds": None,
         }
     else:
-        # requested_pcav 模式（兼容旧行为）
-        veh_levels = list(config.vehicle_counts)
-        if args.vehN_list is not None:
-            try:
-                veh_levels = [int(x.strip()) for x in args.vehN_list.split(",") if x.strip()]
-            except ValueError:
-                parser.error(f"invalid --vehN-list value: {args.vehN_list}")
-        seeds = list(config.seeds)
-        seeds_arg = args.assignment_seeds or args.seeds
-        if seeds_arg is not None:
-            try:
-                seeds = [int(x.strip()) for x in seeds_arg.split(",") if x.strip()]
-            except ValueError:
-                parser.error(f"invalid assignment seeds value: {seeds_arg}")
-        try:
-            pcav_levels = (
-                generate_pcav_levels(args.pstep)
-                if args.pstep is not None
-                else list(config.pcav_levels)
-            )
-        except ValueError as exc:
-            parser.error(str(exc))
-
         resolved_config = replace(
             config,
-            pcav_levels=tuple(pcav_levels),
-            vehicle_counts=tuple(veh_levels),
-            seeds=tuple(seeds),
-            **common_overrides,
+            pcav_levels=tuple(overrides["pcav_levels"]),
+            vehicle_counts=tuple(overrides["veh_levels"]),
+            seeds=tuple(overrides["seeds"]),
+            scenarios=tuple(scenarios),
+            models=tuple(models),
+            network_files=overrides["network_files"],
         )
         spec_kwargs = {
             "pcav_levels": list(resolved_config.pcav_levels),

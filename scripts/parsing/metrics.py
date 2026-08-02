@@ -517,7 +517,8 @@ def validate_subgroup_invariants(primitives):
     # SUMO 多 measurement（all/HV/CAV 独立 vTypes 过滤）的浮点累加噪声在
     # 全网格下实测 max：vehicle_km 2.0e-4 / time_loss 1.1e-3 / PMx 3.2e-4
     # （PMx 小值受 SUMO 输出小数位精度影响，相对误差放大）。
-    # 旧容差（2e-4/1e-4/1e-5）在正式数据上误报 454 个 INVALID_DATA。
+    # 旧容差（2e-4/1e-4/1e-5）在正式数据上误报 770 个 INVALID_DATA
+    # （首轮解析终态计数；中途观察值 454 非最终口径），全部重跑成功。
     for key in ("total_vehicle_km", "non_internal_edge_vehicle_km"):
         _check_additive(ep_all, ep_hv, ep_cav, key, 5e-4, 1e-3)
     _check_additive(ep_all, ep_hv, ep_cav, "total_time_loss_s", 2e-3, 1e-3)

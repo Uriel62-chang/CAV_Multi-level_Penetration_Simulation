@@ -758,6 +758,19 @@ _active_processes: dict[str, asyncio.subprocess.Process] = {}
 _shutting_down = False
 
 
+def _sumo_version_of(sumo_command: str) -> str:
+    """返回指定 SUMO 可执行文件的 --version 输出（P1-3；P2-2 直接回归）。"""
+    import subprocess as _sp
+
+    try:
+        out = _sp.run(
+            [sumo_command, "--version"], capture_output=True, text=True, timeout=15
+        ).stdout.strip()
+    except (OSError, _sp.SubprocessError, TimeoutError):
+        return ""
+    return out
+
+
 def _stderr_tail(path: Path, limit: int = 4000) -> str:
     try:
         return path.read_text(encoding="utf-8", errors="replace")[-limit:]
@@ -1091,16 +1104,9 @@ async def run_sumo_process(
         # P1-3（本轮）：持久化实际 SUMO 版本（可能为 --sumo 自定义可执行文件，
         # 与 PATH 中 sumo 不同）；解析器用该记录验证 free-flow artifact 而非
         # 解析时查询 PATH。
-        try:
-            import subprocess as _sp
-
-            sumo_version_out = _sp.run(
-                [sumo_command, "--version"], capture_output=True, text=True, timeout=15
-            ).stdout.strip()
-            if sumo_version_out:
-                status_data["sumo_version"] = sumo_version_out
-        except (OSError, _sp.SubprocessError, TimeoutError):
-            pass
+        sumo_version_out = _sumo_version_of(sumo_command)
+        if sumo_version_out:
+            status_data["sumo_version"] = sumo_version_out
         # v0.4.1/v0.4.2: 记录冻结输入哈希供 resume 校验（P0-4 覆盖 v0.4.2）
         if status == "SUCCESS" and spec.pipeline_version in ("v0.4.1", "v0.4.2"):
             status_data["route_file_sha256"] = sha256_file(str(prepared.route_path))

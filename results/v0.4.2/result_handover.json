@@ -13,9 +13,11 @@
    "note": "3,972 个正式 summary/parse_status 由 d963502 时代全量重解析生成；507a80d 仅收紧校验逻辑与 inventory/handover 元数据，未重跑解析。"
   },
   "writer": {
-   "final_commit": "8f9ef4b",
-   "clean_at_runtime": true,
-   "note": "writer 运行于修复提交后"
+   "core_results_commit": "8f9ef4b",
+   "schema_only_rerun_commit": "e99cd89",
+   "rerun_head": "7e52e1c",
+   "rerun_tracked_clean": true,
+   "note": "81 列 run-level CSV 由 e99cd89（ANALYSIS_COLUMNS_V4_2 schema 扩展）后仅重跑 writer 生成；parsing/aggregate/SUMO 均未重跑。删除 5 个新列可逐字节还原 8f9ef4b 时代字节（Reviewer 复核确认）。"
   },
   "aggregate": {
    "commit": "91c256f",

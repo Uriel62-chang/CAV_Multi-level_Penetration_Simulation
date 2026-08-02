@@ -942,3 +942,102 @@ def test_batch_run_rejects_nonpositive_processes():
     )
     assert result.returncode != 0
     assert "--sumo-processes must be positive" in result.stderr
+
+
+# ── P2-2（delta review）：SUMO 版本持久化与 timeout 门禁直接回归 ──
+
+
+def test_sumo_version_of_returns_executable_version(tmp_path):
+    """_sumo_version_of 返回指定可执行文件的 --version 输出（P1-3）。"""
+    from scripts.simulation.batch_run import _sumo_version_of
+
+    fake = tmp_path / "fake-sumo"
+    fake.write_text("#!/bin/sh\necho 'Eclipse SUMO fake 9.9'\n", encoding="utf-8")
+    fake.chmod(0o755)
+    assert _sumo_version_of(str(fake)) == "Eclipse SUMO fake 9.9"
+    assert _sumo_version_of("/nonexistent/sumo") == ""
+
+
+def test_runner_uses_recorded_sumo_version_not_path(tmp_path, monkeypatch):
+    """解析器优先用 status 记录版本且不查询 PATH（P1-3/P2-2）。"""
+    import json
+    import pathlib
+    import subprocess
+
+    from scripts.parsing.runner import _load_free_flow_references
+    from scripts.provenance import net_semantic_sha256
+    from scripts.run_spec import PIPELINE_V4_2, RunSpec
+
+    net_dir = tmp_path / "net"
+    net_dir.mkdir()
+    net_file = net_dir / "loop.net.xml"
+    net_file.write_text("<net/>", encoding="utf-8")
+    net_meta = json.loads((pathlib.Path("net/scenario_0/net.json")).read_text(encoding="utf-8"))
+    art = {
+        "reference_id": "ff-v0.4.1-pilot-ff-1",
+        "free_flow_version": "v0.4.1-pilot-ff-1",
+        "sumo_version": "FAKE_V1",
+        "results": {
+            "scenario_0": {
+                "net_semantic_sha256": net_semantic_sha256(str(net_file)),
+                "references": {
+                    "HV": {"lap_time_s": 98.8, "source_run_id": "ff"},
+                    "CAV_IDM": {"lap_time_s": 98.8, "source_run_id": "ff"},
+                },
+            }
+        },
+    }
+    art_path = tmp_path / "art.json"
+    art_path.write_text(json.dumps(art), encoding="utf-8")
+    net_meta["free_flow_reference_path"] = str(art_path)
+    (net_dir / "net.json").write_text(json.dumps(net_meta), encoding="utf-8")
+
+    spec = RunSpec(
+        scenario="scenario_0",
+        model="IDM",
+        pcav=0.5,
+        vehicle_count=10,
+        seed=1,
+        run_id="x",
+        pipeline_version=PIPELINE_V4_2,
+        schema_version="2",
+        sumo_seed=101,
+        cav_count=5,
+        requested_pcav=None,
+        network_file=str(net_file),
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "simulation_status.json").write_text(
+        json.dumps({"sumo_version": "FAKE_V1"}), encoding="utf-8"
+    )
+
+    def _boom(*_a, **_k):
+        raise AssertionError("subprocess.run must not be called (PATH fallback)")
+
+    monkeypatch.setattr(subprocess, "run", _boom)
+    refs = _load_free_flow_references(spec, run_dir=run_dir)
+    assert refs["HV"] == 98.8
+
+
+def test_batch_run_rejects_nonpositive_timeout():
+    """P2-2（delta）：--timeout <= 0 → argparse 拒绝。"""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "scripts.simulation.batch_run",
+            "--config",
+            "configs/v0.4.2/main.json",
+            "--timeout",
+            "0",
+            "--dry-run",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "--timeout must be positive" in result.stderr

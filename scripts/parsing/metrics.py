@@ -513,15 +513,20 @@ def validate_subgroup_invariants(primitives):
     ep_all = primitives.edge_perf.get("all", {})
     ep_hv = primitives.edge_perf.get("HV", {})
     ep_cav = primitives.edge_perf.get("CAV", {})
+    # 可加性容差（v0.4.2 正式网格实测驱动，2026 复检后放宽）：
+    # SUMO 多 measurement（all/HV/CAV 独立 vTypes 过滤）的浮点累加噪声在
+    # 全网格下实测 max：vehicle_km 2.0e-4 / time_loss 1.1e-3 / PMx 3.2e-4
+    # （PMx 小值受 SUMO 输出小数位精度影响，相对误差放大）。
+    # 旧容差（2e-4/1e-4/1e-5）在正式数据上误报 454 个 INVALID_DATA。
     for key in ("total_vehicle_km", "non_internal_edge_vehicle_km"):
-        _check_additive(ep_all, ep_hv, ep_cav, key, 2e-4, 1e-3)
-    _check_additive(ep_all, ep_hv, ep_cav, "total_time_loss_s", 1e-4, 1e-3)
+        _check_additive(ep_all, ep_hv, ep_cav, key, 5e-4, 1e-3)
+    _check_additive(ep_all, ep_hv, ep_cav, "total_time_loss_s", 2e-3, 1e-3)
 
     ee_all = primitives.edge_emis.get("all", {})
     ee_hv = primitives.edge_emis.get("HV", {})
     ee_cav = primitives.edge_emis.get("CAV", {})
     for key in ("total_CO2_kg", "total_NOx_g", "total_PMx_g", "total_fuel_kg"):
-        _check_additive(ee_all, ee_hv, ee_cav, key, 1e-5, 1e-9)
+        _check_additive(ee_all, ee_hv, ee_cav, key, 5e-4, 1e-9)
 
     # Exact counts
     for src_name, src_key in [

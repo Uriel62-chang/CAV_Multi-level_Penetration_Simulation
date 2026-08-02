@@ -145,6 +145,74 @@ def test_safety_report_generates_events_chart(tmp_path, monkeypatch):
     assert png.stat().st_size > 1000, f"safety chart unexpectedly small: {png.stat().st_size}"
 
 
+def test_safety_plot_separates_vehn(tmp_path, monkeypatch):
+    """P0（Reviewer 复检）：同一渗透率下不同 vehN 的点不得连成一条响应曲线。
+
+    修复前每场景仅按 model 分线，同一 x 出现竖线并混合 vehN 点；
+    修复后按 scenario × vehN 分面，每条线的 x 值必须唯一（无竖线）。
+    """
+    import numpy as np
+
+    from scripts.results import visualization as viz
+
+    calls = []
+
+    class FakeAx:
+        def plot(self, x, y, **kw):
+            calls.append((list(x), list(y), kw.get("label")))
+
+        def set_xlabel(self, *a, **k):
+            pass
+
+        def set_ylabel(self, *a, **k):
+            pass
+
+        def set_title(self, *a, **k):
+            pass
+
+        def legend(self, *a, **k):
+            pass
+
+    class FakeFig:
+        def savefig(self, *a, **k):
+            pass
+
+        def close(self):
+            pass
+
+    def fake_subplots(nrows, ncols, **kw):
+        return FakeFig(), np.array([[FakeAx() for _ in range(ncols)] for _ in range(nrows)])
+
+    monkeypatch.setattr(viz.plt, "subplots", fake_subplots)
+    monkeypatch.setattr(viz.plt, "close", lambda fig: None)
+
+    # scenario_0：vehN=30 与 vehN=60 在相同渗透率 0.2 下不同 TTC 值
+    df = pd.DataFrame(
+        {
+            "scenario": ["scenario_0"] * 4,
+            "model": ["IDM", "CACC", "IDM", "CACC"],
+            "requested_pcav": [None] * 4,
+            "realized_pcav": [0.2, 0.2, 0.2, 0.2],
+            "pCAV": [0.2] * 4,
+            "vehN": [30, 30, 60, 60],
+            "cav_count": [6, 6, 12, 12],
+            "ttc_per_k_mean": [0.5, 0.8, 1.2, 1.5],
+        }
+    )
+    p = tmp_path / "agg.csv"
+    df.to_csv(p, index=False)
+    out = tmp_path / "out"
+    out.mkdir()
+    viz.run_safety_v4_2(argparse.Namespace(aggregated=str(p), outDir=str(out)))
+
+    # scenario_0 有 2 个 vehN × 2 model = 4 条线；scenario_3 无数据不画
+    assert len(calls) == 4, f"expected 4 plot calls per (vehN, model), got {len(calls)}"
+    for x, y, label in calls:
+        assert len(x) == len(set(x)), f"vertical line (duplicate x) for {label}: {x}"
+        # 每条线只含单一 vehN 的数据（修复前 0.5 与 1.2 会在同一条线）
+        assert len(y) == 1, f"mixed vehN points in one line for {label}: {y}"
+
+
 def test_ttc_metric_column_prefers_paired(tmp_path):
     """P0-3：配对列存在时优先 ttc_per_k_mean，不选旧 non-internal 错配列。"""
     from scripts.results.visualization import _ttc_metric_column

@@ -416,7 +416,8 @@ def run_safety_v4_2(args) -> None:
 
     生成 TTC 事件率随渗透率（realized_pcav）变化的图（仅 TTC、仅 scenario_0/scenario_3
     两个有事件集中度的场景），使用空间配对列；不生成与主 factorial 的联合 trade-off。
-    注意：本实现不覆盖 DRAC 与四场景，文档/help 表述与此一致（P1-3）。
+    P0（Reviewer 复检）：按 scenario × vehN 分面、model 分线——Safety 每渗透率有
+    vehN={30,60,120} 三个点，不得在同一响应曲线中混合。
     """
     if not os.path.exists(args.aggregated):
         print(f"错误: 找不到文件 {args.aggregated}")
@@ -426,19 +427,39 @@ def run_safety_v4_2(args) -> None:
     _ensure_dir(out_dir)
     ttc_col = _paired_ttc_metric_column(df)  # P1-3：fail-closed，不回退 legacy 错配列
     pen = _penetration_column(df)
-    fig, axes = plt.subplots(1, 2, figsize=(16, 7), constrained_layout=True)
-    for ax, sc in zip(axes, ["scenario_0", "scenario_3"], strict=True):
+    scenarios = ["scenario_0", "scenario_3"]
+    vehn_levels = sorted(df[df["scenario"].isin(scenarios)]["vehN"].dropna().unique().tolist())
+    n_sc, n_vn = len(scenarios), len(vehn_levels)
+    fig, axes = plt.subplots(
+        n_sc, n_vn, figsize=(5.5 * max(n_vn, 1), 6.5 * n_sc), constrained_layout=True
+    )
+
+    def _get_ax(i: int, j: int):
+        # matplotlib 对 1×1 / 1×N / N×1 布局的 axes 退化处理
+        if isinstance(axes, np.ndarray):
+            if axes.ndim == 2:
+                return axes[i, j]
+            return axes[j] if n_sc == 1 else axes[i]
+        return axes  # 单个 Axes
+
+    for i, sc in enumerate(scenarios):
         sub = df[df["scenario"] == sc]
-        for model in ["IDM", "CACC"]:
-            d = sub[sub["model"] == model].sort_values(pen)
-            ax.plot(d[pen], d[ttc_col], marker="o", label=model)
-        ax.set_xlabel(f"{pen} (realized)")
-        ax.set_ylabel("TTC events / 1000 veh-km (whole-network, space-matched)")
-        ax.set_title(f"{sc} safety")
-        ax.legend()
+        for j, vn in enumerate(vehn_levels):
+            ax = _get_ax(i, j)
+            d = sub[sub["vehN"] == vn]
+            ax.set_title(f"{sc} vehN={vn}" if not d.empty else f"{sc} vehN={vn} (no data)")
+            ax.set_xlabel(f"{pen} (realized)")
+            ax.set_ylabel("TTC events / 1000 veh-km (whole-network)")
+            if d.empty:
+                continue
+            for model in ["IDM", "CACC"]:
+                m = d[d["model"] == model].sort_values(pen)
+                if not m.empty:
+                    ax.plot(m[pen], m[ttc_col], marker="o", label=model)
+            ax.legend(fontsize=8)
     fig.savefig(out_dir / "chart_safety_events_by_penetration.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
-    print(f"\n[DONE] safety report (TTC events by penetration) → {out_dir.resolve()}")
+    print(f"\n[DONE] safety report (TTC events by penetration, by vehN) → {out_dir.resolve()}")
 
 
 # ═══════════════════════════════════════════════════════════════════

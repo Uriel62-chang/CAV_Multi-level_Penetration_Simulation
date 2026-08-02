@@ -1,72 +1,68 @@
 {
-  "title": "v0.4.2 formal-grid result handover (minimal provenance, P2 wording fix)",
-  "created_by": "Developer session (post reviewer P1 closure request)",
-  "commits": {
-    "simulation": {
-      "commit": "a8aa09a",
-      "clean": "main: NO (manifest git_dirty=true); safety: YES (manifest git_dirty=false)",
-      "note": "main manifest records git_dirty=true (untracked raw_v0.4.2 evidence dirs existed at launch; provenance used git status --porcelain); safety manifest git_dirty=false. Evidence cannot prove main runtime was a clean commit; disclosed as-is (reviewer P2-1). No rerun required."
-    },
-    "parsing": {
-      "final_commit": "a21e05e",
-      "clean_at_runtime": false,
-      "note": "runtime implementation = a8aa09a working tree + uncommitted tolerance fix, later committed as a21e05e; first pass ran on clean a8aa09a (3118 ok + 770 false INVALID_DATA), second pass reran 770 on the dirty working tree; final results depend on the uncommitted tolerance change"
-    },
-    "writer": {
-      "final_commit": "6637519",
-      "clean_at_runtime": false,
-      "note": "runtime implementation = a21e05e working tree + uncommitted NaN-rule fix, later committed as 6637519; writer outputs generated before that commit landed"
-    },
-    "aggregate": {
-      "commit": "6637519",
-      "clean": true,
-      "note": "ran after 6637519 was committed"
-    },
-    "hotfix_tests": "1a6da3c"
+ "title": "v0.4.2 formal-grid result handover (P0-1/P0-2 re-parse, supersedes previous handover)",
+ "created_by": "Developer session (post new-review P0/P1/P2 closure)",
+ "commits": {
+  "simulation": {
+   "commit": "a8aa09a",
+   "clean": "main: NO (manifest git_dirty=true); safety: YES",
+   "note": "raw SUMO 输出与 simulation_status.json 未重跑、未修改（红线维持）"
   },
-  "simulation_note": "simulation ran on commit a8aa09a; main manifest git_dirty=true (untracked evidence dirs existed at launch, provenance used git status --porcelain — cannot prove zero tracked diff), safety manifest git_dirty=false. parsing/writer hotfixes (a21e05e/6637519) do not affect raw simulation outputs.",
-  "parsing_note": "first pass (clean a8aa09a): 3118 SUCCESS + 770 INVALID_DATA (additivity tolerance false positives); second pass (dirty working tree with tolerance fix, later a21e05e): 770 rerun -> all SUCCESS; final 3888 SUCCESS",
-  "final_status": {
-    "main": {
-      "runs": 3888,
-      "success": 3888,
-      "groups": 528
-    },
-    "safety": {
-      "runs": 84,
-      "success": 84,
-      "groups": 84
-    }
+  "parsing": {
+   "final_commit": "d963502",
+   "clean_at_runtime": true,
+   "note": "全量重解析（无 --resume）在修复提交 8f9ef4b/91c256f/d963502 之后运行；旧 run 先经 --freeze-input-integrity 生成 sidecar；3,888 main + 84 safety 全 SUCCESS"
   },
-  "writer_complete": {
-    "main": true,
-    "safety": true
+  "writer": {
+   "final_commit": "8f9ef4b",
+   "clean_at_runtime": true,
+   "note": "writer 运行于修复提交后"
   },
-  "hashes": {
-    "raw_v0.4.2/main/manifest.json": "3e2c1e7e64569931016f27eef7c56fadc7dccaaa2bae2d7e00e072893d43146b",
-    "raw_v0.4.2/safety/manifest.json": "a9f97692d1f7e1bc0578e3a01d15e04c2752ba1fa8459fb05d1da70da1037151",
-    "raw_v0.4.2/main/parse_manifest.json": "9834d3d8d9929d19288c64626483ea9d848fce976090dac4f16b91b39ca2b1ae",
-    "raw_v0.4.2/safety/parse_manifest.json": "7577cb969a1b813bdd974d2c7aeacdc664d7745ec9df680d2754db3052548a58",
-    "results/v0.4.2/main/run_level_results.csv": "d12b2a3dc54289872a7f33320967a3b5d5f08deac75559d220004990d4cadfdf",
-    "results/v0.4.2/main/run_level_subgroup_results.csv": "ef6bd1662134927d96656b4e3ca1373e4b750a60a02b51f19fac545654cf601b",
-    "results/v0.4.2/main/aggregated_results.csv": "fbc9a527720c44d2da795b4a8bb8f96cff3895aa9f352f97f27ddb5d59d25261",
-    "results/v0.4.2/main/writer_report.json": "26483fac1524f26c94865bab43cfc45f9fcc2b335a382e343f925c5c294ba073",
-    "results/v0.4.2/safety/run_level_results.csv": "f92a37432679cee23ae959d391224797f2e448ca443cf2c88f0b1c5ca1ae3877",
-    "results/v0.4.2/safety/run_level_subgroup_results.csv": "f7da72084ccc73aed08c04ea0e6102fc6c437830b58bc9b00d18394cbb90e556",
-    "results/v0.4.2/safety/aggregated_results.csv": "e424ff1730619583026d024aaeea97c61adce53f5486a00e5ca6f8b3275ed9b6",
-    "results/v0.4.2/safety/writer_report.json": "00c31b99cf81413daaf7b45dab0c29007c8c6ee587e0592be9bd01c8d740b539",
-    "results/v0.4.2/raw_status_inventory.jsonl": "e02975a919756220c9a4c6e34753b6b8e7abe60945a37a56a5ab61b7acd9c9bc",
-    "results/v0.4.2/result_analysis.md": "b2dc353419f148bb04e3ba251d0e0820be342c003f9c11556fb269ad489ba3ab"
+  "aggregate": {
+   "commit": "91c256f",
+   "clean": true,
+   "note": "schema=2 强制 --manifest（P1-5 期望集合校验通过）"
   },
-  "runtime_clean_commit_warning": "parsing/writer outputs were produced on working trees that were NOT provably clean commits at runtime; code was committed afterwards (a21e05e/6637519). This is a wording-level provenance caveat, not a data error; no rerun required (reviewer P2).",
-  "raw_status_inventory": {
-    "path": "results/v0.4.2/raw_status_inventory.jsonl",
-    "sha256": "e02975a919756220c9a4c6e34753b6b8e7abe60945a37a56a5ab61b7acd9c9bc",
-    "entries": 3972,
-    "closure": {
-      "main_factorial": 3888,
-      "safety": 84
-    },
-    "note": "Verification (two steps): (1) compute the SHA-256 of results/v0.4.2/raw_status_inventory.jsonl and compare with the sha256 entry here; (2) parse the JSONL line by line, and for each run re-hash the external simulation_status.json / parse_status.json (and expanded files) against the recorded per-run SHA. The JSONL is data, not a sha256sum -c checklist."
+  "hotfix_tests": "1a6da3c"
+ },
+ "simulation_note": "raw SUMO XML/FCD/stderr 与 simulation_status.json 未修改（红线）；main manifest git_dirty=true 历史 caveat 维持。",
+ "parsing_note": "2026-08 重解析：修复提交后全量重解析（不用 --resume），3,972 run 全部 SUCCESS。P0-1（SSM 未采集 NaN + 状态列）、P0-2（p95 pooled 参考）修复反映到所有派生物。summary/subgroup_summary/parse_status 为重建派生物（旧哈希链见 supersedes）。",
+ "final_status": {
+  "main": {
+   "runs": 3888,
+   "success": 3888,
+   "groups": 528
+  },
+  "safety": {
+   "runs": 84,
+   "success": 84,
+   "groups": 84
   }
+ },
+ "writer_complete": {
+  "main": true,
+  "safety": true
+ },
+ "hashes": {
+  "raw_v0.4.2/main/manifest.json": "3e2c1e7e64569931016f27eef7c56fadc7dccaaa2bae2d7e00e072893d43146b",
+  "raw_v0.4.2/safety/manifest.json": "a9f97692d1f7e1bc0578e3a01d15e04c2752ba1fa8459fb05d1da70da1037151",
+  "raw_v0.4.2/main/parse_manifest.json": "aac112a3ebaa9ca289c4cb20addf8bebf79d198443ad8001aa00eb407005496a",
+  "raw_v0.4.2/safety/parse_manifest.json": "357b26b6c1421d8d13b4545ed2b77f584696372ffc706c13b0e406a16d10e88a",
+  "results/v0.4.2/main/run_level_results.csv": "ed12fa38252d52ce4a9710f1bde4e76e593e03c4335b745ec15a62a8296e743c",
+  "results/v0.4.2/main/run_level_subgroup_results.csv": "954e4b9696c395c39c22e7125237872e90be97c7f67e8848fb68bd0893037a6b",
+  "results/v0.4.2/main/aggregated_results.csv": "29b2e7baea609444b74302fd5a84b2c8fa0cf8f0af490a521c44a1f09ea6c758",
+  "results/v0.4.2/main/writer_report.json": "26483fac1524f26c94865bab43cfc45f9fcc2b335a382e343f925c5c294ba073",
+  "results/v0.4.2/safety/run_level_results.csv": "edb5eb4c7906f1f0054087b6b3a2fd1fae736a836a44f48da8cc615c818aa593",
+  "results/v0.4.2/safety/run_level_subgroup_results.csv": "f7da72084ccc73aed08c04ea0e6102fc6c437830b58bc9b00d18394cbb90e556",
+  "results/v0.4.2/safety/aggregated_results.csv": "bff5ef785d6a7487f3301858fee08f56e1b20ed9c1e2392f1a787050408b919c",
+  "results/v0.4.2/safety/writer_report.json": "00c31b99cf81413daaf7b45dab0c29007c8c6ee587e0592be9bd01c8d740b539",
+  "results/v0.4.2/raw_status_inventory.jsonl": "2f71c26edf02066a80417bf544cebdaadf8ab4d15863b05944e16c4cb60f2e68",
+  "results/v0.4.2/result_analysis.md": "1290fc242aff940b0bcefa579564a581b071e18f6699440e552bd93d2ee691d5"
+ },
+ "supersedes": {
+  "previous_inventory_sha256": "e02975a919756220c9a4c6e34753b6b8e7abe60945a37a56a5ab61b7acd9c9bc",
+  "previous_main_aggregated_sha256": "fbc9a527720c44d2da795b4a8bb8f96cff3895aa9f352f97f27ddb5d59d25261",
+  "previous_safety_aggregated_sha256": "e424ff1730619583026d024aaeea97c61adce53f5486a00e5ca6f8b3275ed9b6",
+  "note": "P0-1/P0-2 数据正确性重解析（2026-08）：run-level/subgroup/aggregated/parse_manifest/inventory 均为重解析产物；raw simulation manifest 与 SUMO 输出未动。新 inventory 覆盖旧 inventory（supersedes 链）。"
+ },
+ "runtime_clean_commit_warning": "本轮 parsing/writer/aggregate 运行于已提交的修复代码（8f9ef4b/91c256f/d963502），工作区仅含未跟踪的 results/.regen 临时目录；raw 证据目录与 simulation_status.json 未动。"
 }

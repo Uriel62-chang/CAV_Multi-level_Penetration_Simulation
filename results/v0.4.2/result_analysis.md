@@ -60,3 +60,22 @@ IDM 流量约为 CACC 2.1 倍、delay 约 1/3、排放强度更低——v0.4.0 �
 
 - Safety 每格 1 个 seed pair：结果为描述性，不做显著性/置信推断。
 - **s1 与 s2 零事件**：全路网 TTC 事件率（ttc_per_k）分母为 withInternal=true 全路网 veh-km，空间配对；仅表示当前 TTC<3.0 s 阈值、SUMO 1.27.1、网格与 SSM 配置下未检测到，不升级为「无安全冲突」。
+
+## 7. 2026-08 重解析修订（P0-1/P0-2 数据正确性）
+
+- **p95 delay 修正**：修复前 v0.4.2 的 p95 delay 统一使用 HV 自由流参考
+  （all-level p95 − HV_ref）。修复后逐 lap 按车辆类型减对应参考再 pooled 求
+  分位数（CAV 用 CAV_model ref）。影响 120/528 聚合键（差异 >1s，最大 20.2s），
+  全 CAV/高 CAV CACC 组修正最大；全 CAV CACC 代表性样例 s0 v90 c90：
+  delay_p95 4.6 → 24.8 s。mean delay、流量、排放与 safety TTC 结论不变
+  （528 键 flow_mean / delay_mean / CO₂ 强度完全相等）。
+- **SSM 未采集语义**：main factorial（3,888 runs）不配置 SSM device
+  （意图性缺失），修复前 TTC 计数/事件率以 0 呈现，现改为 NaN 且
+  ssm_not_collected=True（run-level CSV 新增 experiment_role / ssm_enabled /
+  ssm_not_collected 状态列）；聚合层面 ttc_mean=NaN、count=0。safety
+  （84 runs）不受影响（合法零检出仍为 0）。
+- **图**：graph/v0.4.2/ 4 张图字节级不变（图使用 mean delay 与独立 safety
+  TTC，不受上述两项修正影响）。
+- **输入完整性**：3,972 个旧 run 的 stderr.log 哈希通过重解析前生成的
+  input_integrity.sidecar.json（purpose=pre-reparse freeze）补全，
+  未回填 simulation_status.json（不回填仿真时证据）。

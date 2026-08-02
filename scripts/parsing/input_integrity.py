@@ -165,8 +165,7 @@ def verify(run_dir: Path, spec) -> tuple[bool, list[str]]:
     extra = actual_raw - expected
     if missing or extra:
         errors.append(
-            "raw_output_sha256 key set mismatch: "
-            f"missing={sorted(missing)} extra={sorted(extra)}"
+            f"raw_output_sha256 key set mismatch: missing={sorted(missing)} extra={sorted(extra)}"
         )
 
     # 1) status 已覆盖的解析输入逐文件哈希

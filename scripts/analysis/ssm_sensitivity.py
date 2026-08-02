@@ -18,6 +18,7 @@ DEDUP_MAP = {
 
 def _dedup_none(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
     """No dedup: count all valid records directly."""
+    import math
     import xml.etree.ElementTree as ET
 
     result = {
@@ -30,20 +31,33 @@ def _dedup_none(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
     try:
         tree = ET.parse(xml_path)
         root = tree.getroot()
-    except (ET.ParseError, FileNotFoundError, OSError):
-        return (0, 0, float("nan"), float("nan"), 0)
+    except (ET.ParseError, FileNotFoundError, OSError) as exc:
+        # 审阅 P2（复审）：XML 解析失败抛错，不再返回全零结果
+        raise ValueError(f"_dedup_none: failed to parse SSM XML {xml_path}: {exc!r}") from exc
+
+    # 审阅 P2-1：坏记录 fail-closed（与 canonical parser 语义一致），不再静默跳过
+    invalid = 0
 
     for conflict in root.findall("conflict"):
         try:
             begin = float(conflict.get("begin", "0"))
             end = float(conflict.get("end", "0"))
         except (ValueError, TypeError):
+            invalid += 1
+            continue
+        # 审阅 P2（复审）：begin/end 有限性与区间检查（与 canonical 一致）
+        if not (math.isfinite(begin) and math.isfinite(end)) or end < begin:
+            invalid += 1
             continue
         if end <= warmup or (simulation_end is not None and begin >= simulation_end):
             continue
 
-        ego = conflict.get("ego", "")
-        foe = conflict.get("foe", "")
+        ego = conflict.get("ego")
+        foe = conflict.get("foe")
+        # 审阅 P2（复审）：车辆 ID 必填（缺失无法配对/归类）
+        if not ego or not foe:
+            invalid += 1
+            continue
 
         for elem_name, attr, threshold, compare in [
             ("minTTC", "value", ttc_th, lambda v, t: v < t),
@@ -55,10 +69,18 @@ def _dedup_none(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
             try:
                 val = float(elem.get(attr, ""))
             except (ValueError, TypeError):
+                invalid += 1
+                continue
+            if not math.isfinite(val):
+                invalid += 1
                 continue
             try:
                 etime = float(elem.get("time", "0"))
             except (ValueError, TypeError):
+                invalid += 1
+                continue
+            if not math.isfinite(etime):
+                invalid += 1
                 continue
             if etime < warmup or (simulation_end is not None and etime >= simulation_end):
                 continue
@@ -75,6 +97,9 @@ def _dedup_none(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
                 result["drac_event_count"] += 1
                 result["max_drac"] = max(result["max_drac"], val)
 
+    if invalid:
+        raise ValueError(f"_dedup_none: {invalid} semantically damaged SSM record(s) in {xml_path}")
+
     min_ttc = result["min_ttc"] if result["min_ttc"] != float("inf") else float("nan")
     max_drac = result["max_drac"] if result["max_drac"] != float("-inf") else float("nan")
     return (
@@ -89,6 +114,13 @@ def _dedup_none(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
 def _dedup_current(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
     """Current greedy one-to-one dedup (same as parse_ssm)."""
     result = parse_ssm(xml_path, warmup, ttc_th, drac_th, simulation_end=simulation_end)
+    # 审阅 P1-3：解析失败标志必须检查（与 none/sorted_greedy fail-closed 行为一致），
+    # 不得基于部分解析的不完整输入产出敏感性结果
+    if not result["parse_success"]:
+        raise ValueError(
+            f"_dedup_current: SSM XML {xml_path} contains semantically damaged record(s) "
+            f"(parse_success=False)"
+        )
     return (
         result["ttc_conflict_event_count"],
         result["drac_conflict_event_count"],
@@ -100,6 +132,7 @@ def _dedup_current(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
 
 def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
     """Sorted greedy: sort records by (begin,end,ego,foe,minTTC,maxDRAC) before dedup."""
+    import math
     import xml.etree.ElementTree as ET
     from collections import defaultdict
 
@@ -107,19 +140,33 @@ def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th, simulation_end=None)
     try:
         tree = ET.parse(xml_path)
         root = tree.getroot()
-    except (ET.ParseError, FileNotFoundError, OSError):
-        return (0, 0, float("nan"), float("nan"), 0)
+    except (ET.ParseError, FileNotFoundError, OSError) as exc:
+        # 审阅 P2（复审）：XML 解析失败抛错，不再返回全零结果
+        raise ValueError(
+            f"_dedup_sorted_greedy: failed to parse SSM XML {xml_path}: {exc!r}"
+        ) from exc
+
+    # 审阅 P2-1：坏记录 fail-closed（与 canonical parser 语义一致），不再静默跳过
+    invalid = 0
 
     for conflict in root.findall("conflict"):
         try:
             begin = float(conflict.get("begin", "0"))
             end = float(conflict.get("end", "0"))
         except (ValueError, TypeError):
+            invalid += 1
+            continue
+        if not (math.isfinite(begin) and math.isfinite(end)) or end < begin:
+            invalid += 1
             continue
         if end <= warmup or (simulation_end is not None and begin >= simulation_end):
             continue
-        ego = conflict.get("ego", "")
-        foe = conflict.get("foe", "")
+        ego = conflict.get("ego")
+        foe = conflict.get("foe")
+        # 审阅 P2（复审）：车辆 ID 必填（缺失无法配对/归类，与 canonical 一致）
+        if not ego or not foe:
+            invalid += 1
+            continue
 
         min_ttc_val = None
         min_ttc_time = 0
@@ -128,12 +175,16 @@ def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th, simulation_end=None)
             try:
                 min_ttc_val = float(me.get("value", ""))
                 t = float(me.get("time", "0"))
-                if warmup <= t and (simulation_end is None or t < simulation_end):
-                    min_ttc_time = t
-                else:
-                    min_ttc_val = None
             except (ValueError, TypeError):
-                pass
+                invalid += 1
+                continue
+            if not math.isfinite(min_ttc_val) or not math.isfinite(t):
+                invalid += 1
+                continue
+            if warmup <= t and (simulation_end is None or t < simulation_end):
+                min_ttc_time = t
+            else:
+                min_ttc_val = None
 
         max_drac_val = None
         max_drac_time = 0
@@ -142,12 +193,16 @@ def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th, simulation_end=None)
             try:
                 max_drac_val = float(mde.get("value", ""))
                 t = float(mde.get("time", "0"))
-                if warmup <= t and (simulation_end is None or t < simulation_end):
-                    max_drac_time = t
-                else:
-                    max_drac_val = None
             except (ValueError, TypeError):
-                pass
+                invalid += 1
+                continue
+            if not math.isfinite(max_drac_val) or not math.isfinite(t):
+                invalid += 1
+                continue
+            if warmup <= t and (simulation_end is None or t < simulation_end):
+                max_drac_time = t
+            else:
+                max_drac_val = None
 
         records.append(
             {
@@ -235,6 +290,11 @@ def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th, simulation_end=None)
             drac_events += 1
             max_drac = max(max_drac, rec["max_drac"])
 
+    if invalid:
+        raise ValueError(
+            f"_dedup_sorted_greedy: {invalid} semantically damaged SSM record(s) in {xml_path}"
+        )
+
     return (
         ttc_events,
         drac_events,
@@ -269,15 +329,24 @@ def run_sensitivity(input_root, output_dir, analysis_config_path):
             )
 
     rows = []
+    # 审阅 P1（复审）：遍历全部 run 目录（含 run_spec.json 的目录）——缺 ssm.xml 的 run
+    # 纳入失败集合，不得静默过滤；frozen_inputs/ 等非 run 归档目录（无 run_spec.json）
+    # 自然排除，不误报为失败 run
     run_dirs = sorted(
-        d for d in Path(input_root).iterdir() if d.is_dir() and (d / "ssm.xml").exists()
+        d for d in Path(input_root).iterdir() if d.is_dir() and (d / "run_spec.json").exists()
     )
 
+    # 审阅 P1-1：完整性 fail-closed——load_run_spec 失败 / SSM 文件缺失不得静默跳过
+    load_failures: list[tuple[str, str]] = []
     for run_dir in run_dirs:
         run_id = run_dir.name
+        if not (run_dir / "ssm.xml").exists() and not (run_dir / "ssm_compact.xml").exists():
+            load_failures.append((run_id, "missing ssm.xml/ssm_compact.xml"))
+            continue
         try:
             spec = load_run_spec(run_dir)
-        except Exception:
+        except Exception as exc:
+            load_failures.append((run_id, repr(exc)))
             continue
         capture_ttc = spec.ssm_capture_ttc_threshold_s
         capture_drac = spec.ssm_capture_drac_threshold_mps2
@@ -333,6 +402,12 @@ def run_sensitivity(input_root, output_dir, analysis_config_path):
                         "affected_vehicle_count": "",
                     }
                 )
+
+    if load_failures:
+        details = "; ".join(f"{rid}({exc})" for rid, exc in load_failures[:5])
+        raise RuntimeError(
+            f"ssm_sensitivity: {len(load_failures)} run(s) failed to load run_spec: {details}"
+        )
 
     out = Path(output_dir) / "ssm_sensitivity_results.csv"
     out.parent.mkdir(parents=True, exist_ok=True)

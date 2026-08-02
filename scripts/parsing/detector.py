@@ -20,16 +20,30 @@ def _compute_speed_variance(speed_values: list) -> float:
 
 
 def parse_detector(xml_path: str, warmup_period: float = 600.0):
-    """解析单个 e1 检测器 XML，返回 (mean_flow, max_flow, mean_speed, speed_variance, window_count)"""
+    """解析单个 e1 检测器 XML，返回 (mean_flow, max_flow, mean_speed, speed_variance, window_count)
+
+    审阅 P1-2：interval 属性（begin/flow/speed）非数值或非有限 → 抛 ValueError
+    （fail-closed，与 SSM/EdgeData 语义一致），不再把 nan 流量当作有效数据。
+    """
+    import math
+
     root = ET.parse(xml_path).getroot()
     flow_values, speed_values = [], []
 
     for interval in root.findall("interval"):
-        begin = float(interval.get("begin", "0"))
+        try:
+            begin = float(interval.get("begin", "0"))
+            flow = float(interval.get("flow", "0"))
+            speed = float(interval.get("speed", "0"))
+        except (ValueError, TypeError):
+            raise ValueError(f"detector: non-numeric interval attribute in {xml_path}") from None
+        if not (math.isfinite(begin) and math.isfinite(flow) and math.isfinite(speed)):
+            raise ValueError(
+                f"detector: non-finite interval attribute in {xml_path} "
+                f"(begin={begin!r}, flow={flow!r}, speed={speed!r})"
+            )
         if begin < warmup_period:
             continue
-        flow = float(interval.get("flow", "0"))
-        speed = float(interval.get("speed", "0"))
         flow_values.append(flow)
         if flow > 0:
             speed_values.append(speed)
@@ -97,18 +111,29 @@ def parse_detector_subgroup(
         ("HV", xml_paths_HV),
         ("CAV", xml_paths_CAV),
     ]:
-        if len(paths) > 1:
-            mf, xf, ms, sv, wc = parse_detector_multi(list(paths), warmup_period)
-        else:
-            mf, xf, ms, sv, wc = parse_detector(list(paths)[0], warmup_period)
-        result[label] = {
-            "mean_flow_veh_h": mf,
-            "max_flow_veh_h": xf,
-            "mean_speed_m_s": ms,
-            "speed_variance": sv,
-            "window_count": wc,
-            "parse_success": True,
-        }
+        try:
+            if len(paths) > 1:
+                mf, xf, ms, sv, wc = parse_detector_multi(list(paths), warmup_period)
+            else:
+                mf, xf, ms, sv, wc = parse_detector(list(paths)[0], warmup_period)
+            result[label] = {
+                "mean_flow_veh_h": mf,
+                "max_flow_veh_h": xf,
+                "mean_speed_m_s": ms,
+                "speed_variance": sv,
+                "window_count": wc,
+                "parse_success": True,
+            }
+        except (ValueError, ET.ParseError, OSError):
+            # 审阅 P1-2：语义损坏 → parse_success=False（fail-closed，writer 标 parser_warning）
+            result[label] = {
+                "mean_flow_veh_h": float("nan"),
+                "max_flow_veh_h": float("nan"),
+                "mean_speed_m_s": float("nan"),
+                "speed_variance": float("nan"),
+                "window_count": 0,
+                "parse_success": False,
+            }
     return result
 
 

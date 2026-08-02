@@ -1,5 +1,6 @@
 """SUMO vehroute output 解析：闭环单圈时间计算。"""
 
+import math
 import xml.etree.ElementTree as ET
 
 
@@ -48,6 +49,8 @@ def parse_lap_times(
         return result
 
     all_lap_times = []
+    # 审阅 P1-2：坏值（非数值/非有限）计数——fail-closed，不得静默跳过伪造圈次
+    invalid = 0
 
     for vehicle in root.findall("vehicle"):
         route = vehicle.find("route")
@@ -61,11 +64,15 @@ def parse_lap_times(
         for t in exit_times_str.split():
             try:
                 val = float(t)
-                if val < 0:
-                    continue  # -1 = not reached
-                times.append(val)
-            except ValueError:
+            except (ValueError, TypeError):
+                invalid += 1
                 continue
+            if not math.isfinite(val):
+                invalid += 1
+                continue
+            if val < 0:
+                continue  # -1 = not reached（合法）
+            times.append(val)
 
         if len(times) < edges_per_lap * 1:
             continue  # not even one complete lap
@@ -103,7 +110,7 @@ def parse_lap_times(
         else (all_lap_times[n // 2 - 1] + all_lap_times[n // 2]) / 2
     )
     result["p95_lap_time_s"] = _quantile_higher(all_lap_times, 0.95)
-    result["parse_success"] = True
+    result["parse_success"] = invalid == 0
 
     return result
 

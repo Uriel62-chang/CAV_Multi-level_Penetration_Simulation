@@ -1,5 +1,6 @@
 """SUMO lanechange-output 解析：换道计数与间隙安全判定。"""
 
+import math
 import xml.etree.ElementTree as ET
 
 
@@ -34,11 +35,17 @@ def parse_lanechange(xml_path: str, warmup_period: float = 600.0):
 
     total = 0
     unsafe = 0
+    # 审阅 P1-2：坏值（time 非数值/非有限）计数——fail-closed，不得计入换道
+    invalid = 0
 
     for change in root.findall("change"):
         try:
             time_val = float(change.get("time", "0"))
         except (ValueError, TypeError):
+            invalid += 1
+            continue
+        if not math.isfinite(time_val):
+            invalid += 1
             continue
 
         if time_val < warmup_period:
@@ -67,7 +74,7 @@ def parse_lanechange(xml_path: str, warmup_period: float = 600.0):
     result["lane_change_count"] = total
     result["unsafe_lc_gap_count"] = unsafe
     result["unsafe_lc_gap_ratio"] = unsafe / total if total > 0 else float("nan")
-    result["parse_success"] = True
+    result["parse_success"] = invalid == 0
     return result
 
 

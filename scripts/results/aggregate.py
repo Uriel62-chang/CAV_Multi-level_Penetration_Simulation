@@ -1,8 +1,9 @@
 """Step 14: 多种子聚合 —— run-level → aggregated statistics.
 
-    输入：run_level_results.csv（post3 为 10,080 行 × 60 列，每行一个 assignment seed）
-    输出：aggregated_results.csv（2,016 行，每行一个 scenario×model×pCAV×vehN，
-          含 5 个车辆类型排列 seed 的等权算术 mean/std/median/min/max/count）
+    输入：run_level_results.csv（v0.4.2 为 3,888/84 行，每行一个 (assignment_seed, sumo_seed)
+          组合；post3 legacy 为 10,080 行 × 60 列，每行一个 assignment seed）
+    输出：aggregated_results.csv（v0.4.2 为 528/84 行，每行一个 scenario×model×vehN×cav_count，
+          含双 seed 组合的等权算术 mean/std/median/min/max/count）
 
     python3 -m scripts.results.aggregate \
       --input /home/lyc/simdata/cav-v0.4.0/results/run_level_results.csv \
@@ -19,6 +20,7 @@ import pandas as pd
 from scripts.schema import (
     CAPACITY_COLUMNS,
     DELAY_COLUMNS,
+    DRAC_RATE_COLUMNS_V4_2,
     EFFICIENCY_COLUMNS,
     EMISSIONS_COLUMNS,
     EMISSIONS_COLUMNS_V4_2,
@@ -43,6 +45,7 @@ METRIC_COLUMNS = (
     + EFFICIENCY_COLUMNS
     + NORMALIZED_COLUMNS
     + DELAY_COLUMNS
+    + DRAC_RATE_COLUMNS_V4_2  # 审阅 P0-1：DRAC 空间配对事件率进入聚合（V4_1 CSV 无此列，自动跳过）
 )
 
 # 排除非数值列（det_xml 是路径字符串，detector 窗口数是离散量但可聚合）
@@ -218,6 +221,7 @@ def aggregate(
         "p95_lap_time_s": "lap_p95",
         "lap_time_std_s": "lap_std",
         "ttc_events_per_1000_veh_km": "ttc_per_k",
+        "drac_events_per_1000_veh_km": "drac_per_k",  # 审阅 P0-1：DRAC 空间配对事件率
         "emergency_brakes_per_1000_veh_km": "eb_per_k",
         "lane_changes_per_1000_veh_km": "lc_per_k",
         "CO2_g_per_veh_km": "co2_per_k",

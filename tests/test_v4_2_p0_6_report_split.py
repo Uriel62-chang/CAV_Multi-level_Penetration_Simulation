@@ -129,6 +129,7 @@ def test_safety_report_generates_events_chart(tmp_path, monkeypatch):
             "vehN": [60, 60],
             "cav_count": [12, 36],
             "ttc_per_k_mean": [0.5, 1.2],
+            "drac_per_k_mean": [0.1, 0.3],
         }
     )
     p = tmp_path / "agg.csv"
@@ -139,6 +140,7 @@ def test_safety_report_generates_events_chart(tmp_path, monkeypatch):
     viz.run_safety_v4_2(argparse.Namespace(aggregated=str(p), outDir=str(out)))
     files = sorted(x.name for x in out.iterdir())
     assert "chart_safety_events_by_penetration.png" in files
+    assert "chart_safety_drac_by_penetration.png" in files  # 审阅 P0-1：DRAC 图
     assert "chart_safety_flow.png" not in files
     # P1-3：曲线必须基于非空数据渲染（scenario_0 两模型行），PNG 非空
     png = out / "chart_safety_events_by_penetration.png"
@@ -160,6 +162,11 @@ def test_safety_plot_separates_vehn(tmp_path, monkeypatch):
     class FakeAx:
         def plot(self, x, y, **kw):
             calls.append((list(x), list(y), kw.get("label")))
+            self._plotted = True
+
+        def get_legend_handles_labels(self):
+            # 仅已绘制曲线的面返回 handle（对应实现的条件 legend）
+            return (["h"] if getattr(self, "_plotted", False) else []), []
 
         def set_xlabel(self, *a, **k):
             pass
@@ -197,6 +204,7 @@ def test_safety_plot_separates_vehn(tmp_path, monkeypatch):
             "vehN": [30, 30, 60, 60],
             "cav_count": [6, 6, 12, 12],
             "ttc_per_k_mean": [0.5, 0.8, 1.2, 1.5],
+            "drac_per_k_mean": [0.1, 0.2, 0.3, 0.4],
         }
     )
     p = tmp_path / "agg.csv"
@@ -205,8 +213,8 @@ def test_safety_plot_separates_vehn(tmp_path, monkeypatch):
     out.mkdir()
     viz.run_safety_v4_2(argparse.Namespace(aggregated=str(p), outDir=str(out)))
 
-    # scenario_0 有 2 个 vehN × 2 model = 4 条线；scenario_3 无数据不画
-    assert len(calls) == 4, f"expected 4 plot calls per (vehN, model), got {len(calls)}"
+    # scenario_0 有 2 个 vehN × 2 model = 4 条线 × 2 指标（TTC + DRAC 图，审阅 P0-1）
+    assert len(calls) == 8, f"expected 8 plot calls (TTC+DRAC), got {len(calls)}"
     for x, y, label in calls:
         assert len(x) == len(set(x)), f"vertical line (duplicate x) for {label}: {x}"
         # 每条线只含单一 vehN 的数据（修复前 0.5 与 1.2 会在同一条线）
@@ -245,3 +253,14 @@ def test_ttc_metric_column_missing_raises(tmp_path):
     df = pd.DataFrame({"flow_mean": [1.0]})
     with pytest.raises(ValueError):
         _ttc_metric_column(df)
+
+
+def test_safety_cli_help_mentions_ttc_and_drac():
+    """审阅 P0-1 残留 P2：--safety help 不得再声称"仅 TTC"。"""
+    import inspect
+
+    from scripts.results.visualization import main as viz_main
+
+    src = inspect.getsource(viz_main)
+    assert "TTC + DRAC" in src, "safety CLI help must mention both TTC and DRAC"
+    assert "仅 TTC" not in src, "stale 'TTC-only' claim in CLI help"

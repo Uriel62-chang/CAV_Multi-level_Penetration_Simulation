@@ -2,7 +2,7 @@
 
 > 数据：`results/v0.4.2/{main,safety}/aggregated_results.csv`（schema=2，双 seed 统计单位）
 > 状态：main 3,888 runs / 528 组、safety 84 runs / 84 组，全部 data_quality=ok，writer complete=true
-> 图：`graph/v0.4.2/`（main 3 张 + safety 按 scenario × vehN 分面）
+> 图：`graph/v0.4.2/`（main 3 张）+ `graph/v0.4.2/safety/`（safety 2 张：TTC/DRAC 事件率，按 scenario × vehN 分面）
 > 口径说明：流量/排放主强度用 non-internal 配对；全路网次要强度用 `wn_*` 列；Safety 每格仅 1 个 seed pair，结果为描述性。
 
 ## 1. 主 factorial：各场景网格内最大观测流量
@@ -30,6 +30,7 @@ IDM 流量约为 CACC 2.1 倍、delay 约 1/3、排放强度更低——v0.4.0 �
 - **s0**：p=1.0 端点事件率数值上明显上升（v30: IDM/CACC ~1,952；v60: 5,855/3,905；v120: 3,939/1,951），与 s0 急弯周期制动一致；vehN 与渗透率效应叠加，须分面阅读。单 seed 描述性结果，不作置信/显著性推断。
 - **s3**：v120 事件率随 p 单调上升（IDM 843→1,445、CACC 897→3,006）；v30/v60 的 p=1.0 端点反而为 0（该格无 TTC 事件，单 seed 描述性结果）。
 - **s1 与 s2 均未检出 TTC 事件**（s1 max ttc_per_k_mean=0.0、s2 非零组=0）；仅表示当前 TTC<3.0 s 阈值、SUMO 1.27.1、Safety 网格、单 seed 和现有 SSM 配置下未检测到，不升级为「无安全冲突」。
+- **DRAC（审阅 P0-1 补齐，空间配对率 drac_events_per_1000_veh_km = 全路网 DRAC 事件 / 全路网 veh-km）**：26/84 runs 检出 DRAC 事件（合计 31,793 个），s0 峰值 1,951.1（IDM p=1.0，v30/v60/v120 均 ~1,950，与 TTC 同运行点共现）、s3 峰值 1,616.9（CACC p=1.0 v120）；s1/s2 与 TTC 相同为全零。单 seed 描述性结果，不作置信/显著性推断。
 
 ## 4. 跨版本（v0.4.2 vs v0.4.0）比较边界
 
@@ -74,8 +75,9 @@ IDM 流量约为 CACC 2.1 倍、delay 约 1/3、排放强度更低——v0.4.0 �
   ssm_not_collected=True（run-level CSV 新增 experiment_role / ssm_enabled /
   ssm_not_collected 状态列）；聚合层面 ttc_mean=NaN、count=0。safety
   （84 runs）不受影响（合法零检出仍为 0）。
-- **图**：graph/v0.4.2/ 4 张图字节级不变（图使用 mean delay 与独立 safety
-  TTC，不受上述两项修正影响）。
+- **图**：graph/v0.4.2/ main 3 张字节级不变；safety 图在审阅 P0-1/P1-1 后重生成
+  （TTC + DRAC 各一张，四场景全分面，位于 graph/v0.4.2/safety/；此前"仅 s0/s3"
+  与单 TTC 图已由 2026 审阅补齐）。
 - **输入完整性**：3,972 个旧 run 的 stderr.log 哈希通过重解析前生成的
   input_integrity.sidecar.json（purpose=pre-reparse freeze）补全，
   未回填 simulation_status.json（不回填仿真时证据）。

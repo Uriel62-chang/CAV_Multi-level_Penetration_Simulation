@@ -663,3 +663,524 @@ def test_edge_emis_empty_edge_omitted_attrs_is_valid(tmp_path):
     assert r["parse_success"] is True
     assert r["invalid_record_count"] == 0
     assert r["total_CO2_kg"] == 0.0
+
+
+# ── 审查 P0-1：DRAC 空间配对事件率（全路网 DRAC 事件 / 全路网 veh-km）──
+
+
+def test_v4_2_run_level_columns_include_drac_rate():
+    from scripts.schema import (
+        DRAC_RATE_COLUMNS_V4_2,
+        RUN_LEVEL_COLUMNS_V4_1,
+        RUN_LEVEL_COLUMNS_V4_2,
+    )
+
+    assert "drac_events_per_1000_veh_km" in RUN_LEVEL_COLUMNS_V4_2
+    assert "drac_events_per_1000_veh_km" in DRAC_RATE_COLUMNS_V4_2
+    assert "drac_events_per_1000_veh_km" not in RUN_LEVEL_COLUMNS_V4_1  # v0.4.1 冻结
+
+
+def test_writer_recomputes_drac_rate_v4_2():
+    from scripts.results.writer import _build_row_v4_1
+
+    summary = {
+        "run_id": "r",
+        "scenario": "scenario_0",
+        "model": "IDM",
+        "det_xml": "x",
+        "vehN": 10,
+        "drac_conflict_event_count": 100,
+        "total_vehicle_km": 10.0,
+    }
+    row = _build_row_v4_1(summary, "SUCCESS", pipeline_version="v0.4.2")
+    assert row["drac_events_per_1000_veh_km"] == pytest.approx(100.0 / 10.0 * 1000.0)
+
+
+def test_writer_drac_rate_nan_when_not_collected():
+    """main factorial ssm_not_collected：DRAC 计数为 NaN → 率 NaN（未采集语义）。"""
+    from scripts.results.writer import _build_row_v4_1
+
+    summary = {
+        "run_id": "r",
+        "scenario": "scenario_0",
+        "model": "IDM",
+        "det_xml": "x",
+        "vehN": 10,
+        "drac_conflict_event_count": math.nan,
+        "total_vehicle_km": 10.0,
+    }
+    row = _build_row_v4_1(summary, "SUCCESS", pipeline_version="v0.4.2")
+    assert math.isnan(row["drac_events_per_1000_veh_km"])
+
+
+def test_aggregate_metrics_include_drac_rate():
+    from scripts.results.aggregate import METRIC_COLUMNS
+
+    assert "drac_events_per_1000_veh_km" in METRIC_COLUMNS
+
+
+def test_paired_drac_metric_column():
+    import pandas as pd
+
+    from scripts.results.visualization import _paired_drac_metric_column
+
+    assert _paired_drac_metric_column(pd.DataFrame({"drac_per_k_mean": [1.0]})) == "drac_per_k_mean"
+    with pytest.raises(ValueError, match="drac_per_k_mean"):
+        _paired_drac_metric_column(pd.DataFrame({"ttc_per_k_mean": [1.0]}))
+
+
+# ── 审查 P1-2：SSM 解析器语义损坏记录 fail-closed ──
+
+from scripts.parsing.ssm import parse_ssm, parse_ssm_subgroup  # noqa: E402
+
+
+def test_ssm_nan_value_fails_closed(tmp_path):
+    """value=\"nan\"（语义损坏）→ invalid，不再静默记为无 TTC 事件。"""
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="100" end="200" ego="v1" foe="v2">'
+        '<minTTC time="150" type="3" value="nan"/></conflict></SSMLog>',
+        encoding="utf-8",
+    )
+    r = parse_ssm(str(p), warmup_period=0)
+    assert r["parse_success"] is False
+    assert r["ssm_invalid_record_count"] == 1
+    assert r["ttc_conflict_event_count"] == 0
+
+
+def test_ssm_begin_nan_fails_closed(tmp_path):
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="nan" end="200" ego="v1" foe="v2">'
+        '<minTTC time="150" type="3" value="1.0"/></conflict></SSMLog>',
+        encoding="utf-8",
+    )
+    r = parse_ssm(str(p), warmup_period=0)
+    assert r["parse_success"] is False
+    assert r["ssm_invalid_record_count"] == 1
+
+
+def test_ssm_missing_ego_fails_closed(tmp_path):
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="100" end="200" foe="v2">'
+        '<minTTC time="150" type="3" value="1.0"/></conflict></SSMLog>',
+        encoding="utf-8",
+    )
+    r = parse_ssm(str(p), warmup_period=0)
+    assert r["parse_success"] is False
+    assert r["ssm_invalid_record_count"] == 1
+
+
+def test_ssm_reversed_interval_fails_closed(tmp_path):
+    """区间检查：end < begin 为语义损坏。"""
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="200" end="100" ego="v1" foe="v2">'
+        '<minTTC time="150" type="3" value="1.0"/></conflict></SSMLog>',
+        encoding="utf-8",
+    )
+    r = parse_ssm(str(p), warmup_period=0)
+    assert r["parse_success"] is False
+    assert r["ssm_invalid_record_count"] == 1
+
+
+def test_ssm_subgroup_missing_type_fails_closed(tmp_path):
+    """subgroup 路径：minTTC 元素存在但 type 缺失（SUMO 恒输出数字 type）→ invalid。"""
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="100" end="200" ego="v1" foe="v2">'
+        '<minTTC time="150" value="1.0"/></conflict></SSMLog>',
+        encoding="utf-8",
+    )
+    r = parse_ssm_subgroup(str(p), {}, warmup_period=0)
+    assert r["all"]["parse_success"] is False
+    assert r["all"]["ssm_invalid_record_count"] == 1
+
+
+def test_ssm_valid_fixture_still_succeeds():
+    r = parse_ssm(os.path.join(FIXTURES, "ssm_minimal.xml"), warmup_period=600)
+    assert r["parse_success"] is True
+    assert r["ssm_invalid_record_count"] == 0
+
+
+# ── 审查 P2-3：writer --dry-run 核验磁盘终态（resume 场景 manifest 含 SKIPPED）──
+
+
+def test_writer_dry_run_reports_disk_status(tmp_path):
+    import subprocess
+    import sys as _sys
+
+    raw = tmp_path / "raw"
+    (raw / "r1").mkdir(parents=True)
+    (raw / "r2").mkdir()
+    (raw / "r1" / "simulation_status.json").write_text(
+        json.dumps({"run_id": "r1", "status": "SUCCESS"}), encoding="utf-8"
+    )
+    (raw / "r2" / "simulation_status.json").write_text(
+        json.dumps({"run_id": "r2", "status": "SUCCESS"}), encoding="utf-8"
+    )
+    manifest = {
+        "pipeline_version": "v0.4.2",
+        "total": 2,
+        "results": [
+            {"run_id": "r1", "status": "SUCCESS"},
+            {"run_id": "r2", "status": "SKIPPED"},  # resume 场景：manifest 记录 SKIPPED
+        ],
+    }
+    mp = tmp_path / "manifest.json"
+    mp.write_text(json.dumps(manifest), encoding="utf-8")
+    out = tmp_path / "out"
+    proc = subprocess.run(
+        [
+            _sys.executable,
+            "-m",
+            "scripts.results.writer",
+            "--input-root",
+            str(raw),
+            "--output-dir",
+            str(out),
+            "--manifest",
+            str(mp),
+            "--dry-run",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=os.path.join(os.path.dirname(__file__), ".."),
+    )
+    assert proc.returncode == 0, proc.stderr
+    # 修复前只报 manifest 内 SUCCESS（1）；修复后追加磁盘终态（2/2）
+    assert "1 manifest-SUCCESS" in proc.stdout
+    assert "2/2 disk simulation_status=SUCCESS" in proc.stdout
+
+
+# ── 审查 P1-1/P2-1：SSM 敏感性分析 fail-closed ──
+
+
+def test_sensitivity_load_failure_fails_closed(tmp_path):
+    """审阅 P1-1：load_run_spec 失败不得静默跳过（防止生成缺 run 的分析结果）。"""
+    from scripts.analysis.ssm_sensitivity import run_sensitivity
+
+    rd = tmp_path / "input" / "run1"
+    rd.mkdir(parents=True)
+    (rd / "ssm.xml").write_text("<SSMLog/>", encoding="utf-8")
+    (rd / "run_spec.json").write_text("{broken json", encoding="utf-8")
+    cfg = tmp_path / "analysis.json"
+    cfg.write_text("{}", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="failed to load"):
+        run_sensitivity(tmp_path / "input", tmp_path / "out", str(cfg))
+
+
+def test_dedup_none_bad_record_fails_closed(tmp_path):
+    """审阅 P2-1：敏感性 none 路径坏记录（value=\"nan\"）不再静默跳过。"""
+    from scripts.analysis.ssm_sensitivity import _dedup_none
+
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="100" end="200" ego="v1" foe="v2">'
+        '<minTTC time="150" type="3" value="nan"/></conflict></SSMLog>',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="damaged"):
+        _dedup_none(str(p), warmup=0, ttc_th=3.0, drac_th=3.0)
+
+
+def test_dedup_sorted_greedy_bad_record_fails_closed(tmp_path):
+    """审阅 P2-1：敏感性 sorted_greedy 路径坏 begin 不再静默跳过。"""
+    from scripts.analysis.ssm_sensitivity import _dedup_sorted_greedy
+
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="nan" end="200" ego="v1" foe="v2">'
+        '<minTTC time="150" type="3" value="1.0"/></conflict></SSMLog>',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="damaged"):
+        _dedup_sorted_greedy(str(p), warmup=0, ttc_th=3.0, drac_th=3.0)
+
+
+# ── 审查 P2-2：RunSpec 反序列化严格布尔 ──
+
+
+def test_run_spec_strict_bool_from_dict():
+    from scripts.run_spec import PIPELINE_V4_2, RunSpec
+
+    base = RunSpec(
+        **{
+            "scenario": "scenario_0",
+            "model": "IDM",
+            "pcav": 0.5,
+            "vehicle_count": 10,
+            "seed": 7,
+            "run_id": "stable-id",
+            "simulation_end": 37.0,
+            "warmup": 5.0,
+            "step_length": 0.1,
+            "detector_frequency": 5,
+            "edge_data_frequency": 5,
+            "loops": 2,
+            "network_file": "net/scenario_0/loop.net.xml",
+            "pipeline_version": PIPELINE_V4_2,
+        }
+    ).to_dict()
+    data = dict(base)
+    assert data["pipeline_version"] == PIPELINE_V4_2
+    # 字符串白名单：false → False，true → True（不再 bool("false")=True）
+    data["ssm_trajectories"] = "false"
+    assert RunSpec.from_dict(data).ssm_trajectories is False
+    data["with_internal"] = "true"
+    assert RunSpec.from_dict(data).with_internal is True
+    data["ssm_enabled"] = "false"
+    spec = RunSpec.from_dict(data)
+    assert spec.ssm_enabled is False
+    # 数字型布尔 → 拒绝（与配置层严格布尔一致）
+    data["with_internal"] = 1
+    with pytest.raises(ValueError, match="with_internal"):
+        RunSpec.from_dict(data)
+
+
+# ── 审查 P1-2：legacy post3 重分析传 simulation_end ──
+
+
+def test_reanalyze_passes_simulation_end_to_parse_ssm():
+    """审阅 P1-2：reanalyze_post3 的 parse_ssm 调用必须携带 simulation_end
+    （SSM 观测窗 [warmup, simulation_end)，防止 3600s 后极值混入）。"""
+    import inspect
+
+    from scripts.results import reanalyze_post3
+
+    src = inspect.getsource(reanalyze_post3.reanalyze)
+    assert 'simulation_end=float(row["simulation_end_s"])' in src
+
+
+# ── 审查 P1/P2 复审残留：敏感性完整性 + _dedup_none canonical 对齐 ──
+
+
+def test_sensitivity_missing_ssm_file_fails_closed(tmp_path):
+    """复审 P1：缺 ssm.xml 的 run 不得在目录收集阶段被静默过滤。"""
+    from scripts.analysis.ssm_sensitivity import run_sensitivity
+
+    rd = tmp_path / "input" / "run1"
+    rd.mkdir(parents=True)
+    # run 目录存在但无 ssm.xml（也无 ssm_compact.xml）
+    (rd / "run_spec.json").write_text("{}", encoding="utf-8")
+    cfg = tmp_path / "analysis.json"
+    cfg.write_text("{}", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="missing ssm"):
+        run_sensitivity(tmp_path / "input", tmp_path / "out", str(cfg))
+
+
+def test_dedup_none_xml_parse_failure_raises(tmp_path):
+    """复审 P2：XML 解析失败抛错，不再返回全零结果。"""
+    from scripts.analysis.ssm_sensitivity import _dedup_none
+
+    p = tmp_path / "ssm.xml"
+    p.write_text("<SSMLog><conflict", encoding="utf-8")  # 截断 XML
+    with pytest.raises(ValueError, match="failed to parse"):
+        _dedup_none(str(p), warmup=0, ttc_th=3.0, drac_th=3.0)
+
+
+def test_dedup_none_missing_ego_fails_closed(tmp_path):
+    """复审 P2：ego/foe 必填（与 canonical 一致）。"""
+    from scripts.analysis.ssm_sensitivity import _dedup_none
+
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="100" end="200" foe="v2">'
+        '<minTTC time="150" type="3" value="1.0"/></conflict></SSMLog>',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="damaged"):
+        _dedup_none(str(p), warmup=0, ttc_th=3.0, drac_th=3.0)
+
+
+def test_dedup_sorted_greedy_xml_parse_failure_raises(tmp_path):
+    """复审 P2：sorted_greedy XML 解析失败抛错，不再返回全零结果。"""
+    from scripts.analysis.ssm_sensitivity import _dedup_sorted_greedy
+
+    p = tmp_path / "ssm.xml"
+    p.write_text("<SSMLog><conflict", encoding="utf-8")  # 截断 XML
+    with pytest.raises(ValueError, match="failed to parse"):
+        _dedup_sorted_greedy(str(p), warmup=0, ttc_th=3.0, drac_th=3.0)
+
+
+def test_dedup_sorted_greedy_missing_ego_fails_closed(tmp_path):
+    """复审 P2：sorted_greedy ego/foe 必填（与 canonical 一致）。"""
+    from scripts.analysis.ssm_sensitivity import _dedup_sorted_greedy
+
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="100" end="200" foe="v2">'
+        '<minTTC time="150" type="3" value="1.0"/></conflict></SSMLog>',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="damaged"):
+        _dedup_sorted_greedy(str(p), warmup=0, ttc_th=3.0, drac_th=3.0)
+
+
+# ── 审查 P1-1：TTC/DRAC pair 归类分别使用各自 provenance ──
+
+
+def test_ssm_pair_type_uses_drac_provenance():
+    """DRAC pair 计数必须使用 max_drac_source（不得套用 min_ttc_source）。"""
+    import inspect
+
+    from scripts.parsing.ssm import parse_ssm_subgroup
+
+    src = inspect.getsource(parse_ssm_subgroup)
+    # has_drac 分支从 max_drac_source_* 构造 pair_type
+    assert 'rec.get("max_drac_source_ego") or rec["ego"]' in src
+    # pair 计算不再统一用 min_ttc_source 喂给两个计数
+    assert "drac_pair_type = _pair_type(" in src
+
+
+def test_ssm_pair_drac_only_event_counts_by_own_provenance(tmp_path):
+    """DRAC-only conflict（无 minTTC）的 pair 计数正确（回归保护）。"""
+    from scripts.parsing.ssm import parse_ssm_subgroup
+
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="100" end="200" ego="veh1" foe="veh2">'
+        '<maxDRAC time="150" type="3" value="6.0"/></conflict></SSMLog>',
+        encoding="utf-8",
+    )
+    type_map = {"veh1": "CAV", "veh2": "CAV"}
+    r = parse_ssm_subgroup(str(p), type_map, warmup_period=0)
+    assert r["all"]["drac_conflict_event_count"] == 1
+    assert r["pair_CAV_CAV"]["drac_event_count"] == 1
+    assert r["all"]["ttc_conflict_event_count"] == 0
+
+
+# ── 审查 P1-2：frozen_inputs/ 等非 run 目录不得误报 ──
+
+
+def test_sensitivity_ignores_non_run_dirs(tmp_path):
+    """frozen_inputs/（无 run_spec.json 的归档目录）不得计入失败集合。"""
+    from scripts.analysis.ssm_sensitivity import run_sensitivity
+
+    root = tmp_path / "input"
+    (root / "frozen_inputs").mkdir(parents=True)
+    (root / "frozen_inputs" / "net.xml").write_text("<net/>", encoding="utf-8")
+    cfg = tmp_path / "analysis.json"
+    cfg.write_text("{}", encoding="utf-8")
+    # 无 run_spec.json 的目录 → 全部跳过 → 空结果 CSV 正常生成，不抛错
+    run_sensitivity(str(root), str(tmp_path / "out"), str(cfg))
+
+
+# ── 审查 P1-3：_dedup_current 检查 parse_success ──
+
+
+def test_dedup_current_checks_parse_success(tmp_path):
+    from scripts.analysis.ssm_sensitivity import _dedup_current
+
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="100" end="200" ego="v1" foe="v2">'
+        '<minTTC time="150" type="3" value="nan"/></conflict></SSMLog>',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="parse_success"):
+        _dedup_current(str(p), warmup=0, ttc_th=3.0, drac_th=3.0)
+
+
+def test_ssm_pair_mirror_merge_split_provenance(tmp_path):
+    """审阅 P2（复核修正）：pair_type 无方向，方向影响真正落在 DRAC role 计数上——
+    镜像去重后 DRAC 极值来自反向记录 B（type=2 → follower=ego=CAV），DRAC role 必须按
+    max_drac_source 归入 role_f_CAV_l_HV，而 TTC role 按 min_ttc_source 归入
+    role_f_HV_l_CAV（两个方向分别保留）。"""
+    from scripts.parsing.ssm import parse_ssm_subgroup
+
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        "<SSMLog>"
+        # A（正向 veh1→veh2，type=2 → follower=ego=HV, leader=foe=CAV）
+        '<conflict begin="100" end="200" ego="veh1" foe="veh2">'
+        '<minTTC time="150" type="2" value="1.0"/>'
+        '<maxDRAC time="150" type="2" value="4.0"/>'
+        "</conflict>"
+        # B（反向 veh2→veh1，type=2 → follower=ego=CAV, leader=foe=HV）
+        '<conflict begin="110" end="210" ego="veh2" foe="veh1">'
+        '<minTTC time="160" type="2" value="2.0"/>'
+        '<maxDRAC time="160" type="2" value="8.0"/>'
+        "</conflict>"
+        "</SSMLog>",
+        encoding="utf-8",
+    )
+    type_map = {"veh1": "HV", "veh2": "CAV"}
+    r = parse_ssm_subgroup(str(p), type_map, warmup_period=0)
+    # 镜像合并：1 条保留记录（A），min_ttc 来自 A（1.0）、max_drac 来自 B（8.0）
+    assert r["all"]["ssm_mirrored_record_count"] == 1
+    assert r["all"]["min_ttc_s"] == 1.0
+    assert r["all"]["max_drac_mps2"] == 8.0
+    # pair 无方向：TTC/DRAC 均归入 pair_HV_CAV
+    assert r["pair_HV_CAV"]["ttc_event_count"] == 1
+    assert r["pair_HV_CAV"]["drac_event_count"] == 1
+    # role 有方向：TTC 按 min_ttc_source（follower=HV），DRAC 按 max_drac_source
+    # （follower=CAV）——各自落在正确方向，互不串位
+    assert r["role_f_HV_l_CAV"]["ttc_event_count"] == 1
+    assert r["role_f_HV_l_CAV"]["drac_event_count"] == 0
+    assert r["role_f_CAV_l_HV"]["drac_event_count"] == 1
+    assert r["role_f_CAV_l_HV"]["ttc_event_count"] == 0
+
+
+# ── 审查 P1-2：detector/vehroute/lanechange fail-closed ──
+
+
+def test_detector_nan_flow_fails_closed(tmp_path):
+    """detector：nan 流量不得当作有效数据（fail-closed 抛 ValueError）。"""
+    from scripts.parsing.detector import parse_detector
+
+    p = tmp_path / "det.xml"
+    p.write_text(
+        '<detector xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+        '<interval begin="0.00" end="60.00" id="det0" flow="nan" speed="10.0"/>'
+        "</detector>",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="non-finite"):
+        parse_detector(str(p), warmup_period=0)
+
+
+def test_detector_subgroup_bad_data_marks_parse_failure(tmp_path):
+    """detector subgroup：语义损坏 → parse_success=False（writer 将标 parser_warning）。"""
+    from scripts.parsing.detector import parse_detector_subgroup
+
+    p = tmp_path / "det.xml"
+    p.write_text(
+        '<detector><interval begin="0.00" end="60.00" id="det0" flow="BAD" speed="10.0"/>'
+        "</detector>",
+        encoding="utf-8",
+    )
+    r = parse_detector_subgroup([str(p)], [str(p)], [str(p)], warmup_period=0)
+    assert r["all"]["parse_success"] is False
+
+
+def test_vehroute_bad_exit_time_fails_closed(tmp_path):
+    """vehroute：exitTimes 含非数值/非有限 → parse_success=False（不得静默跳过伪造圈次）。"""
+    from scripts.parsing.vehroute import parse_lap_times
+
+    p = tmp_path / "vehroute.xml"
+    p.write_text(
+        '<routes><vehicle id="v0" depart="0.00">'
+        '<route edges="e0 e1 e2 e3" exitTimes="10.0 20.0 nan 40.0 50.0 60.0 70.0 80.0"/>'
+        "</vehicle></routes>",
+        encoding="utf-8",
+    )
+    r = parse_lap_times(str(p), 4, warmup_period=0, sim_end_time=3600.0)
+    assert r["parse_success"] is False
+
+
+def test_lanechange_nan_time_fails_closed(tmp_path):
+    """lanechange：time=\"nan\" 不得计入换道（fail-closed）。"""
+    from scripts.parsing.lanechange import parse_lanechange
+
+    p = tmp_path / "lc.xml"
+    p.write_text(
+        '<laneChanges><change id="v0" time="nan" type="LC" lane="0" '
+        'leaderGap="10.0" leaderSecureGap="5.0" followerGap="10.0" followerSecureGap="5.0"/>'
+        "</laneChanges>",
+        encoding="utf-8",
+    )
+    r = parse_lanechange(str(p), warmup_period=0)
+    assert r["parse_success"] is False
+    assert r["lane_change_count"] == 0

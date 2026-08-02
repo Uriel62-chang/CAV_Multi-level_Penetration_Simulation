@@ -210,6 +210,15 @@ def _build_row_v4_1(summary: dict, parse_status: str, pipeline_version: str | No
         row["data_quality"] = "parser_warning"
         row["data_quality_detail"] = f"parse_status={parse_status}"
 
+    # 审阅 P0-1（Safety 设计）：DRAC 空间配对事件率（全路网 DRAC 事件 / 全路网 veh-km），
+    # writer 层从 summary 已存计数重算（与 whole_network_ttc 的重算先例一致）；
+    # main factorial ssm_not_collected 时 drac 计数为 NaN → 率 NaN（未采集语义）。
+    if pipeline_version == "v0.4.2":
+        row["drac_events_per_1000_veh_km"] = _recompute_rate(
+            summary.get("drac_conflict_event_count"),
+            summary.get("total_vehicle_km"),
+        )
+
     return row
 
 
@@ -838,8 +847,33 @@ def main():
             sys.exit(1)
         total = manifest["total"]
         results = manifest["results"]
-        sim_ok = sum(1 for r in results if r.get("status") == "SUCCESS")
-        print(f"[DRY RUN] {total} runs in manifest, {sim_ok} simulation SUCCESS")
+        manifest_sim_ok = sum(1 for r in results if r.get("status") == "SUCCESS")
+        # 审阅 P2-3：resume 场景下 manifest 含 SKIPPED 记录，仅数 manifest 内 SUCCESS
+        # 会低估磁盘真实终态（如 main manifest 显示 3678 而磁盘实际 3,888）。
+        # dry-run 追加核验每个 run 目录的 simulation_status.json 终态。
+        disk_sim_ok = 0
+        disk_checked = 0
+        missing_status = 0
+        for r in results:
+            run_id = r.get("run_id")
+            if not run_id:
+                continue
+            sim_status_path = input_root / run_id / "simulation_status.json"
+            disk_checked += 1
+            if sim_status_path.exists():
+                try:
+                    ss = json.loads(sim_status_path.read_text(encoding="utf-8"))
+                    if ss.get("status") == "SUCCESS":
+                        disk_sim_ok += 1
+                except (OSError, ValueError):
+                    pass
+            else:
+                missing_status += 1
+        suffix = f", {missing_status} missing simulation_status.json" if missing_status else ""
+        print(
+            f"[DRY RUN] {total} runs in manifest, {manifest_sim_ok} manifest-SUCCESS, "
+            f"{disk_sim_ok}/{disk_checked} disk simulation_status=SUCCESS{suffix}"
+        )
         return
 
     report = build_run_level_results(

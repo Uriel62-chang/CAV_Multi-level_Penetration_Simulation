@@ -1,5 +1,6 @@
 """SUMO SSM 输出解析：TTC / DRAC 冲突提取 + 时间区间镜像去重。"""
 
+import math
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
@@ -141,13 +142,21 @@ def parse_ssm(
         except (ValueError, TypeError):
             invalid += 1
             continue
+        # 审阅 P1-2：有限性与区间检查（begin/end 语义损坏记录 fail-closed）
+        if not (math.isfinite(begin) and math.isfinite(end)) or end < begin:
+            invalid += 1
+            continue
 
         if end <= warmup_period or (simulation_end is not None and begin >= simulation_end):
             warmup_filtered += 1
             continue
 
-        ego = conflict.get("ego", "")
-        foe = conflict.get("foe", "")
+        ego = conflict.get("ego")
+        foe = conflict.get("foe")
+        # 审阅 P1-2：车辆 ID 必填（缺失无法配对/归类）
+        if not ego or not foe:
+            invalid += 1
+            continue
 
         # TTC
         ttc_val = None
@@ -157,11 +166,16 @@ def parse_ssm(
             try:
                 ttc_val = float(min_ttc_elem.get("value", ""))
                 ttc_time = float(min_ttc_elem.get("time", str(begin)))
-                if ttc_time < warmup_period or (
-                    simulation_end is not None and ttc_time >= simulation_end
-                ):
-                    ttc_val = None
             except (ValueError, TypeError):
+                invalid += 1
+                continue
+            # 审阅 P1-2：元素存在时 value/time 必须有限（"nan" 等语义损坏 fail-closed）
+            if not (math.isfinite(ttc_val) and math.isfinite(ttc_time)):
+                invalid += 1
+                continue
+            if ttc_time < warmup_period or (
+                simulation_end is not None and ttc_time >= simulation_end
+            ):
                 ttc_val = None
 
         # DRAC
@@ -172,11 +186,15 @@ def parse_ssm(
             try:
                 drac_val = float(max_drac_elem.get("value", ""))
                 drac_time = float(max_drac_elem.get("time", str(begin)))
-                if drac_time < warmup_period or (
-                    simulation_end is not None and drac_time >= simulation_end
-                ):
-                    drac_val = None
             except (ValueError, TypeError):
+                invalid += 1
+                continue
+            if not (math.isfinite(drac_val) and math.isfinite(drac_time)):
+                invalid += 1
+                continue
+            if drac_time < warmup_period or (
+                simulation_end is not None and drac_time >= simulation_end
+            ):
                 drac_val = None
 
         parsed.append(
@@ -315,7 +333,7 @@ def parse_ssm(
     result["ttc_involved_vehicle_count"] = len(ttc_involved)
     result["drac_conflict_event_count"] = drac_events
     result["max_drac_mps2"] = max_drac if max_drac != float("-inf") else float("nan")
-    result["parse_success"] = True
+    result["parse_success"] = invalid == 0
     return result
 
 
@@ -385,13 +403,21 @@ def parse_ssm_subgroup(
         except (ValueError, TypeError):
             invalid += 1
             continue
+        # 审阅 P1-2：有限性与区间检查（begin/end 语义损坏记录 fail-closed）
+        if not (math.isfinite(begin) and math.isfinite(end)) or end < begin:
+            invalid += 1
+            continue
 
         if end <= warmup_period or (simulation_end is not None and begin >= simulation_end):
             warmup_filtered += 1
             continue
 
-        ego = conflict.get("ego", "")
-        foe = conflict.get("foe", "")
+        ego = conflict.get("ego")
+        foe = conflict.get("foe")
+        # 审阅 P1-2：车辆 ID 必填（缺失无法配对/归类）
+        if not ego or not foe:
+            invalid += 1
+            continue
 
         ttc_val = None
         ttc_type_code = None
@@ -401,13 +427,18 @@ def parse_ssm_subgroup(
             try:
                 ttc_val = float(min_ttc_elem.get("value", ""))
                 ttc_time = float(min_ttc_elem.get("time", str(begin)))
-                ttc_type_code = int(min_ttc_elem.get("type", "0"))
-                if ttc_time < warmup_period or (
-                    simulation_end is not None and ttc_time >= simulation_end
-                ):
-                    ttc_val = None
-                    ttc_type_code = None
+                # 审阅 P1-2：元素存在时 type 必填且可解析（SUMO 输出恒带数字 type）
+                ttc_type_code = int(min_ttc_elem.get("type", ""))
             except (ValueError, TypeError):
+                invalid += 1
+                continue
+            # 审阅 P1-2：value/time 必须有限（"nan" 等语义损坏 fail-closed）
+            if not (math.isfinite(ttc_val) and math.isfinite(ttc_time)):
+                invalid += 1
+                continue
+            if ttc_time < warmup_period or (
+                simulation_end is not None and ttc_time >= simulation_end
+            ):
                 ttc_val = None
                 ttc_type_code = None
 
@@ -419,13 +450,16 @@ def parse_ssm_subgroup(
             try:
                 drac_val = float(max_drac_elem.get("value", ""))
                 drac_time = float(max_drac_elem.get("time", str(begin)))
-                drac_type_code = int(max_drac_elem.get("type", "0"))
-                if drac_time < warmup_period or (
-                    simulation_end is not None and drac_time >= simulation_end
-                ):
-                    drac_val = None
-                    drac_type_code = None
+                drac_type_code = int(max_drac_elem.get("type", ""))
             except (ValueError, TypeError):
+                invalid += 1
+                continue
+            if not (math.isfinite(drac_val) and math.isfinite(drac_time)):
+                invalid += 1
+                continue
+            if drac_time < warmup_period or (
+                simulation_end is not None and drac_time >= simulation_end
+            ):
                 drac_val = None
                 drac_type_code = None
 
@@ -577,18 +611,29 @@ def parse_ssm_subgroup(
         if not has_ttc and not has_drac:
             continue
 
-        pair_ego = rec.get("min_ttc_source_ego") or rec["ego"]
-        pair_foe = rec.get("min_ttc_source_foe") or rec["foe"]
-        ego_type = type_map.get(pair_ego, "UNKNOWN")
-        foe_type = type_map.get(pair_foe, "UNKNOWN")
+        # 审阅 P1-1：TTC/DRAC pair 归类分别使用各自 provenance——DRAC-only 事件
+        # 的极值可能来自镜像合并的反向记录（max_drac_source_*），不得套用 min_ttc_source
+        def _pair_type(ego_id: str, foe_id: str) -> str:
+            etype = type_map.get(ego_id, "UNKNOWN")
+            ftype = type_map.get(foe_id, "UNKNOWN")
+            key = tuple(sorted([etype, ftype], key=lambda t: type_order.get(t, 2)))
+            return f"pair_{key[0]}_{key[1]}"
 
-        pair_key = tuple(sorted([ego_type, foe_type], key=lambda t: type_order.get(t, 2)))
-        pair_type = f"pair_{pair_key[0]}_{pair_key[1]}"
+        if has_ttc:
+            ttc_pair_type = _pair_type(
+                rec.get("min_ttc_source_ego") or rec["ego"],
+                rec.get("min_ttc_source_foe") or rec["foe"],
+            )
+            if ttc_pair_type in result:
+                result[ttc_pair_type]["ttc_event_count"] += 1
 
-        if has_ttc and pair_type in result:
-            result[pair_type]["ttc_event_count"] += 1
-        if has_drac and pair_type in result:
-            result[pair_type]["drac_event_count"] += 1
+        if has_drac:
+            drac_pair_type = _pair_type(
+                rec.get("max_drac_source_ego") or rec["ego"],
+                rec.get("max_drac_source_foe") or rec["foe"],
+            )
+            if drac_pair_type in result:
+                result[drac_pair_type]["drac_event_count"] += 1
 
         if has_ttc:
             ttc_src_ego = rec.get("min_ttc_source_ego") or rec["ego"]
@@ -625,5 +670,5 @@ def parse_ssm_subgroup(
     all_result["ttc_involved_vehicle_count"] = len(ttc_involved)
     all_result["drac_conflict_event_count"] = drac_events
     all_result["max_drac_mps2"] = max_drac if max_drac != float("-inf") else float("nan")
-    all_result["parse_success"] = True
+    all_result["parse_success"] = invalid == 0
     return result

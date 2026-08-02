@@ -20,10 +20,16 @@ def _write_ssm(path, conflicts):
             },
         )
         if "ttc" in c:
-            ET.SubElement(conflict, "minTTC", {"value": str(c["ttc"]), "time": str(c["ttc_time"])})
+            ET.SubElement(
+                conflict,
+                "minTTC",
+                {"value": str(c["ttc"]), "time": str(c["ttc_time"]), "type": "3"},
+            )
         if "drac" in c:
             ET.SubElement(
-                conflict, "maxDRAC", {"value": str(c["drac"]), "time": str(c["drac_time"])}
+                conflict,
+                "maxDRAC",
+                {"value": str(c["drac"]), "time": str(c["drac_time"]), "type": "3"},
             )
     tree = ET.ElementTree(root)
     tree.write(path, encoding="utf-8", xml_declaration=True)

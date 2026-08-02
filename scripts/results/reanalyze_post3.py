@@ -66,7 +66,13 @@ def reanalyze(raw_root: Path, source_csv: Path, output_dir: Path) -> tuple[Path,
         performance_path = run_dir / "performance.xml"
         emissions_path = run_dir / "emissions.xml"
         raw_inputs.update((ssm_path, performance_path, emissions_path))
-        ssm = parse_ssm(str(ssm_path), warmup_period=warmup)
+        # 审阅 P1-2：SSM 观测窗 [warmup, simulation_end)——不传 simulation_end 会把
+        # 3600s 后的极值计入，与项目声明窗口不一致
+        ssm = parse_ssm(
+            str(ssm_path),
+            warmup_period=warmup,
+            simulation_end=float(row["simulation_end_s"]),
+        )
         performance = parse_edge_performance(str(performance_path), warmup_period=warmup)
         emissions = parse_edge_emissions(str(emissions_path), warmup_period=warmup)
 

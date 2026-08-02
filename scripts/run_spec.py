@@ -13,6 +13,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from scripts.experiment_config import _parse_bool  # 审阅 P2-2：严格布尔解析复用
 from scripts.provenance import sha256_file
 
 # pipeline 版本常量
@@ -421,9 +422,9 @@ class RunSpec:
             ssm_capture_ttc_threshold_s=float(data["ssm_capture_ttc_threshold_s"]),
             ssm_capture_drac_threshold_mps2=float(data["ssm_capture_drac_threshold_mps2"]),
             ssm_range_m=float(data["ssm_range_m"]),
-            ssm_trajectories=bool(data["ssm_trajectories"]),
+            ssm_trajectories=_parse_bool(data, "ssm_trajectories", False),
             ssm_extratime_s=float(data.get("ssm_extratime_s", 5.0)),
-            with_internal=bool(data["with_internal"]),
+            with_internal=_parse_bool(data, "with_internal", False),
             fcd_profile=_optional_str(data, "fcd_profile"),
             fcd_max_leader_distance_m=_optional_float(data, "fcd_max_leader_distance_m"),
         )
@@ -443,12 +444,9 @@ class RunSpec:
 
         vn, pcav, cav_count, requested_pcav = cls._identity_from_v4_1_dict(data)
 
-        # P0-6：显式布尔解析（"false"/"0"/"" → False），避免 bool("false")=True
-        raw_ssm_enabled = data.get("ssm_enabled", False)
-        if isinstance(raw_ssm_enabled, str):
-            ssm_enabled = raw_ssm_enabled.strip().lower() in ("1", "true", "yes")
-        else:
-            ssm_enabled = bool(raw_ssm_enabled)
+        # 审阅 P2-2：统一复用配置层严格布尔解析（接受 JSON bool 与白名单字符串，
+        # 拒绝数字型/非标准字符串——不再 bool("false")=True 或任意字符串→False）
+        ssm_enabled = _parse_bool(data, "ssm_enabled", False)
 
         return cls(
             scenario=str(data["scenario"]),
@@ -476,9 +474,9 @@ class RunSpec:
             ssm_capture_ttc_threshold_s=float(data["ssm_capture_ttc_threshold_s"]),
             ssm_capture_drac_threshold_mps2=float(data["ssm_capture_drac_threshold_mps2"]),
             ssm_range_m=float(data["ssm_range_m"]),
-            ssm_trajectories=bool(data["ssm_trajectories"]),
+            ssm_trajectories=_parse_bool(data, "ssm_trajectories", False),
             ssm_extratime_s=float(data.get("ssm_extratime_s", 5.0)),
-            with_internal=bool(data["with_internal"]),
+            with_internal=_parse_bool(data, "with_internal", False),
             fcd_profile=_optional_str(data, "fcd_profile"),
             fcd_max_leader_distance_m=_optional_float(data, "fcd_max_leader_distance_m"),
             experiment_role=str(data.get("experiment_role", "main_factorial")),

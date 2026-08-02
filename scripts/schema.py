@@ -252,6 +252,14 @@ SUMMARY_REQUIRED_KEYS_V4_1 = (
 # V4_1 集合保持冻结；validator/writer 按 pipeline_version 分流。
 # ═══════════════════════════════════════════════════════════════
 
+# 审阅 P0-1（Safety 设计）：DRAC 空间配对事件率（全路网 DRAC 事件 / 全路网 veh-km，
+# 与 ttc_events_per_1000_veh_km 同口径）。writer 层从 summary 已存计数重算
+# （drac_conflict_event_count + total_vehicle_km），不进 summary 契约
+# （SUMMARY_REQUIRED_KEYS_V4_2 保持不变；main factorial ssm_not_collected 时为 NaN）。
+DRAC_RATE_COLUMNS_V4_2 = [
+    "drac_events_per_1000_veh_km",
+]
+
 RUN_LEVEL_COLUMNS_V4_2 = (
     list(IDENTIFIER_COLUMNS_V4_1)
     + list(STATUS_COLUMNS_V4_2)
@@ -267,6 +275,7 @@ RUN_LEVEL_COLUMNS_V4_2 = (
     + list(DELAY_COLUMNS)
     + list(QUALITY_COLUMNS)
     + list(EMISSIONS_COLUMNS_V4_2)
+    + list(DRAC_RATE_COLUMNS_V4_2)
 )
 
 

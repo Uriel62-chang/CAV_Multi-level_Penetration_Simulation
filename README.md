@@ -553,7 +553,7 @@ python -m compileall -q scripts tests
 Expected result:
 
 ```text
-365 passed
+447 passed
 ```
 
 ### Run one simulation
@@ -586,7 +586,7 @@ python3 -m scripts.results.visualization \
   --aggregated results/v0.4.2/main/aggregated_results.csv \
   --v4-2 --outDir /tmp/v042-figs/main
 
-# safety figure (TTC events by penetration, faceted by scenario × vehN)
+# safety figures (TTC + DRAC events by penetration, faceted by scenario × vehN)
 python3 -m scripts.results.visualization \
   --aggregated results/v0.4.2/safety/aggregated_results.csv \
   --safety --outDir /tmp/v042-figs/safety
@@ -708,7 +708,8 @@ The repository includes:
   main/safety manifest SHA, and the SHA-256 of the fifteen archived result paths;
 - `results/v0.4.2/result_analysis.md` — structured results summary (peaks, s3 bottleneck
   reversal, Safety by vehN facet, cross-version comparison boundary, subgroup table);
-- the v0.4.2 figures under `graph/v0.4.2/` (main factorial × 3 + Safety × 1).
+- the v0.4.2 figures under `graph/v0.4.2/` (main factorial × 3 + Safety × 2: TTC and DRAC
+  events-by-penetration, space-matched per-veh-km rates).
 
 The following are **not** stored in Git (retained locally/externally, consistent with
 the v0.4.0 post3 archive practice):

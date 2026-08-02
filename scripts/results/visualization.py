@@ -182,6 +182,8 @@ MODEL_STYLES = {
 
 # v0.4.2 withInternal=true 下空间配对列：全路网 TTC 事件 / 全路网 veh-km
 _PAIRED_TTC_METRIC = "ttc_per_k_mean"
+# 审阅 P0-1（Safety 设计）：DRAC 空间配对事件率（全路网 DRAC 事件 / 全路网 veh-km）
+_PAIRED_DRAC_METRIC = "drac_per_k_mean"
 # legacy post3 错配列：全路网事件 / non-internal-edge veh-km（仅兼容旧 CSV，不得优先）
 _LEGACY_MISMATCHED_TTC_METRIC = "whole_network_ttc_events_per_1000_non_internal_edge_veh_km_mean"
 
@@ -205,6 +207,13 @@ def _paired_ttc_metric_column(df: pd.DataFrame) -> str:
         f"safety report requires space-matched column {_PAIRED_TTC_METRIC!r}; "
         f"found legacy mismatched column only: {_LEGACY_MISMATCHED_TTC_METRIC!r}"
     )
+
+
+def _paired_drac_metric_column(df: pd.DataFrame) -> str:
+    """v0.4.2 --safety 路径（审阅 P0-1）：DRAC 空间配对事件率列，缺失 fail-closed。"""
+    if _PAIRED_DRAC_METRIC in df.columns:
+        return _PAIRED_DRAC_METRIC
+    raise ValueError(f"safety report requires space-matched DRAC column {_PAIRED_DRAC_METRIC!r}")
 
 
 def _ensure_dir(path: Path) -> None:
@@ -250,7 +259,8 @@ def chart_observed_peak_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
             )
         ax.set_title(label, fontsize=12)
         ax.set_ylabel("Maximum Observed Flow in Tested Grid (veh/h)", fontsize=10)
-        ax.legend(fontsize=9)
+        if ax.get_legend_handles_labels()[0]:
+            ax.legend(fontsize=9)
         ax.grid(True, alpha=0.3)
         ax.xaxis.set_major_formatter(mticker.FormatStrFormatter("%d%%"))
         ax.tick_params(labelbottom=True)  # 所有面板显示 x 轴刻度
@@ -289,7 +299,8 @@ def chart_safety_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
         ax.set_title(SCENARIO_LABELS.get(sc, sc), fontsize=12)
         ax.set_xlabel("Flow (veh/h)", fontsize=10)
         ax.set_ylabel("TTC Events / 1000 Non-internal-edge veh-km", fontsize=10)
-        ax.legend(fontsize=9)
+        if ax.get_legend_handles_labels()[0]:
+            ax.legend(fontsize=9)
         ax.grid(True, alpha=0.3)
     fig.suptitle("Safety–Flow Trade-off: TTC Events per Non-internal-edge Exposure", fontsize=14)
     path = out_dir / "chart_safety_flow.png"
@@ -327,7 +338,8 @@ def chart_co2_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
         ax.set_xlabel("Flow (veh/h)", fontsize=10)
         ax.set_ylabel("CO₂ on Non-internal Edges (g/veh-km)", fontsize=10)
         ax.set_xlim(x_min, x_max)
-        ax.legend(fontsize=9)
+        if ax.get_legend_handles_labels()[0]:
+            ax.legend(fontsize=9)
         ax.grid(True, alpha=0.3)
     fig.suptitle("Non-internal-edge CO₂–Flow Trade-off", fontsize=14)
     path = out_dir / "chart_co2_flow.png"
@@ -364,7 +376,8 @@ def chart_delay_v4(df: pd.DataFrame, out_dir: Path) -> None:
             )
         ax.set_title(f"{label} (vehN=120)", fontsize=12)
         ax.set_ylabel("Mean Lap-Time Difference From Reference (s)", fontsize=10)
-        ax.legend(fontsize=9)
+        if ax.get_legend_handles_labels()[0]:
+            ax.legend(fontsize=9)
         ax.grid(True, alpha=0.3)
         ax.xaxis.set_major_formatter(mticker.FormatStrFormatter("%d%%"))
         ax.tick_params(labelbottom=True)  # 所有面板显示 x 轴刻度
@@ -414,8 +427,9 @@ def run_v4_2(args) -> None:
 def run_safety_v4_2(args) -> None:
     """v0.4.2 safety 独立报告入口（P0-11）。
 
-    生成 TTC 事件率随渗透率（realized_pcav）变化的图（仅 TTC、仅 scenario_0/scenario_3
-    两个有事件集中度的场景），使用空间配对列；不生成与主 factorial 的联合 trade-off。
+    生成 TTC 与 DRAC 事件率随渗透率（realized_pcav）变化的图（审阅 P0-1 补 DRAC；
+    审阅 P1-1 四场景全分面，s1/s2 零检出边界一并展示），使用空间配对列
+    （ttc_per_k_mean / drac_per_k_mean）；不生成与主 factorial 的联合 trade-off。
     P0（Reviewer 复检）：按 scenario × vehN 分面、model 分线——Safety 每渗透率有
     vehN={30,60,120} 三个点，不得在同一响应曲线中混合。
     """
@@ -427,39 +441,61 @@ def run_safety_v4_2(args) -> None:
     _ensure_dir(out_dir)
     ttc_col = _paired_ttc_metric_column(df)  # P1-3：fail-closed，不回退 legacy 错配列
     pen = _penetration_column(df)
-    scenarios = ["scenario_0", "scenario_3"]
-    vehn_levels = sorted(df[df["scenario"].isin(scenarios)]["vehN"].dropna().unique().tolist())
+    # 审阅 P1-1：四场景全分面（s1/s2 零事件检出也是正式结果，纳入图表边界展示）
+    scenarios = ["scenario_0", "scenario_1", "scenario_2", "scenario_3"]
+    vehn_levels = sorted(df["vehN"].dropna().unique().tolist())
     n_sc, n_vn = len(scenarios), len(vehn_levels)
-    fig, axes = plt.subplots(
-        n_sc, n_vn, figsize=(5.5 * max(n_vn, 1), 6.5 * n_sc), constrained_layout=True
+
+    def _plot_safety_metric(metric_col: str, ylabel: str, out_name: str, metric_label: str):
+        fig, axes = plt.subplots(
+            n_sc, n_vn, figsize=(5.5 * max(n_vn, 1), 6.5 * n_sc), constrained_layout=True
+        )
+
+        def _get_ax(i: int, j: int):
+            # matplotlib 对 1×1 / 1×N / N×1 布局的 axes 退化处理
+            if isinstance(axes, np.ndarray):
+                if axes.ndim == 2:
+                    return axes[i, j]
+                return axes[j] if n_sc == 1 else axes[i]
+            return axes  # 单个 Axes
+
+        for i, sc in enumerate(scenarios):
+            sub = df[df["scenario"] == sc]
+            for j, vn in enumerate(vehn_levels):
+                ax = _get_ax(i, j)
+                d = sub[sub["vehN"] == vn]
+                ax.set_title(f"{sc} vehN={vn}" if not d.empty else f"{sc} vehN={vn} (no data)")
+                ax.set_xlabel(f"{pen} (realized)")
+                ax.set_ylabel(ylabel)
+                if d.empty:
+                    continue
+                for model in ["IDM", "CACC"]:
+                    m = d[d["model"] == model].sort_values(pen)
+                    if not m.empty:
+                        ax.plot(m[pen], m[metric_col], marker="o", label=model)
+                if ax.get_legend_handles_labels()[0]:
+                    ax.legend(fontsize=8)
+        fig.savefig(out_dir / out_name, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        print(f"[safety] {metric_label} chart → {out_dir.resolve()}")
+
+    _plot_safety_metric(
+        ttc_col,
+        "TTC events / 1000 veh-km (whole-network)",
+        "chart_safety_events_by_penetration.png",
+        "TTC",
     )
-
-    def _get_ax(i: int, j: int):
-        # matplotlib 对 1×1 / 1×N / N×1 布局的 axes 退化处理
-        if isinstance(axes, np.ndarray):
-            if axes.ndim == 2:
-                return axes[i, j]
-            return axes[j] if n_sc == 1 else axes[i]
-        return axes  # 单个 Axes
-
-    for i, sc in enumerate(scenarios):
-        sub = df[df["scenario"] == sc]
-        for j, vn in enumerate(vehn_levels):
-            ax = _get_ax(i, j)
-            d = sub[sub["vehN"] == vn]
-            ax.set_title(f"{sc} vehN={vn}" if not d.empty else f"{sc} vehN={vn} (no data)")
-            ax.set_xlabel(f"{pen} (realized)")
-            ax.set_ylabel("TTC events / 1000 veh-km (whole-network)")
-            if d.empty:
-                continue
-            for model in ["IDM", "CACC"]:
-                m = d[d["model"] == model].sort_values(pen)
-                if not m.empty:
-                    ax.plot(m[pen], m[ttc_col], marker="o", label=model)
-            ax.legend(fontsize=8)
-    fig.savefig(out_dir / "chart_safety_events_by_penetration.png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    print(f"\n[DONE] safety report (TTC events by penetration, by vehN) → {out_dir.resolve()}")
+    # 审阅 P0-1（Safety 设计）：DRAC 空间配对事件率（全路网 DRAC 事件 / 全路网 veh-km）
+    drac_col = _paired_drac_metric_column(df)
+    _plot_safety_metric(
+        drac_col,
+        "DRAC events / 1000 veh-km (whole-network)",
+        "chart_safety_drac_by_penetration.png",
+        "DRAC",
+    )
+    print(
+        f"\n[DONE] safety report (TTC + DRAC events by penetration, by vehN) → {out_dir.resolve()}"
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -488,19 +524,22 @@ def main():
     parser.add_argument(
         "--safety",
         action="store_true",
-        help="启用 v0.4.2 safety 独立报告模式（仅 TTC 事件率随渗透率、仅 scenario_0/scenario_3，"
-        "使用空间配对列 ttc_per_k_mean）",
+        help="启用 v0.4.2 safety 独立报告模式（TTC + DRAC 事件率随渗透率、"
+        "四场景全分面，使用空间配对列 ttc_per_k_mean / drac_per_k_mean）",
     )
     # 通用
     parser.add_argument(
         "--outDir",
         default=None,
-        help="输出目录（默认：--v4 → graph/v0.4.0；--v4-2/--safety → graph/v0.4.2，P2-2 防版本混放）",
+        help="输出目录（默认：--v4 → graph/v0.4.0；--v4-2 → graph/v0.4.2；"
+        "--safety → graph/v0.4.2/safety，P2-2 防版本混放）",
     )
     args = parser.parse_args()
 
     if args.outDir is None:
-        if args.v4_2 or args.safety:
+        if args.safety:
+            args.outDir = "graph/v0.4.2/safety"  # 审阅 P2-2：safety 归档层级
+        elif args.v4_2:
             args.outDir = "graph/v0.4.2"  # P2-2：v0.4.2 报告不与 v0.4.0 结果混放
         else:
             args.outDir = "graph/v0.4.0"

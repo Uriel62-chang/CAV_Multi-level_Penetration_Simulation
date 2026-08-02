@@ -39,7 +39,60 @@ The four scenarios support three structured scenario comparisons:
 
 ---
 
-## Key Findings
+## v0.4.2 Formal-grid Results
+
+v0.4.2 (jump release) ran a formal grid independent of the v0.4.0 historical
+baseline: a 3,888-run main factorial (SSM disabled; cav_count grid with 6
+penetration levels × 12 vehicle counts × 3 assignment seeds × 3 SUMO seeds)
+and an 84-run safety experiment (space-matched exposure, one seed pair per
+cell — descriptive results only). Full per-run data and aggregated results:
+`out_v0.4.2/` (see [Data Availability](#data-availability)).
+
+### Main factorial
+
+Key v0.4.0 findings reproduce at the corresponding operating points:
+
+- **s2, CACC, pCAV=1.0, vehN=120**: grid-observed maximum flow **7,128 veh/h**
+  (IDM 6,276 veh/h, +13.6%);
+- **s3, vehN=120, pCAV=1.0**: IDM **3,204 veh/h** / CACC 1,536 veh/h — the
+  high-density merge-bottleneck reversal reproduces (IDM ≈ 2.1× CACC flow and
+  a much smaller reference-relative lap time);
+- scenario grid-observed peaks: s0 1,856.4, s1 4,178.4 (CACC, vehN=70),
+  s2 7,128, s3 3,902.4 veh/h.
+
+### Cross-version comparison
+
+v0.4.2 reproduces key endpoints and some grid peaks exactly, but **that does
+not mean all 528 shared treatment keys match the v0.4.0 grid numerically**.
+Across the 528 shared keys: flow identical in 96, within 1% in 315, maximum
+absolute difference ≈ 337.55 veh/h; delay median relative difference ≈ 6.04%;
+CO₂ has no identical groups (different measurement scope — no cross-version
+consistency inference is drawn). The s1 grid peak differs (v0.4.2: 4,178.4 @
+CACC vehN=70 p=1.0 vs v0.4.0: 4,344.96 @ vehN=90 p=0.95) because the
+penetration resolution was reduced from 21 to 6 levels. Emissions are
+compared only within v0.4.2 (IDM vs CACC).
+
+### Safety experiment
+
+- main factorial and safety are **separate experiments**; no combined
+  safety–flow trade-off is produced;
+- **s1 and s2 show zero detected TTC events** — limited to the current
+  `TTC < 3.0 s` threshold, SUMO 1.27.1, the safety grid and the configured SSM
+  parameters; this is not a claim of "no conflict";
+- every safety cell has **one seed pair only** — descriptive results, no
+  significance inference;
+- s1's sampling design differs from v0.4.0 (1 seed pair + subset grid vs
+  5 assignment seeds × full grid), so no cross-version "no conflict"
+  conclusion is drawn;
+- SSM-on sampled peak RSS by scenario: s0 6.52 / s1 1.81 / s2 8.91 /
+  s3 1.50 GiB (global peak 9,342,124 KiB @ s2_CACC_v120_c120) — historical
+  observation context, not a hard budget;
+- the subgroup table (HV/CAV) is a single-point (vehN=120, cav=96)
+  descriptive summary and cannot decompose model-difference causes.
+
+---
+
+## Key Findings（v0.4.0 Historical Baseline）
 
 ### 1. CACC raises the observed peak flow in an unconstrained dual-lane network
 
@@ -77,7 +130,7 @@ The observed distribution is consistent with road geometry and loss of lateral f
 
 ---
 
-## Core Trade-off
+## Core Trade-off（v0.4.0 Historical Baseline）
 
 ![Safety versus flow trade-off](graph/v0.4.0/chart_safety_flow.png)
 
@@ -104,7 +157,7 @@ The results indicate that **no single car-following model is globally optimal ac
 
 ---
 
-## Core Results
+## Core Results（v0.4.0 Historical Baseline）
 
 All plots are generated from data aggregated across five vehicle-type assignment seeds. Means and arrangement variability are retained in `aggregated_results.csv`.
 
@@ -170,7 +223,7 @@ This is an experimental observation rather than a claim that either model is uni
 
 ---
 
-## Experiment Design
+## Experiment Design（v0.4.0 Baseline）
 
 ```text
 4 scenarios
@@ -308,6 +361,18 @@ Full configuration details, vehicle parameters, result tables, discussion and re
 ---
 
 ## Metric Methodology
+
+### v0.4.2 measurement scope
+
+The v0.4.2 grid uses `withInternal="true"` edgeData, so the safety event
+numerator and the vehicle-kilometre denominator share the same spatial scope
+(whole network including junction internal edges). Emissions are accumulated
+under two paired scopes: the primary intensity is non-internal-edge
+CO₂ g / non-internal-edge veh-km (comparable with v0.4.0), and a secondary
+whole-network intensity is reported alongside (`whole_network_*` columns in
+the run-level and aggregated CSVs). The v0.4.0 historical figures below use
+the original `withInternal="false"` scope and are not numerically
+interchangeable with the v0.4.2 grid.
 
 ### Why use SUMO SSM for TTC?
 
@@ -499,6 +564,24 @@ python3 -m scripts.simulation.single_run \
 python3 -m scripts.results.visualization \
   --aggregated results/aggregated_results.csv \
   --v4
+```
+
+### Regenerate the v0.4.2 figures
+
+Two separate commands (option spelling is case-sensitive `--outDir`); output
+directories are written to `/tmp` by default below so the Git-tracked figures
+under `graph/v0.4.2/` are not overwritten:
+
+```bash
+# main-factorial figures (capacity / CO2-flow / delay)
+python3 -m scripts.results.visualization \
+  --aggregated out_v0.4.2/main/aggregated_results.csv \
+  --v4-2 --outDir /tmp/v042-figs/main
+
+# safety figure (TTC events by penetration, faceted by scenario × vehN)
+python3 -m scripts.results.visualization \
+  --aggregated out_v0.4.2/safety/aggregated_results.csv \
+  --safety --outDir /tmp/v042-figs/safety
 ```
 
 <details>

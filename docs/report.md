@@ -382,3 +382,73 @@ s3 暴露了多目标冲突：在全 CAV、高密度固定运行点，IDM 的流
 [11] Sugiyama, Y., Fukui, M., Kikuchi, M., et al. (2008). Traffic jams without bottlenecks—experimental evidence for the physical mechanism of the formation of a jam. *New Journal of Physics*, 10(3), 033001.
 
 [12] Treiber, M. & Kesting, A. (2013). *Traffic Flow Dynamics: Data, Models and Simulation*. Springer-Verlag Berlin Heidelberg.
+
+---
+
+# 附录：v0.4.2 正式网格补充报告（Supplement）
+
+> **版本**：v0.4.2（跳号发布）。本附录为 v0.4.0 报告的补充，不改写任何 v0.4.0
+> 数值或结论；旧报告正文中关于 v0.4.1/v0.4.2 的 prospective 路线描述已被实际发布
+> 路径取代（v0.4.1 为未发布内部里程碑，成果并入 v0.4.2）。
+> 数据：`out_v0.4.2/`（aggregated CSV、result_handover.json、result_analysis.md）。
+
+## 1. 网格与口径
+
+- **主 factorial**：3,888 runs——4 场景 × 12 vehN × 每 (scenario, vehN) 81 runs
+  （cav=0: 3 + 内部 4 档×2 模型×3 assignment×3 SUMO: 72 + cav=vehN: 6）；SSM 关闭。
+- **Safety**：84 runs——p∈{0, 0.2, 0.6, 1.0} × vehN∈{30, 60, 120}，每格 1 个
+  seed pair（描述性结果）。
+- **口径变化**：`withInternal="true"`（安全事件与暴露量空间配对）；排放双口径
+  （non-internal 主强度 + 全路网次要强度）；双 seed 统计单位
+  `(assignment_seed, sumo_seed)` 等权汇总，报告每格有效 n 与 `seed_scope`；
+  渗透率分辨率由 21 档压缩为 6 档（0.2 步长，cav_count 整数可实现）。
+
+## 2. 主 factorial 结果
+
+| 场景 | 网格内最大观测流量 | 位置 |
+|---|---:|---|
+| s0 | 1,856.4 veh/h | CACC, vehN=90, p=1.0 |
+| s1 | 4,178.4 veh/h | CACC, vehN=70, p=1.0 |
+| s2 | **7,128.0 veh/h** | CACC, vehN=120, p=1.0 |
+| s3 | 3,902.4 veh/h | IDM, vehN=80, p=1.0 |
+
+s2 全 CAV 端点 CACC 相对 IDM +13.6%（7,128 vs 6,276 veh/h）。s3 高密度全 CAV
+运行点（vehN=120）瓶颈反转复现：IDM 3,204 veh/h、delay 74.2 s；CACC 1,536 veh/h、
+delay 215.8 s（IDM 流量约为 CACC 2.1 倍、参考相对圈时差小得多、排放强度更低）。
+
+## 3. 跨版本（v0.4.2 vs v0.4.0）比较边界
+
+- 精确复现关键端点与部分网格峰值（s2 7,128、s3 3,902、s3 高密度运行点），但
+  **不代表 528 个共享键全网格数值完全一致**：flow 精确相同 96/528、1% 内 315/528、
+  最大绝对差 ≈ 337.55 veh/h；delay 中位相对差 ≈ 6.04%；CO₂ 无精确相同组（口径
+  不同，不做跨版本一致性推断）。
+- s1 网格峰值差异（4,178.4 @ v70 p1.0 vs 4,344.96 @ v90 p0.95）由渗透率分辨率
+  压缩所致（可预期，非错误）。
+- 排放仅作 v0.4.2 内部 IDM/CACC 比较；v0.4.0 的 352/228 与 v0.4.2 的 426.6/260.8
+  口径不同，不计算变化率。
+
+## 4. Safety 结果（描述性，每格 1 seed pair）
+
+- **s1 与 s2 全网格零 TTC 检出**——仅限当前 TTC<3.0 s 阈值、SUMO 1.27.1、Safety
+  网格与 SSM 配置，不升级为「无安全冲突」；s1 与 v0.4.0 采样设计不同（1 seed pair
+  + 子采样 vs 5 assignment seed × 完整网格），不作跨版本「无冲突」结论。
+- s0：事件率随 p 上升，p=1.0 端点明显（v60 达 5,855 IDM / 3,905 CACC
+  events/1000 veh-km）。
+- s3：v120 事件率随 p 单调上升（IDM 843→1,445、CACC 897→3,006）。
+- SSM-on 采样峰值 RSS 按场景 s0 6.52 / s1 1.81 / s2 8.91 / s3 1.50 GiB
+  （全局峰值 9,342,124 KiB @ s2_CACC_v120_c120）——B 线历史观测语境，不作硬预算。
+- 主 factorial 与 Safety 为独立实验，不生成联合 trade-off。
+
+## 5. Subgroup（HV/CAV，单点描述性）
+
+vehN=120、cav=96（HV 24 / CAV 96）运行点：s2 内 HV/CAV non-internal CO₂ 强度接近
+（IDM 169.7/171.3、CACC 177.5/176.8 g/veh-km）；s3 下 CACC 的 CAV 子群（407.0）高于
+HV（383.0），IDM 反之（CAV 308.3 < HV 319.4）。单运行点描述性观察，不能分解模型
+差异成因。
+
+## 6. 结论关系
+
+v0.4.2 在独立管线（cav_count 网格、双 seed、withInternal=true、子群拆分）下
+**定性复现** v0.4.0 的核心结论（s2 CACC 高流量优势、s3 高密度瓶颈反转、s0/s3 冲突
+集中），并新增 Safety 空间配对与 HV/CAV 子群维度；全网格数值一致性以 §3 披露的
+比较边界为准。

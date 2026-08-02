@@ -178,7 +178,7 @@
 - **当前分支**：`main`
 - **本文档最后更新**：参见 `git log -1 --oneline -- DEVELOPMENT.md`
 - **最近代码稳定提交**：`439ace6`（Safety 图修复，最近代码提交）；release notes 锚点另列 `ef1e536`/`53ca434`（docs-only）；A 线实现提交链 `6147853`~`b72c381`；正式网格热修复 `a21e05e`/`6637519`/`1a6da3c`
-- **版本发布状态**：GitHub 最新公开版本 v0.4.0.post3；v0.4.1 为本地内部里程碑（未 push、tag 已删）；**v0.4.2 为发布目标（跳号发布，release notes 已就绪，待打 tag/发布）**；`raw_v0.4.2/`（约 34 GB）与 run-level/subgroup/writer/failed CSV 外部保留（untracked，.gitignore 保护）；已跟踪（Git）：`out_v0.4.2/` 聚合/交接/分析（aggregated_results.csv、result_handover.json、raw_status_inventory.jsonl、result_analysis.md）+ `graph/v0.4.2/` 图（main 3 + Safety 1）
+- **版本发布状态**：GitHub 最新公开版本 v0.4.0.post3；v0.4.1 为本地内部里程碑（未 push、tag 已删）；**v0.4.2 为发布目标（跳号发布，release notes 已就绪，待打 tag/发布）**；`raw_v0.4.2/`（约 34 GB）与 run-level/subgroup/failed CSV、writer report JSON 外部保留（untracked，.gitignore 保护）；已跟踪（Git）：`out_v0.4.2/` 聚合/交接/分析（aggregated_results.csv、result_handover.json、raw_status_inventory.jsonl、result_analysis.md）+ `graph/v0.4.2/` 图（main 3 + Safety 1）
 - **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-31
 - **可运行入口**：
   ```bash

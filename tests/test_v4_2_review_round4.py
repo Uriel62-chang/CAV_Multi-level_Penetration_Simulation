@@ -154,6 +154,17 @@ class _SpecStub:
     run_id = "run-1"
 
 
+def _make_stub(tmp_path) -> "_SpecStub":
+    """创建 tmp 内 dummy 路网（clean archive 无本地 net 生成物）。"""
+    net_dir = tmp_path / "net"
+    net_dir.mkdir()
+    (net_dir / "loop.net.xml").write_text("<net/>", encoding="utf-8")
+    (net_dir / "net.json").write_text(json.dumps({"num_lanes": 1}), encoding="utf-8")
+    stub = _SpecStub()
+    stub.network_file = str(net_dir / "loop.net.xml")
+    return stub
+
+
 def _ensure_inputs(run_dir: Path) -> None:
     """创建 v0.4.2 最小解析输入文件（num_lanes=1, ssm off, fcd off）。"""
     for name in (
@@ -178,7 +189,7 @@ def _ensure_inputs(run_dir: Path) -> None:
             p.write_text("x", encoding="utf-8")
 
 
-def _write_full_status(run_dir: Path, raw_hashes: dict) -> None:
+def _write_full_status(run_dir: Path, raw_hashes: dict, stub: "_SpecStub") -> None:
     """写完整 v0.4.2 status：raw_output_sha256 + 全部顶层哈希（从实际文件算）。"""
     from scripts.provenance import sha256_file
 
@@ -196,20 +207,20 @@ def _write_full_status(run_dir: Path, raw_hashes: dict) -> None:
         "route_file_sha256": sha256_file(run_dir / "routes.rou.xml"),
         "vehicle_type_map_sha256": sha256_file(run_dir / "vehicle_type_map.json"),
         "additional_file_sha256": sha256_file(run_dir / "additional.add.xml"),
-        "network_xml_sha256": sha256_file("net/scenario_0/loop.net.xml"),
-        "net_json_sha256": sha256_file("net/scenario_0/net.json"),
+        "network_xml_sha256": sha256_file(stub.network_file),
+        "net_json_sha256": sha256_file(Path(stub.network_file).with_name("net.json")),
         "raw_output_sha256": raw_hashes,
     }
     (run_dir / "simulation_status.json").write_text(json.dumps(status), encoding="utf-8")
 
 
-def _full_raw_hashes(run_dir: Path) -> dict:
+def _full_raw_hashes(run_dir: Path, stub: "_SpecStub") -> dict:
     """按 spec 推导的完整 raw 哈希（expected set 全键）。"""
     from scripts.parsing.input_integrity import raw_output_expected_names
     from scripts.provenance import sha256_file
 
     _ensure_inputs(run_dir)
-    return {name: sha256_file(run_dir / name) for name in raw_output_expected_names(_SpecStub())}
+    return {name: sha256_file(run_dir / name) for name in raw_output_expected_names(stub)}
 
 
 def test_input_integrity_new_run_status_covers_stderr(tmp_path):
@@ -218,8 +229,9 @@ def test_input_integrity_new_run_status_covers_stderr(tmp_path):
 
     rd = tmp_path / "run-1"
     rd.mkdir()
-    _write_full_status(rd, _full_raw_hashes(rd))
-    ok, errors = verify(rd, _SpecStub())
+    stub = _make_stub(tmp_path)
+    _write_full_status(rd, _full_raw_hashes(rd, stub), stub)
+    ok, errors = verify(rd, stub)
     assert ok, errors
 
 
@@ -230,10 +242,11 @@ def test_input_integrity_new_run_partial_raw_hashes_fails(tmp_path):
 
     rd = tmp_path / "run-1"
     rd.mkdir()
+    stub = _make_stub(tmp_path)
     _ensure_inputs(rd)
 
-    _write_full_status(rd, {"stderr.log": sha256_file(rd / "stderr.log")})
-    ok, errors = verify(rd, _SpecStub())
+    _write_full_status(rd, {"stderr.log": sha256_file(rd / "stderr.log")}, stub)
+    ok, errors = verify(rd, stub)
     assert not ok
     assert any("key set mismatch" in e for e in errors)
 
@@ -244,10 +257,11 @@ def test_input_integrity_old_run_requires_sidecar(tmp_path):
 
     rd = tmp_path / "run-1"
     rd.mkdir()
-    raw = _full_raw_hashes(rd)
+    stub = _make_stub(tmp_path)
+    raw = _full_raw_hashes(rd, stub)
     raw.pop("stderr.log")
-    _write_full_status(rd, raw)
-    ok, errors = verify(rd, _SpecStub())
+    _write_full_status(rd, raw, stub)
+    ok, errors = verify(rd, stub)
     assert not ok
     assert any("input_integrity.sidecar.json" in e for e in errors)
 
@@ -258,21 +272,22 @@ def test_input_integrity_sidecar_migration_passes(tmp_path):
 
     rd = tmp_path / "run-1"
     rd.mkdir()
-    raw = _full_raw_hashes(rd)
+    stub = _make_stub(tmp_path)
+    raw = _full_raw_hashes(rd, stub)
     raw.pop("stderr.log")
-    _write_full_status(rd, raw)
-    sidecar_path = write_sidecar(rd, _SpecStub())
+    _write_full_status(rd, raw, stub)
+    sidecar_path = write_sidecar(rd, stub)
     assert sidecar_path.exists()
     payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
     assert payload["purpose"] == PURPOSE
     assert "stderr.log" in payload["files"]
-    ok, errors = verify(rd, _SpecStub())
+    ok, errors = verify(rd, stub)
     assert ok, errors
     # sidecar 篡改（stderr 哈希错误）→ 拒绝
     payload["files"]["stderr.log"] = "f" * 64
     payload["anchor_sha256"] = json.dumps(payload["files"], sort_keys=True)[:64]
     sidecar_path.write_text(json.dumps(payload), encoding="utf-8")
-    ok, errors = verify(rd, _SpecStub())
+    ok, errors = verify(rd, stub)
     assert not ok
     assert any("anchor_sha256" in e for e in errors)
 
@@ -283,16 +298,17 @@ def test_input_integrity_sidecar_missing_key_fails(tmp_path):
 
     rd = tmp_path / "run-1"
     rd.mkdir()
-    raw = _full_raw_hashes(rd)
+    stub = _make_stub(tmp_path)
+    raw = _full_raw_hashes(rd, stub)
     raw.pop("stderr.log")
-    _write_full_status(rd, raw)
-    write_sidecar(rd, _SpecStub())
+    _write_full_status(rd, raw, stub)
+    write_sidecar(rd, stub)
     sidecar_path = rd / "input_integrity.sidecar.json"
     payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
     del payload["files"]["vehicle_type_map.json"]
     payload["anchor_sha256"] = json.dumps(payload["files"], sort_keys=True)[:64]
     sidecar_path.write_text(json.dumps(payload), encoding="utf-8")
-    ok, errors = verify(rd, _SpecStub())
+    ok, errors = verify(rd, stub)
     assert not ok
     assert any("key set mismatch" in e for e in errors)
 
@@ -303,13 +319,14 @@ def test_input_integrity_top_level_hash_mismatch_fails(tmp_path):
 
     rd = tmp_path / "run-1"
     rd.mkdir()
-    raw = _full_raw_hashes(rd)
+    stub = _make_stub(tmp_path)
+    raw = _full_raw_hashes(rd, stub)
     raw.pop("stderr.log")
-    _write_full_status(rd, raw)
-    write_sidecar(rd, _SpecStub())
+    _write_full_status(rd, raw, stub)
+    write_sidecar(rd, stub)
     # 修改 routes.rou.xml（status 顶层 route_file_sha256 不再匹配）
     (rd / "routes.rou.xml").write_text("modified", encoding="utf-8")
-    ok, errors = verify(rd, _SpecStub())
+    ok, errors = verify(rd, stub)
     assert not ok
     assert any("top-level input hash mismatch: routes.rou.xml" in e for e in errors)
 
@@ -510,11 +527,12 @@ def test_input_integrity_v42_without_raw_hashes_fails_closed(tmp_path):
 
     rd = tmp_path / "run-1"
     rd.mkdir()
+    stub = _make_stub(tmp_path)
     (rd / "simulation_status.json").write_text(
         json.dumps({"run_id": "run-1", "pipeline_version": "v0.4.2", "status": "SUCCESS"}),
         encoding="utf-8",
     )
-    ok, errors = verify(rd, _SpecStub())
+    ok, errors = verify(rd, stub)
     assert not ok
     assert any("missing raw_output_sha256" in e for e in errors)
 
@@ -525,14 +543,15 @@ def test_input_integrity_sidecar_verifies_all_inputs(tmp_path):
 
     rd = tmp_path / "run-1"
     rd.mkdir()
-    raw = _full_raw_hashes(rd)
+    stub = _make_stub(tmp_path)
+    raw = _full_raw_hashes(rd, stub)
     raw.pop("stderr.log")
-    _write_full_status(rd, raw)
-    write_sidecar(rd, _SpecStub())
-    assert verify(rd, _SpecStub())[0]
+    _write_full_status(rd, raw, stub)
+    write_sidecar(rd, stub)
+    assert verify(rd, stub)[0]
     # 篡改 sidecar 记录的 vehicle_type_map.json（status 未覆盖）→ 检出
     (rd / "vehicle_type_map.json").write_text('{"veh0": "HV"}', encoding="utf-8")
-    ok, errors = verify(rd, _SpecStub())
+    ok, errors = verify(rd, stub)
     assert not ok
     assert any("vehicle_type_map.json" in e for e in errors)
 

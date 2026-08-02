@@ -168,7 +168,7 @@
   - **P1 组**（`b72c381`）：aggregate 输出 seed_scope；图表标签改"CAV Penetration"；删除 reasonix.toml 工具缓存
 - **已验证（2026-08-01）**：266 tests passed；Ruff/mypy/format/compileall 通过；legacy 10,080 / pilot 162 / safety 84 三 dry-run 通过；legacy SUMO 命令字节与路由 SHA 基线未变（P0-9 参数隔离验证）。
 - **正式 Reviewer 背书（2026-08，三轮复检后无 P0/P1/P2）**：A 线实现批次 `a8aa09a` 获背书；复检驱动修复——delay 键（`metrics.py` 读 `spec.model`）、Safety 配对列 fail-closed、subgroup 排放双口径、schema=2 按 pipeline 分流（V4_2 集合）、RunSpec role×SSM/阈值包络约束、resume 闭包扩展（net.json + raw 输出 SHA）。
-- **v0.4.2 正式网格完成（2026-08）**：main 3,888 runs + safety 84 runs 全部 SUCCESS（main 9.8 h SUMO wall time，resume 续跑）。热修复（正式数据驱动）：①可加性容差放宽（实测浮点噪声 vehicle_km 2.0e-4/time_loss 1.1e-3/PMx 3.2e-4，旧容差误报 770 个 INVALID_DATA → `a21e05e`）；②writer subgroup NaN 规则补 whole-network 强度（端点 run 空子群 432 个被排除 → `6637519`）；③Safety 图按 scenario × vehN 分面（`439ace6`）；④热修复回归测试（`1a6da3c`）。
+- **v0.4.2 正式网格完成（2026-08）**：main 3,888 runs + safety 84 runs 全部 SUCCESS（main 累计 per-run SUMO wall time 9.8 h，resume 续跑）。热修复（正式数据驱动）：①可加性容差放宽（实测浮点噪声 vehicle_km 2.0e-4/time_loss 1.1e-3/PMx 3.2e-4，旧容差误报 770 个 INVALID_DATA → `a21e05e`）；②writer subgroup NaN 规则补 whole-network 强度（端点 run 空子群 432 个被排除 → `6637519`）；③Safety 图按 scenario × vehN 分面（`439ace6`）；④热修复回归测试（`1a6da3c`）。
 - **结果分析与 release notes 已背书（2026-08）**：`out_v0.4.2/`（run-level/aggregated/subgroup CSV + result_handover.json + result_analysis.md）与 CHANGELOG v0.4.2 条目获 Reviewer 短复检通过（`ef1e536`）；309 tests 基线。
 - **已提交**：`7ea2e08`、`f675717`（D-012）；`7145a2d`（D-013 设计）；`6a5d772`、`ad95058`（A/B 实现和命令等价回归）。
 - **主线回归交接（2026-07-31，`47e72c5`）**：v0.4.1 确认为未发布内部里程碑（GitHub 最新 v0.4.0.post3，tag 已删）；跳号发布决定；B 线（SSM 内存诊断）宣告结束，降级为 REPORT/README 提示信息；v0.4.2 为唯一开发主线（设计→实现→数据→结论四环节对齐）；主线纪律约束生效。
@@ -177,7 +177,7 @@
 
 - **当前分支**：`main`
 - **本文档最后更新**：参见 `git log -1 --oneline -- DEVELOPMENT.md`
-- **最近代码稳定提交**：`ef1e536`（HEAD，2026-08；release notes 定稿）；A 线实现提交链 `6147853`~`b72c381`；正式网格热修复 `a21e05e`/`6637519`/`439ace6`/`1a6da3c`
+- **最近代码稳定提交**：`439ace6`（Safety 图修复，最近代码提交）；release notes 锚点另列 `ef1e536`/`53ca434`（docs-only）；A 线实现提交链 `6147853`~`b72c381`；正式网格热修复 `a21e05e`/`6637519`/`1a6da3c`
 - **版本发布状态**：GitHub 最新公开版本 v0.4.0.post3；v0.4.1 为本地内部里程碑（未 push、tag 已删）；**v0.4.2 为发布目标（跳号发布，release notes 已就绪，待打 tag/发布）**；正式结果产物在 untracked `raw_v0.4.2/`（约 34 GB）与 `out_v0.4.2/`（约 53 MB）
 - **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-31
 - **可运行入口**：
@@ -195,8 +195,8 @@
 - **v0.4.2（发布目标，跳号发布）**：四环节已闭环并获背书（见「已完成」）。剩余为发布动作：
   1. **打 tag / 发布**：`git tag v0.4.2` + push + 执行 `docs/engineering/release-checklist.md`（需用户指示）；
   2. **数据归档**：`raw_v0.4.2/`（34 GB）与 `out_v0.4.2/` 是否纳入外部归档/README 数据可用性说明；
-  3. **SUMO upstream issue**：核查结论——`ISSUE_DRAFT.md` 主内容合规（D-014 关联表述），但 observation 2 含内部存储机制推断（引用旧 tag 源码），超出「只报告关联」边界；需先修正该段、经正式 Reviewer 核验 issue 包、并获用户另行授权后才可提交（当前未授权）；
-  4. **发布后同步**：AGENTS.md/DEVELOPMENT.md/roadmap 版本状态切换为已发布。
+  3. **发布后同步**：AGENTS.md/DEVELOPMENT.md/roadmap 版本状态切换为已发布。
+- **SUMO upstream（可选开源贡献，范围外 backlog，不在 v0.4.2 发布动作内）**：`raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md` 核查结论——主内容合规（D-014 关联表述），但 observation 2 含内部存储机制推断（引用旧 tag 源码），超出「只报告关联」边界；**当前任务不授权**修订/复核/提交，恢复历史 backlog 表述：先由正式 Reviewer 核验 issue 包、获用户另行授权后才可对外提交（B 线门禁维持：不修改原证据或提交外部 issue）。
 - **B 线收尾文案（已完成，随 v0.4.2 CHANGELOG 落地）**：SSM 全量采集内存成本（9,292,312 KiB/run，零事件 case）已作为提示性信息写入 CHANGELOG（v0.4.1 已知限制 + v0.4.2 SSM 内存成本提示），注明受硬件影响、不作硬预算、不再改进；正式 safety 网格实测峰值 s2 8.91 GiB 与历史观测一致。
 - **SUMO upstream（可选开源贡献）**：先由正式 Reviewer 核验本地 `raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md`、archive 与 inventory；获用户另行授权后才可对外提交。issue 只报告 SSM device-on/off 关联、零事件输出和可复现 RSS 差异（已含现象二/三及 GiB 修正）。
 - **发布治理（v0.4.2 发布前）**：本地 `v0.4.1` tag 已删（2026-07-31）；release notes 显式说明跳号原因（pilot 未过门禁；D-012–D-015 技术证据已闭合、治理状态未闭合）并列明 v0.4.1 全部工程成果归属；AGENTS.md/DEVELOPMENT.md 版本状态已同步（本次提交）。

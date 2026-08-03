@@ -536,7 +536,18 @@ def run_simulation(
 
     net_meta = load_network_meta(network_file)
     net_scenario = net_meta["scenario"]
-    run_id = build_run_id(net_scenario, model, cav_ratio, vehicle_count, seed)
+    # 纯净分支：build_run_id 仅 cav_count 格式（cav_count 从请求渗透率取整推导）
+    cav_count = round(vehicle_count * cav_ratio)
+    run_id = build_run_id(
+        net_scenario,
+        model,
+        cav_ratio,
+        vehicle_count,
+        seed,
+        cav_count=cav_count,
+        assignment_seed=seed,
+        sumo_seed=0,
+    )
     output_path = Path(output_csv)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     raw_root = output_path.with_suffix("").with_name(output_path.stem + "_raw")
@@ -566,8 +577,7 @@ def run_simulation(
     experiment_id = f"single-{config_sha256[:12]}-{network_sha256[:12]}"
 
     # 纯净分支：single_run 单跑迁移到 v0.4.1（schema=2，与 batch 同架构）——
-    # cav_count 取整、pcav 用 realized、requested_pcav 保留请求值。
-    cav_count = round(vehicle_count * cav_ratio)
+    # cav_count 取整（run_id 生成处已算）、pcav 用 realized、requested_pcav 保留请求值。
     realized_pcav = cav_count / vehicle_count
 
     spec = RunSpec(

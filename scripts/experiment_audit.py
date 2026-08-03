@@ -8,7 +8,6 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from scripts.experiment_config import (
-    GRID_MODE_CAV_COUNT,
     ExperimentConfig,
     _coerce_int,
     load_experiment_config,
@@ -42,70 +41,11 @@ class ExperimentAudit:
 def audit_experiment_config(config: ExperimentConfig) -> ExperimentAudit:
     """量化正式网格中的 pCAV 离散化和端点 assignment-seed 冗余。
 
-    requested_pcav 模式：按 pcav_levels × vehicle_counts 的离散化误差审计。
-    cav_count 模式：treatments 直接指定精确 cav_counts（无 requested/realized
-    离散化误差，mismatch 恒 0）；planned run 数与端点冗余按
-    batch_run._build_cav_count_specs 的展开口径计算（P2 本轮审查修复：
-    旧实现仅支持 requested_pcav，cav_count 模式输出全零误导）。
+    纯净分支：仅 cav_count 模式（requested_pcav 网格已移除）。treatments 直接
+    指定精确 cav_counts（无 requested/realized 离散化误差，mismatch 恒 0）；
+    planned run 数与端点冗余按 batch_run._build_cav_count_specs 的展开口径计算。
     """
-    if config.grid_mode == GRID_MODE_CAV_COUNT:
-        return _audit_cav_count_grid(config)
-
-    scenario_model_seed_multiplier = len(config.scenarios) * len(config.models) * len(config.seeds)
-    by_vehicle_count = []
-    mismatch_cells = 0
-    duplicate_cells = 0
-
-    for vehicle_count in config.vehicle_counts:
-        realized_counts = []
-        mismatched_levels = 0
-        max_error = 0.0
-        for requested_pcav in config.pcav_levels:
-            cav_count = round(vehicle_count * requested_pcav)
-            realized_pcav = cav_count / vehicle_count
-            realized_counts.append(cav_count)
-            error = abs(realized_pcav - requested_pcav)
-            if error > 1e-12:
-                mismatched_levels += 1
-            max_error = max(max_error, error)
-
-        realized_compositions = len(set(realized_counts))
-        duplicate_levels = len(realized_counts) - realized_compositions
-        mismatch_cells += mismatched_levels
-        duplicate_cells += duplicate_levels
-        by_vehicle_count.append(
-            VehicleCountAudit(
-                vehicle_count=vehicle_count,
-                requested_level_count=len(config.pcav_levels),
-                realized_composition_count=realized_compositions,
-                mismatched_level_count=mismatched_levels,
-                duplicate_treatment_level_count=duplicate_levels,
-                max_absolute_pcav_error=max_error,
-            )
-        )
-
-    planned_run_count = (
-        len(config.scenarios)
-        * len(config.models)
-        * len(config.pcav_levels)
-        * len(config.vehicle_counts)
-        * len(config.seeds)
-    )
-    endpoint_count = sum(level in {0.0, 1.0} for level in config.pcav_levels)
-    endpoint_unique = (
-        len(config.scenarios) * len(config.models) * len(config.vehicle_counts) * endpoint_count
-    )
-    endpoint_runs = endpoint_unique * len(config.seeds)
-
-    return ExperimentAudit(
-        planned_run_count=planned_run_count,
-        requested_realized_mismatch_runs=mismatch_cells * scenario_model_seed_multiplier,
-        duplicate_penetration_treatment_runs=duplicate_cells * scenario_model_seed_multiplier,
-        endpoint_run_count=endpoint_runs,
-        endpoint_unique_assignment_treatments=endpoint_unique,
-        endpoint_assignment_redundant_runs=endpoint_runs - endpoint_unique,
-        by_vehicle_count=tuple(by_vehicle_count),
-    )
+    return _audit_cav_count_grid(config)
 
 
 def _default_assignment_seeds(cav_count: int, vehicle_count: int) -> list[int]:

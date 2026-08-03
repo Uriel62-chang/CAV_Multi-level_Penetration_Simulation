@@ -19,9 +19,8 @@ from scripts.config import (
 PIPELINE_V4_1 = "v0.4.1"
 PIPELINE_V4_2 = "v0.4.2"
 SEED_SCOPE = "vehicle_type_assignment"
-GRID_MODE_REQUESTED_PCAV = "requested_pcav"
 GRID_MODE_CAV_COUNT = "cav_count"
-GRID_MODES = (GRID_MODE_REQUESTED_PCAV, GRID_MODE_CAV_COUNT)
+GRID_MODES = (GRID_MODE_CAV_COUNT,)
 
 _COMMON_REQUIRED = {
     "config_version",
@@ -39,12 +38,10 @@ _COMMON_REQUIRED = {
     "network_files",
 }
 
-_PCAV_MODE_EXTRA = {"pcav_levels", "vehicle_counts", "seeds"}
 _CAV_COUNT_MODE_EXTRA = {"treatments", "sumo_seeds"}
 
 _ALL_KNOWN_FIELDS = (
     _COMMON_REQUIRED
-    | _PCAV_MODE_EXTRA
     | _CAV_COUNT_MODE_EXTRA
     | {
         "grid_mode",
@@ -91,12 +88,10 @@ class ExperimentConfig:
     loops: int
     network_files: dict[str, str]
 
-    # ── 网格模式 ──
-    grid_mode: str = GRID_MODE_REQUESTED_PCAV
+    # ── 网格模式（纯净分支：仅 cav_count） ──
+    grid_mode: str = GRID_MODE_CAV_COUNT
 
-    # requested_pcav 模式字段
-    pcav_levels: tuple[float, ...] = ()
-    vehicle_counts: tuple[int, ...] = ()
+    # 全局 assignment_seeds 源（cav_count 模式；treatment 未显式指定时使用）
     seeds: tuple[int, ...] = ()
 
     # cav_count 模式字段
@@ -135,30 +130,20 @@ class ExperimentConfig:
         _check_common_missing(data)
         _warn_or_reject_unknown(data)
 
-        grid_mode = str(data.get("grid_mode", GRID_MODE_REQUESTED_PCAV))
+        grid_mode = str(data.get("grid_mode", GRID_MODE_CAV_COUNT))
         if grid_mode not in GRID_MODES:
             raise ValueError(f"grid_mode must be one of {GRID_MODES}, got {grid_mode!r}")
 
-        if grid_mode == GRID_MODE_REQUESTED_PCAV:
-            _check_required(data, _PCAV_MODE_EXTRA)
-            pcav = tuple(float(Decimal(str(x))) for x in data["pcav_levels"])
-            vct = tuple(_coerce_int(x, "vehicle_counts") for x in data["vehicle_counts"])
-            seeds = tuple(_coerce_int(x, "seeds") for x in data["seeds"])
-            treatments: tuple[dict[str, Any], ...] = ()
-            sumo_seeds: tuple[int, ...] = ()
-        else:
-            _check_required(data, _CAV_COUNT_MODE_EXTRA)
-            treatments = tuple(dict(t) for t in data["treatments"])
-            sumo_seeds = tuple(_coerce_int(x, "sumo_seeds") for x in data["sumo_seeds"])
-            pcav = ()
-            vct = ()
-            seeds = tuple(
-                _coerce_int(x, "assignment_seeds")
-                for x in data.get("assignment_seeds", data.get("seeds", ()))
-            )
-            # 审阅 P2-3：assignment seed 非负（与 sumo_seed 语义一致）
-            if any(s < 0 for s in seeds):
-                raise ValueError("assignment_seeds must be non-negative")
+        _check_required(data, _CAV_COUNT_MODE_EXTRA)
+        treatments = tuple(dict(t) for t in data["treatments"])
+        sumo_seeds = tuple(_coerce_int(x, "sumo_seeds") for x in data["sumo_seeds"])
+        seeds = tuple(
+            _coerce_int(x, "assignment_seeds")
+            for x in data.get("assignment_seeds", data.get("seeds", ()))
+        )
+        # 审阅 P2-3：assignment seed 非负（与 sumo_seed 语义一致）
+        if any(s < 0 for s in seeds):
+            raise ValueError("assignment_seeds must be non-negative")
 
         config = cls(
             config_version=str(data["config_version"]),
@@ -175,8 +160,6 @@ class ExperimentConfig:
             loops=_coerce_int(data["loops"], "loops"),
             network_files={str(k): str(v) for k, v in data["network_files"].items()},
             grid_mode=grid_mode,
-            pcav_levels=pcav,
-            vehicle_counts=vct,
             seeds=seeds,
             treatments=treatments,
             sumo_seeds=sumo_seeds,
@@ -229,14 +212,9 @@ class ExperimentConfig:
             "with_internal": self.with_internal,
         }
         result["ssm_range_m"] = self.ssm_range_m
-        if self.grid_mode == GRID_MODE_REQUESTED_PCAV:
-            result["pcav_levels"] = list(self.pcav_levels)
-            result["vehicle_counts"] = list(self.vehicle_counts)
-            result["seeds"] = list(self.seeds)
-        else:
-            result["treatments"] = list(self.treatments)
-            result["assignment_seeds"] = list(self.seeds)
-            result["sumo_seeds"] = list(self.sumo_seeds)
+        result["treatments"] = list(self.treatments)
+        result["assignment_seeds"] = list(self.seeds)
+        result["sumo_seeds"] = list(self.sumo_seeds)
         if self.fcd_profile is not None:
             result["fcd_profile"] = self.fcd_profile
         if self.fcd_max_leader_distance_m is not None:
@@ -379,10 +357,7 @@ class ExperimentConfig:
                 f"step_length must evenly divide CAV actionStepLength ({CAV_ACTION_STEP_LENGTH})"
             )
         validate_analysis_windows(self.warmup, self.detector_frequency, self.edge_data_frequency)
-        if self.grid_mode == GRID_MODE_REQUESTED_PCAV:
-            self._validate_requested_pcav_mode()
-        else:
-            self._validate_cav_count_mode()
+        self._validate_cav_count_mode()
         if self.fcd_profile is not None and self.fcd_max_leader_distance_m is None:
             raise ValueError("fcd_max_leader_distance_m is required when fcd_profile is set")
         # P2-1（审阅）：ssm_range_m 对全部 pipeline 校验（原仅 v0.4.1）；
@@ -412,15 +387,6 @@ class ExperimentConfig:
             raise ValueError(
                 f"ssm_extratime_s must be positive and finite, got {self.ssm_extratime_s}"
             )
-
-    def _validate_requested_pcav_mode(self) -> None:
-        _require_nonempty_unique("pcav_levels", self.pcav_levels)
-        _require_nonempty_unique("vehicle_counts", self.vehicle_counts)
-        _require_nonempty_unique("seeds", self.seeds)
-        if any(value < 0 or value > 1 for value in self.pcav_levels):
-            raise ValueError("pcav_levels values must satisfy 0 <= pCAV <= 1")
-        if any(value <= 0 for value in self.vehicle_counts):
-            raise ValueError("vehicle_counts values must be positive")
 
     def _validate_cav_count_mode(self) -> None:
         if not self.treatments:

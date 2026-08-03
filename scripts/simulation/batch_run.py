@@ -23,7 +23,6 @@ import traceback
 from contextlib import suppress
 from dataclasses import replace
 from datetime import datetime, timezone
-from decimal import Decimal
 from pathlib import Path
 
 from scripts.config import (
@@ -68,24 +67,12 @@ SCENARIO_WEIGHT = {"scenario_3": 4, "scenario_2": 3, "scenario_1": 2, "scenario_
 # ═══════════════════════════════════════════════════════════════════
 
 
-def generate_pcav_levels(step: float = 0.05) -> list:
-    decimal_step = Decimal(str(step))
-    if decimal_step <= 0 or Decimal(1) % decimal_step:
-        raise ValueError("pCAV step must be positive and evenly divide 1")
-    count = int(Decimal(1) / decimal_step)
-    return [float(decimal_step * index) for index in range(count + 1)]
-
-
 def build_run_specs(
     scenarios: list,
     models: list,
-    pipeline_version: str = "v0.4.1",
+    pipeline_version: str = "v0.4.2",
     *,
-    # requested_pcav 模式参数（旧）
-    pcav_levels: list | None = None,
-    vehicle_levels: list | None = None,
-    seeds: list | None = None,
-    # cav_count 模式参数（新）
+    # cav_count 模式参数（纯净分支唯一网格模式）
     treatments: list | None = None,
     sumo_seeds: list | None = None,
     # 公共参数
@@ -97,7 +84,7 @@ def build_run_specs(
     loops: int = 300,
     network_files: dict[str, str] | None = None,
     seed_scope: str = "vehicle_type_assignment",
-    schema_version: str = "1",
+    schema_version: str = "2",
     config_sha256: str = "",
     network_sha256: dict[str, str] | None = None,
     experiment_id: str = "",
@@ -118,52 +105,14 @@ def build_run_specs(
     ssm_mirror_overlap_ratio: float = 0.8,
     ssm_fragment_merge_gap_s: float = 0.0,
 ) -> list[RunSpec]:
-    """生成全部 RunSpec，根据参数自动选择 requested_pcav 或 cav_count 网格模式。"""
-    if sumo_seeds is not None and treatments is not None:
-        return _build_cav_count_specs(
-            scenarios=scenarios,
-            models=models,
-            treatments=treatments,
-            sumo_seeds=sumo_seeds,
-            simulation_end=simulation_end,
-            warmup=warmup,
-            step_length=step_length,
-            detector_frequency=detector_frequency,
-            edge_data_frequency=edge_data_frequency,
-            loops=loops,
-            network_files=network_files or {},
-            seed_scope=seed_scope,
-            pipeline_version=pipeline_version,
-            schema_version=schema_version,
-            config_sha256=config_sha256,
-            network_sha256=network_sha256 or {},
-            experiment_id=experiment_id,
-            ssm_capture_ttc_threshold_s=ssm_capture_ttc_threshold_s,
-            ssm_capture_drac_threshold_mps2=ssm_capture_drac_threshold_mps2,
-            ssm_range_m=ssm_range_m,
-            ssm_trajectories=ssm_trajectories,
-            ssm_extratime_s=ssm_extratime_s,
-            fcd_profile=fcd_profile,
-            fcd_max_leader_distance_m=fcd_max_leader_distance_m,
-            with_internal=with_internal,
-            experiment_role=experiment_role,
-            ssm_enabled=ssm_enabled,
-            analysis_ttc_threshold_s=analysis_ttc_threshold_s,
-            analysis_drac_threshold_mps2=analysis_drac_threshold_mps2,
-            ssm_dedup_method=ssm_dedup_method,
-            ssm_mirror_overlap_ratio=ssm_mirror_overlap_ratio,
-            ssm_fragment_merge_gap_s=ssm_fragment_merge_gap_s,
-        )
-    if pcav_levels is None or vehicle_levels is None or seeds is None:
-        raise ValueError(
-            "either (pcav_levels, vehicle_levels, seeds) or (treatments, sumo_seeds) required"
-        )
-    return _build_requested_pcav_specs(
+    """生成全部 RunSpec（纯净分支：仅 cav_count 网格模式）。"""
+    if sumo_seeds is None or treatments is None:
+        raise ValueError("cav_count grid requires (treatments, sumo_seeds)")
+    return _build_cav_count_specs(
         scenarios=scenarios,
         models=models,
-        pcav_levels=pcav_levels,
-        vehicle_levels=vehicle_levels,
-        seeds=seeds,
+        treatments=treatments,
+        sumo_seeds=sumo_seeds,
         simulation_end=simulation_end,
         warmup=warmup,
         step_length=step_length,
@@ -185,6 +134,13 @@ def build_run_specs(
         fcd_profile=fcd_profile,
         fcd_max_leader_distance_m=fcd_max_leader_distance_m,
         with_internal=with_internal,
+        experiment_role=experiment_role,
+        ssm_enabled=ssm_enabled,
+        analysis_ttc_threshold_s=analysis_ttc_threshold_s,
+        analysis_drac_threshold_mps2=analysis_drac_threshold_mps2,
+        ssm_dedup_method=ssm_dedup_method,
+        ssm_mirror_overlap_ratio=ssm_mirror_overlap_ratio,
+        ssm_fragment_merge_gap_s=ssm_fragment_merge_gap_s,
     )
 
 
@@ -268,79 +224,6 @@ def _build_spec_common(
         ssm_mirror_overlap_ratio=ssm_mirror_overlap_ratio,
         ssm_fragment_merge_gap_s=ssm_fragment_merge_gap_s,
     )
-
-
-def _build_requested_pcav_specs(
-    scenarios: list,
-    models: list,
-    pcav_levels: list,
-    vehicle_levels: list,
-    seeds: list,
-    simulation_end: float,
-    warmup: float,
-    step_length: float,
-    detector_frequency: int,
-    edge_data_frequency: int,
-    loops: int,
-    network_files: dict[str, str],
-    seed_scope: str,
-    pipeline_version: str,
-    schema_version: str,
-    config_sha256: str,
-    network_sha256: dict[str, str],
-    experiment_id: str,
-    ssm_capture_ttc_threshold_s: float,
-    ssm_capture_drac_threshold_mps2: float,
-    ssm_range_m: float,
-    ssm_trajectories: bool,
-    ssm_extratime_s: float,
-    fcd_profile: str | None,
-    fcd_max_leader_distance_m: float | None,
-    with_internal: bool,
-) -> list[RunSpec]:
-    """以旧 requested_pcav 模式展开网格。"""
-    specs = []
-    for scenario in scenarios:
-        for model in models:
-            for pcav in pcav_levels:
-                for vn in vehicle_levels:
-                    for seed in seeds:
-                        run_id = build_run_id(scenario, model, pcav, vn, seed)
-                        specs.append(
-                            _build_spec_common(
-                                scenario=scenario,
-                                model=model,
-                                run_id=run_id,
-                                pcav=pcav,
-                                vehicle_count=vn,
-                                assignment_seed=seed,
-                                sumo_seed=0,
-                                simulation_end=simulation_end,
-                                warmup=warmup,
-                                step_length=step_length,
-                                detector_frequency=detector_frequency,
-                                edge_data_frequency=edge_data_frequency,
-                                loops=loops,
-                                network_file=network_files.get(
-                                    scenario, f"net/{scenario}/loop.net.xml"
-                                ),
-                                seed_scope=seed_scope,
-                                pipeline_version=pipeline_version,
-                                schema_version=schema_version,
-                                config_sha256=config_sha256,
-                                network_sha256=network_sha256.get(scenario, ""),
-                                experiment_id=experiment_id,
-                                ssm_capture_ttc_threshold_s=ssm_capture_ttc_threshold_s,
-                                ssm_capture_drac_threshold_mps2=ssm_capture_drac_threshold_mps2,
-                                ssm_range_m=ssm_range_m,
-                                ssm_trajectories=ssm_trajectories,
-                                ssm_extratime_s=ssm_extratime_s,
-                                fcd_profile=fcd_profile,
-                                fcd_max_leader_distance_m=fcd_max_leader_distance_m,
-                                with_internal=with_internal,
-                            )
-                        )
-    return specs
 
 
 def _build_cav_count_specs(
@@ -497,13 +380,10 @@ def validate_specs(
     scenarios: list,
     models: list,
     *,
-    pcav_levels: list | None = None,
-    vehicle_levels: list | None = None,
-    seeds: list | None = None,
     treatments: list | None = None,
     sumo_seeds: list | None = None,
 ) -> None:
-    """全局校验：数量、唯一性、参数合法性。根据提供参数自动选择模式。"""
+    """全局校验：数量、唯一性、参数合法性（纯净分支：仅 cav_count 模式）。"""
     # run_id 唯一性
     seen: dict[str, int] = {}
     for s in specs:
@@ -512,39 +392,9 @@ def validate_specs(
     if dupes:
         raise RuntimeError(f"Duplicate run_id: {dupes}")
 
-    if sumo_seeds is not None and treatments is not None:
-        _validate_cav_count_specs(specs, scenarios, models, treatments, sumo_seeds)
-    elif pcav_levels is not None and vehicle_levels is not None and seeds is not None:
-        # 数量校验（requested_pcav 模式）
-        expected = (
-            len(scenarios) * len(models) * len(pcav_levels) * len(vehicle_levels) * len(seeds)
-        )
-        if len(specs) != expected:
-            raise RuntimeError(f"Unexpected run count: {len(specs)}, expected {expected}")
-        _validate_requested_pcav_specs(specs, scenarios, models, pcav_levels, vehicle_levels, seeds)
-    else:
-        raise RuntimeError("validation requires either requested_pcav or cav_count parameters")
-
-
-def _validate_requested_pcav_specs(
-    specs: list[RunSpec],
-    scenarios: list,
-    models: list,
-    pcav_levels: list,
-    vehicle_levels: list,
-    seeds: list,
-) -> None:
-    """requested_pcav 模式完整校验（含 model/pCAV/vehN/seed）。"""
-    _validate_common(specs, scenarios)
-    for s in specs:
-        if s.model not in models:
-            raise RuntimeError(f"Invalid model: {s.model}")
-        if not (0 <= s.pcav <= 1):
-            raise RuntimeError(f"Invalid pCAV: {s.pcav}")
-        if s.vehicle_count not in vehicle_levels:
-            raise RuntimeError(f"Invalid vehN: {s.vehicle_count}")
-        if s.seed not in seeds:
-            raise RuntimeError(f"Invalid seed: {s.seed}")
+    if sumo_seeds is None or treatments is None:
+        raise RuntimeError("cav_count validation requires (treatments, sumo_seeds)")
+    _validate_cav_count_specs(specs, scenarios, models, treatments, sumo_seeds)
 
 
 def _validate_common(specs: list[RunSpec], scenarios: list) -> None:
@@ -1387,7 +1237,7 @@ def _resolve_cli_overrides(config, args, parser) -> dict:
                 parser.error(f"invalid --sumo-seeds value: {args.sumo_seeds}")
         # 注入全局 assignment_seeds 到 treatments（CLI 覆盖优先）
         aseeds = list(config.seeds)
-        seeds_arg = args.assignment_seeds or args.seeds
+        seeds_arg = args.assignment_seeds
         if seeds_arg is not None:
             try:
                 aseeds = [int(x.strip()) for x in seeds_arg.split(",") if x.strip()]
@@ -1417,23 +1267,16 @@ def _resolve_cli_overrides(config, args, parser) -> dict:
         except ValueError:
             parser.error(f"invalid --vehN-list value: {args.vehN_list}")
     seeds = list(config.seeds)
-    seeds_arg = args.assignment_seeds or args.seeds
+    seeds_arg = args.assignment_seeds
     if seeds_arg is not None:
         try:
             seeds = [int(x.strip()) for x in seeds_arg.split(",") if x.strip()]
         except ValueError:
             parser.error(f"invalid assignment seeds value: {seeds_arg}")
-    try:
-        pcav_levels = (
-            generate_pcav_levels(args.pstep) if args.pstep is not None else list(config.pcav_levels)
-        )
-    except ValueError as exc:
-        parser.error(str(exc))
     return {
         **common_overrides,
         "veh_levels": veh_levels,
         "seeds": seeds,
-        "pcav_levels": pcav_levels,
     }
 
 
@@ -1462,17 +1305,11 @@ def main():
     parser.add_argument("--resume", action="store_true", help="跳过已完成且版本匹配的 run")
     parser.add_argument("--dry-run", action="store_true", help="只生成和校验任务，不启动 SUMO")
     parser.add_argument("--sumo", default="sumo", help="SUMO 可执行文件 (默认: sumo)")
-    parser.add_argument("--pstep", type=float, default=None, help="显式覆盖配置中的 pCAV 网格步长")
     parser.add_argument("--vehN-list", default=None, help="显式覆盖配置中的车辆数列表，逗号分隔")
     parser.add_argument(
         "--assignment-seeds",
         default=None,
         help="显式覆盖车辆类型排列种子列表（推荐）",
-    )
-    parser.add_argument(
-        "--seeds",
-        default=None,
-        help="[deprecated] 同 --assignment-seeds",
     )
     parser.add_argument(
         "--model", choices=CAV_MODELS, default=None, help="显式覆盖配置，仅运行一个 CAV 模型"
@@ -1499,47 +1336,21 @@ def main():
     except ValueError as exc:
         parser.error(str(exc))
 
-    if args.seeds is not None and args.assignment_seeds is not None:
-        parser.error("cannot use both --seeds and --assignment-seeds")
-    if args.seeds is not None:
-        print("[WARNING] --seeds is deprecated, use --assignment-seeds")
-
     overrides = _resolve_cli_overrides(config, args, parser)
     scenarios = list(overrides["scenarios"])
     models = list(overrides["models"])
-    if config.grid_mode == "cav_count":
-        resolved_config = replace(
-            config,
-            treatments=tuple(overrides["treatments"]),
-            sumo_seeds=tuple(overrides["sumo_seeds"]),
-            scenarios=tuple(scenarios),
-            models=tuple(models),
-            network_files=overrides["network_files"],
-        )
-        spec_kwargs = {
-            "treatments": list(resolved_config.treatments),
-            "sumo_seeds": list(resolved_config.sumo_seeds),
-            "pcav_levels": None,
-            "vehicle_levels": None,
-            "seeds": None,
-        }
-    else:
-        resolved_config = replace(
-            config,
-            pcav_levels=tuple(overrides["pcav_levels"]),
-            vehicle_counts=tuple(overrides["veh_levels"]),
-            seeds=tuple(overrides["seeds"]),
-            scenarios=tuple(scenarios),
-            models=tuple(models),
-            network_files=overrides["network_files"],
-        )
-        spec_kwargs = {
-            "pcav_levels": list(resolved_config.pcav_levels),
-            "vehicle_levels": list(resolved_config.vehicle_counts),
-            "seeds": list(resolved_config.seeds),
-            "treatments": None,
-            "sumo_seeds": None,
-        }
+    resolved_config = replace(
+        config,
+        treatments=tuple(overrides["treatments"]),
+        sumo_seeds=tuple(overrides["sumo_seeds"]),
+        scenarios=tuple(scenarios),
+        models=tuple(models),
+        network_files=overrides["network_files"],
+    )
+    spec_kwargs = {
+        "treatments": list(resolved_config.treatments),
+        "sumo_seeds": list(resolved_config.sumo_seeds),
+    }
 
     try:
         resolved_config.validate()

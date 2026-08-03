@@ -23,11 +23,6 @@ PIPELINE_V4_2 = "v0.4.2"
 # ── run_id 生成 ──
 
 
-def encode_pcav(pcav: float) -> int:
-    """浮点 pCAV → 整数编码 (0.50 → 50)"""
-    return round(pcav * 100)
-
-
 def build_run_id(
     scenario: str,
     model: str | None = None,
@@ -39,25 +34,16 @@ def build_run_id(
     assignment_seed: int | None = None,
     sumo_seed: int | None = None,
 ) -> str:
-    """确定性 run_id 生成。
+    """确定性 run_id 生成（纯净分支：仅 cav_count 网格格式）。
 
-    cav_count 为 None（旧式构造，从 pcav 推导）→ 旧格式：
-      ``s2_CACC_p050_v120_seed1``
-
-    cav_count 不为 None → 新格式（v0.4.1）：
+    格式（v0.4.1 起）：
       ``s2_CACC_v120_c060_as01_ss101``
       cav_count=0 时 model 替换为 ``HVONLY``，inactive aseed 写为 ``00``。
     """
     short_scenario = scenario.replace("scenario_", "s")
 
-    if cav_count is None:
-        if model is None or pcav is None or vehicle_count is None or seed is None:
-            raise ValueError("cav_count=None 的 build_run_id 需要 model, pcav, vehicle_count, seed")
-        pcav_code = encode_pcav(pcav)
-        return f"{short_scenario}_{model}_p{pcav_code:03d}_v{vehicle_count:03d}_seed{seed}"
-
-    if vehicle_count is None or sumo_seed is None:
-        raise ValueError("v0.4.1 build_run_id requires vehicle_count, cav_count, sumo_seed")
+    if vehicle_count is None or cav_count is None or sumo_seed is None:
+        raise ValueError("build_run_id requires vehicle_count, cav_count, sumo_seed")
     effective_model = "HVONLY" if cav_count == 0 else (model or "UNKN")
     effective_aseed = 0 if assignment_seed is None else assignment_seed
     return (

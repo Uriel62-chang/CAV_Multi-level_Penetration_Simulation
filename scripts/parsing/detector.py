@@ -68,15 +68,26 @@ def parse_detector_multi(xml_paths: list, warmup_period: float = 600.0):
         return parse_detector(xml_paths[0], warmup_period)
 
     # 读取所有车道的检测器数据，按 begin 时间分组
+    import math
+
     lane_data = {}
     for path in xml_paths:
         root = ET.parse(path).getroot()
         for interval in root.findall("interval"):
-            begin = float(interval.get("begin", "0"))
+            # 审阅 P1-2（multi）：非数值/非有限 → 抛 ValueError（fail-closed，与单车道一致）
+            try:
+                begin = float(interval.get("begin", "0"))
+                flow = float(interval.get("flow", "0"))
+                speed = float(interval.get("speed", "0"))
+            except (ValueError, TypeError):
+                raise ValueError(f"detector: non-numeric interval attribute in {path}") from None
+            if not (math.isfinite(begin) and math.isfinite(flow) and math.isfinite(speed)):
+                raise ValueError(
+                    f"detector: non-finite interval attribute in {path} "
+                    f"(begin={begin!r}, flow={flow!r}, speed={speed!r})"
+                )
             if begin < warmup_period:
                 continue
-            flow = float(interval.get("flow", "0"))
-            speed = float(interval.get("speed", "0"))
             if begin not in lane_data:
                 lane_data[begin] = {"flow": 0.0, "weighted_speed": 0.0}
             lane_data[begin]["flow"] += flow

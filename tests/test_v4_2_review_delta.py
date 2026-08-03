@@ -1184,3 +1184,64 @@ def test_lanechange_nan_time_fails_closed(tmp_path):
     r = parse_lanechange(str(p), warmup_period=0)
     assert r["parse_success"] is False
     assert r["lane_change_count"] == 0
+
+
+# ── 审查 P1-2（复核）：subgroup 解析路径 fail-closed ──
+
+
+def test_vehroute_subgroup_bad_exit_time_fails_closed(tmp_path):
+    from scripts.parsing.vehroute import parse_lap_times_subgroup
+
+    p = tmp_path / "vehroute.xml"
+    p.write_text(
+        '<routes><vehicle id="v0" depart="0.00">'
+        '<route edges="e0 e1 e2 e3" exitTimes="10.0 20.0 nan 40.0 50.0 60.0 70.0 80.0"/>'
+        "</vehicle></routes>",
+        encoding="utf-8",
+    )
+    r = parse_lap_times_subgroup(str(p), {"v0": "CAV"}, 4, warmup_period=0, sim_end_time=3600.0)
+    assert r["all"]["parse_success"] is False
+
+
+def test_lanechange_subgroup_nan_time_fails_closed(tmp_path):
+    from scripts.parsing.lanechange import parse_lanechange_subgroup
+
+    p = tmp_path / "lc.xml"
+    p.write_text(
+        '<laneChanges><change id="v0" time="nan" type="LC" lane="0" '
+        'leaderGap="10.0" leaderSecureGap="5.0" followerGap="10.0" followerSecureGap="5.0"/>'
+        "</laneChanges>",
+        encoding="utf-8",
+    )
+    r = parse_lanechange_subgroup(str(p), {"v0": "CAV"}, warmup_period=0)
+    assert r["all"]["parse_success"] is False
+    assert r["all"]["lane_change_count"] == 0
+
+
+def test_detector_multi_nan_flow_fails_closed(tmp_path):
+    """两个文件触发 parse_detector_multi 的多车道分支（单文件会委托 parse_detector）。"""
+    from scripts.parsing.detector import parse_detector_multi
+
+    p = tmp_path / "det.xml"
+    p.write_text(
+        '<detector><interval begin="0.00" end="60.00" id="det0" flow="nan" speed="10.0"/>'
+        "</detector>",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="non-finite"):
+        parse_detector_multi([str(p), str(p)], warmup_period=0)
+
+
+def test_vehroute_subgroup_empty_result_branch_fails_closed(tmp_path):
+    """exitTimes 全坏值 → 空值 _stats 分支也必须 parse_success=False（审阅 P2 残留）。"""
+    from scripts.parsing.vehroute import parse_lap_times_subgroup
+
+    p = tmp_path / "vehroute.xml"
+    p.write_text(
+        '<routes><vehicle id="v0" depart="0.00">'
+        '<route edges="e0 e1 e2 e3" exitTimes="nan"/>'
+        "</vehicle></routes>",
+        encoding="utf-8",
+    )
+    r = parse_lap_times_subgroup(str(p), {"v0": "CAV"}, 4, warmup_period=0, sim_end_time=3600.0)
+    assert r["all"]["parse_success"] is False

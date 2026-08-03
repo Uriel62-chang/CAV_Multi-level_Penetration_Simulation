@@ -123,6 +123,8 @@ def parse_lap_times_subgroup(
     sim_end_time: float = 3600.0,
 ) -> dict:
     grouped: dict[str, list[float]] = {"all": [], "HV": [], "CAV": []}
+    # 审阅 P1-2（subgroup）：坏值（非数值/非有限）计数——fail-closed，不得静默跳过
+    invalid = 0
 
     try:
         tree = ET.parse(xml_path)
@@ -160,11 +162,15 @@ def parse_lap_times_subgroup(
         for t in exit_times_str.split():
             try:
                 val = float(t)
-                if val < 0:
-                    continue
-                times.append(val)
-            except ValueError:
+            except (ValueError, TypeError):
+                invalid += 1
                 continue
+            if not math.isfinite(val):
+                invalid += 1
+                continue
+            if val < 0:
+                continue  # -1 = not reached（合法）
+            times.append(val)
 
         if len(times) < edges_per_lap * 1:
             continue
@@ -190,7 +196,7 @@ def parse_lap_times_subgroup(
                 "median_lap_time_s": float("nan"),
                 "p95_lap_time_s": float("nan"),
                 "lap_time_std_s": float("nan"),
-                "parse_success": True,
+                "parse_success": invalid == 0,
                 "lap_times_s": [],
             }
         values.sort()
@@ -204,7 +210,7 @@ def parse_lap_times_subgroup(
             "median_lap_time_s": median_val,
             "p95_lap_time_s": _quantile_higher(values, 0.95),
             "lap_time_std_s": std_val,
-            "parse_success": True,
+            "parse_success": invalid == 0,
             "lap_times_s": values,
         }
 

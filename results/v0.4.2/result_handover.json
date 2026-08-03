@@ -10,14 +10,14 @@
   "parsing": {
    "artifact_generation_commit": "8544f75",
    "post_generation_validation_commit": "8544f75",
-   "note": "2026-08 审阅 P1-1（结果-源码版本闭包）：全量重解析 3,972 runs（main 3888 + safety 84，全部 SUCCESS）；summary/subgroup_summary 字节级零变化（fail-closed 与 pair/role 修复对正式数据无数值影响），parse_status 仅运行时间戳/RSS 变化；writer/aggregate 重跑后run-level/aggregated CSV 哈希与重解析前一致。"
+   "note": "2026-08 审阅 P1-1（结果-源码版本闭包）：8544f75 全量重解析 3,972 runs（main 3888 + safety 84，全部 SUCCESS）；summary/subgroup_summary 字节级零变化（fail-closed 与 pair/role 修复对正式数据无数值影响），parse_status 仅运行元数据变化。subgroup 解析器 fail-closed 修订（vehroute/lanechange/detector multi）待审阅通过后执行二次全量重解析并同步本文件。"
   },
   "writer": {
    "core_results_commit": "8f9ef4b",
    "schema_only_rerun_commit": "e99cd89",
-   "rerun_head": "ef860da365d71f7d4dc39b678ac7f7baf4f4e451",
+   "rerun_head": "3c286b6",
    "rerun_tracked_clean": false,
-   "note": "82 列 run-level CSV 由 P0-1 修复后 writer 重生成（DRAC 空间配对率列）；工作区含未提交 P0-1/P1-2/P2 修复（draft/p123-fixes）；parsing/aggregate/SUMO 未重跑。"
+   "note": "82 列 run-level CSV 由 P0-1 修复后 writer 重生成（DRAC 空间配对率列）；8544f75 全量重解析后 writer/aggregate 重跑，run-level/aggregated CSV 哈希与重解析前一致（数值零变化）。subgroup fail-closed 修订 + 二次重解析待完成后更新本字段（当前工作区含未提交修订）。"
   },
   "aggregate": {
    "commit": "91c256f",

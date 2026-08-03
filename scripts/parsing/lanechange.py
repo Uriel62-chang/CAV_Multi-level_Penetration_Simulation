@@ -88,6 +88,8 @@ def parse_lanechange_subgroup(
         "HV": {"total": 0, "unsafe": 0},
         "CAV": {"total": 0, "unsafe": 0},
     }
+    # 审阅 P1-2（subgroup）：坏值（time 非数值/非有限）计数——fail-closed
+    invalid = 0
 
     try:
         tree = ET.parse(xml_path)
@@ -114,6 +116,10 @@ def parse_lanechange_subgroup(
         try:
             time_val = float(change.get("time", "0"))
         except (ValueError, TypeError):
+            invalid += 1
+            continue
+        if not math.isfinite(time_val):
+            invalid += 1
             continue
 
         if time_val < warmup_period:
@@ -147,7 +153,7 @@ def parse_lanechange_subgroup(
             "lane_change_count": t,
             "unsafe_lc_gap_count": u,
             "unsafe_lc_gap_ratio": u / t if t > 0 else float("nan"),
-            "parse_success": True,
+            "parse_success": invalid == 0,
         }
 
     return {"all": _build("all"), "HV": _build("HV"), "CAV": _build("CAV")}

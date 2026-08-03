@@ -329,24 +329,6 @@ def test_coerce_int_rejects_non_integer(bad):
         _coerce_int(bad, "k")
 
 
-def test_config_rejects_float_vehicle_count(tmp_path):
-    data = json.loads(Path(r"configs/v0.4.0.json").read_text(encoding="utf-8"))
-    data["vehicle_counts"] = [10.9]
-    path = tmp_path / "c.json"
-    path.write_text(json.dumps(data), encoding="utf-8")
-    with pytest.raises(ValueError, match="vehicle_counts"):
-        load_experiment_config(path)
-
-
-def test_config_rejects_float_seed(tmp_path):
-    data = json.loads(Path(r"configs/v0.4.0.json").read_text(encoding="utf-8"))
-    data["seeds"] = [1.9, 2]
-    path = tmp_path / "c.json"
-    path.write_text(json.dumps(data), encoding="utf-8")
-    with pytest.raises(ValueError, match="seeds"):
-        load_experiment_config(path)
-
-
 def test_config_rejects_numeric_bool(tmp_path):
     data = json.loads(Path(r"configs/v0.4.2/main.json").read_text(encoding="utf-8"))
     data["with_internal"] = 2
@@ -2263,45 +2245,6 @@ def test_v4_1_command_always_explicit_extratime():
     assert cmd[idx + 1] == str(spec.ssm_extratime_s)
 
 
-# ── 本轮审查 P2：legacy 自由流参考优先 artifact HV ──
-
-
-def test_load_free_flow_hv_ref_artifact_priority(tmp_path, monkeypatch):
-    """P2：legacy 自由流参考读取 artifact 的 HV 值（与阶段二 runner 口径一致）；
-    artifact 缺失/损坏 fail-closed（抛 ValueError）——不再回退已移除的历史常量。"""
-    from scripts.simulation import single_run
-    from scripts.simulation.single_run import _load_free_flow_hv_ref
-
-    artifact = tmp_path / "ff.json"
-    artifact.write_text(
-        json.dumps(
-            {
-                "results": {
-                    "scenario_0": {
-                        "references": {"HV": {"lap_time_s": 111.8}, "CAV_IDM": {"lap_time_s": 98.8}}
-                    }
-                }
-            }
-        ),
-        encoding="utf-8",
-    )
-    assert (
-        _load_free_flow_hv_ref({"free_flow_reference_path": str(artifact)}, "scenario_0") == 111.8
-    )
-    # net_meta 无 free_flow_reference_path → 回退默认 artifact 路径（仓库真实
-    # artifact HV≈111.8）
-    assert _load_free_flow_hv_ref({}, "scenario_0") == pytest.approx(111.8)
-    # artifact 完全缺失 → fail-closed（抛 ValueError）
-    monkeypatch.setattr(single_run, "_DEFAULT_FREE_FLOW_ARTIFACT", str(tmp_path / "missing.json"))
-    with pytest.raises(ValueError, match="not found"):
-        _load_free_flow_hv_ref({}, "scenario_0")
-    # 显式路径损坏 → fail-closed
-    broken = tmp_path / "broken.json"
-    broken.write_text("not json", encoding="utf-8")
-    with pytest.raises(ValueError, match="unreadable"):
-        _load_free_flow_hv_ref({"free_flow_reference_path": str(broken)}, "scenario_0")
-
-
 # ── 本轮审查 P2：experiment_audit 支持 cav_count 模式 ──
 
 
@@ -2625,12 +2568,12 @@ def test_v4_2_core_summary_excludes_legacy_mismatched_ttc_column():
     whole_network_ttc_events_per_1000_non_internal_edge_veh_km（全路网 TTC /
     non-internal veh-km），避免正式工件残留错误口径列。"""
     from scripts.parsing.metrics import compute_core_summary
-    from scripts.run_spec import PIPELINE_V4_0_POST1, RunSpec
+    from scripts.run_spec import PIPELINE_V4_1, RunSpec
 
     legacy_col = "whole_network_ttc_events_per_1000_non_internal_edge_veh_km"
     core = compute_core_summary(_lap_primitives(), _lap_spec(), {"HV": 100.0, "IDM": 100.0})
     assert legacy_col not in core
-    # legacy（v0.4.0.post1）仍输出该列
+    # v0.4.1（非 v0.4.2）仍输出该列
     spec_legacy = _lap_spec()
     spec_legacy = RunSpec(
         scenario="scenario_0",
@@ -2639,7 +2582,7 @@ def test_v4_2_core_summary_excludes_legacy_mismatched_ttc_column():
         vehicle_count=10,
         seed=1,
         run_id="legacy",
-        pipeline_version=PIPELINE_V4_0_POST1,
+        pipeline_version=PIPELINE_V4_1,
         sumo_seed=101,
         cav_count=5,
         requested_pcav=None,
@@ -2745,12 +2688,12 @@ def test_run_v4_rejects_safety_csv(tmp_path, monkeypatch):
 
 
 def test_writer_rejects_unknown_schema_version(tmp_path):
-    """P2-5：manifest schema_version 未知（非 1/2）→ 拒绝，不再静默回落
+    """P2-5：manifest schema_version 未知（非 2）→ 拒绝，不再静默回落
     legacy contract。"""
     from scripts.results.writer import build_run_level_results
 
     manifest = {
-        "pipeline_version": "v0.4.0.post1",
+        "pipeline_version": "v0.4.1",
         "schema_version": "3",
         "config_sha256": "a" * 64,
         "total": 0,
@@ -2759,7 +2702,7 @@ def test_writer_rejects_unknown_schema_version(tmp_path):
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(ValueError, match="schema_version"):
-        build_run_level_results(tmp_path, tmp_path / "out", "v0.4.0.post1", manifest_path)
+        build_run_level_results(tmp_path, tmp_path / "out", "v0.4.1", manifest_path)
 
 
 # ── 本轮审查 P2-6：cav_count 端点 assignment 冗余语义 ──

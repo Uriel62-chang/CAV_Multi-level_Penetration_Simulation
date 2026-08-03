@@ -216,7 +216,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Audit requested/realized pCAV and assignment-seed redundancy"
     )
-    parser.add_argument("--config", default="configs/v0.4.0.json")
+    parser.add_argument("--config", default="configs/v0.4.2/main.json")
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     args = parser.parse_args()
 

@@ -22,7 +22,7 @@ def _make_v4_1_run(tmp_path):
         cav_count=5,
         requested_pcav=None,
     )
-    # 必需文件
+    # 必需文件（纯净分支：v0.4.1 为 schema=2，含 subgroup 输出与检测器）
     for f in [
         "routes.rou.xml",
         "ssm.xml",
@@ -31,6 +31,13 @@ def _make_v4_1_run(tmp_path):
         "emissions.xml",
         "vehroute.xml",
         "vehicle_type_map.json",
+        "performance_HV.xml",
+        "performance_CAV.xml",
+        "emissions_HV.xml",
+        "emissions_CAV.xml",
+        "detector_lane0.xml",
+        "detector_lane0_HV.xml",
+        "detector_lane0_CAV.xml",
     ]:
         (rd / f).write_text("<root/>")
     route_hash = sha256_file(str(rd / "routes.rou.xml"))

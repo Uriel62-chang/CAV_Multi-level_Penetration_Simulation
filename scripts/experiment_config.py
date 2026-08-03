@@ -12,13 +12,11 @@ from typing import Any
 
 from scripts.config import (
     CAV_ACTION_STEP_LENGTH,
-    CAV_MODELS,
     SSM_DRAC_THRESHOLD_MPS2,
     SSM_TTC_THRESHOLD_S,
 )
 
 PIPELINE_V4_1 = "v0.4.1"
-PIPELINE_V4_0_POST1 = "v0.4.0.post1"
 PIPELINE_V4_2 = "v0.4.2"
 SEED_SCOPE = "vehicle_type_assignment"
 GRID_MODE_REQUESTED_PCAV = "requested_pcav"
@@ -208,35 +206,6 @@ class ExperimentConfig:
         return config
 
     def to_dict(self) -> dict[str, Any]:
-        # This is the historical resolved-manifest representation.  It includes
-        # the capture defaults available in v0.4.0.post1, but not later fields.
-        if self.pipeline_version == PIPELINE_V4_0_POST1:
-            return {
-                "config_version": self.config_version,
-                "pipeline_version": self.pipeline_version,
-                "schema_version": self.schema_version,
-                "scenarios": list(self.scenarios),
-                "models": list(self.models),
-                "pcav_levels": list(self.pcav_levels),
-                "vehicle_counts": list(self.vehicle_counts),
-                "seeds": list(self.seeds),
-                "seed_scope": self.seed_scope,
-                "simulation_end": self.simulation_end,
-                "warmup": self.warmup,
-                "step_length": self.step_length,
-                "detector_frequency": self.detector_frequency,
-                "edge_data_frequency": self.edge_data_frequency,
-                "loops": self.loops,
-                "network_files": dict(self.network_files),
-                "grid_mode": self.grid_mode,
-                "ssm_capture_ttc_threshold_s": self.ssm_capture_ttc_threshold_s,
-                "ssm_capture_drac_threshold_mps2": self.ssm_capture_drac_threshold_mps2,
-                "ssm_measures": self.ssm_measures,
-                "ssm_range": self.ssm_range,
-                "ssm_trajectories": self.ssm_trajectories,
-                "with_internal": self.with_internal,
-            }
-
         result: dict[str, Any] = {
             "config_version": self.config_version,
             "pipeline_version": self.pipeline_version,
@@ -291,11 +260,9 @@ class ExperimentConfig:
 
         v0.4.1/v0.4.2 阶段二解析要求自由流基准（D-008），仅 IDM/CACC 有 artifact；
         ACC 需补充基准后才开放，避免「通过校验 → 跑完昂贵仿真 → 批量解析失败」。
-        v0.4.0.post1 legacy 保持全模型（ACC 由更早版本支持）。
+        纯净分支：v0.4.0.post1 全模型分支已移除。
         """
-        if self.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2):
-            return {"IDM", "CACC"}
-        return set(CAV_MODELS)
+        return {"IDM", "CACC"}
 
     def validate(self) -> None:
         # pipeline/schema 版本配对
@@ -375,7 +342,7 @@ class ExperimentConfig:
                 f"fcd_max_leader_distance_m must be finite, got {self.fcd_max_leader_distance_m}"
             )
         # pipeline 白名单
-        allowed_pipelines = {"v0.4.0.post1", "v0.4.1", "v0.4.2"}
+        allowed_pipelines = {"v0.4.1", "v0.4.2"}
         if self.pipeline_version not in allowed_pipelines:
             raise ValueError(
                 f"unsupported pipeline_version: {self.pipeline_version!r}, "

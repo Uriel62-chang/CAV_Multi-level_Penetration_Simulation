@@ -55,7 +55,7 @@ jobs:
       - name: Run minimal simulation
         run: |
           timeout 120 python -m scripts.simulation.batch_run \
-            --config configs/smoke.json \
+            --config configs/v0.4.1/smoke_v4_1.json \
             --output-root /tmp/cav-smoke \
             --sumo-processes 1
       - name: Verify smoke artifacts

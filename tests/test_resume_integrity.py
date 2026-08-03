@@ -37,12 +37,16 @@ def _make_complete_run(run_dir):
         {**common, "status": "SUCCESS", "return_code": 0},
     )
     atomic_write_json(run_dir / "summary.json", {"run_id": spec.run_id})
+    # 纯净分支：schema=2 解析 resume 要求 subgroup 产物（subgroup_summary.jsonl）
+    subgroup_path = run_dir / "subgroup_summary.jsonl"
+    subgroup_path.write_text('{"run_id": "resume-test"}\n', encoding="utf-8")
     atomic_write_json(
         run_dir / "parse_status.json",
         {
             **common,
             "status": "SUCCESS",
             "summary_sha256": sha256_file(run_dir / "summary.json"),
+            "subgroup_summary_sha256": sha256_file(subgroup_path),
         },
     )
     return spec

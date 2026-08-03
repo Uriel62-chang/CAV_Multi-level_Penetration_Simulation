@@ -12,7 +12,6 @@ from pathlib import Path
 
 from scripts.provenance import sha256_file
 from scripts.run_spec import (
-    PIPELINE_V4_0_POST1,
     PIPELINE_V4_1,
     PIPELINE_V4_2,
     RunSpec,
@@ -56,22 +55,6 @@ def test_v4_2_round_trip_role_and_ssm_enabled():
     assert d["ssm_enabled"] is False
     spec2 = RunSpec.from_dict(d)
     assert spec == spec2
-
-
-def test_v4_2_legacy_hash_unaffected():
-    """legacy 字段集不含 v4_2 新字段，哈希兼容保持不变。"""
-    spec_legacy = RunSpec(
-        scenario="scenario_0",
-        model="IDM",
-        pcav=0.5,
-        vehicle_count=10,
-        seed=1,
-        run_id="s0_IDM_p050_v010_seed1",
-        pipeline_version=PIPELINE_V4_0_POST1,
-    )
-    d = spec_legacy.to_dict()
-    assert "experiment_role" not in d
-    assert "ssm_enabled" not in d
 
 
 def test_v4_1_hash_unaffected_by_v4_2_fields():

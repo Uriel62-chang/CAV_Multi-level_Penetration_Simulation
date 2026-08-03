@@ -1,4 +1,4 @@
-"""v0.4.0.post1 批量并行仿真 — asyncio + Queue + N worker
+"""批量并行仿真 — asyncio + Queue + N worker
 
 架构：
   Python 父进程
@@ -79,7 +79,7 @@ def generate_pcav_levels(step: float = 0.05) -> list:
 def build_run_specs(
     scenarios: list,
     models: list,
-    pipeline_version: str = "v0.4.0.post1",
+    pipeline_version: str = "v0.4.1",
     *,
     # requested_pcav 模式参数（旧）
     pcav_levels: list | None = None,
@@ -1441,8 +1441,8 @@ def main():
     parser = argparse.ArgumentParser(description="批量并行仿真")
     parser.add_argument(
         "--config",
-        default="configs/v0.4.0.json",
-        help="版本化实验配置 JSON (默认: configs/v0.4.0.json)",
+        default="configs/v0.4.2/main.json",
+        help="版本化实验配置 JSON (默认: configs/v0.4.2/main.json)",
     )
     parser.add_argument(
         "--sumo-processes", type=int, default=4, help="同时运行的 SUMO 进程数 (默认: 4)"

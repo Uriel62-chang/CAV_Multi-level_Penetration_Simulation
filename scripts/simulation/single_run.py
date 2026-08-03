@@ -2,7 +2,6 @@ import argparse
 import asyncio
 import hashlib
 import json
-import math
 import os
 from pathlib import Path
 
@@ -13,19 +12,11 @@ from scripts.config import (
     DEFAULT_SIM_END,
     DEFAULT_STEP_LENGTH,
     DEFAULT_WARMUP,
-    SSM_DRAC_THRESHOLD_MPS2,
-    SSM_TTC_THRESHOLD_S,
 )
 from scripts.experiment_config import canonical_json, validate_analysis_windows
-from scripts.parsing import parse_detector, parse_detector_multi
-from scripts.parsing.edge_emissions import parse_edge_emissions
-from scripts.parsing.edge_performance import parse_edge_performance
-from scripts.parsing.lanechange import parse_lanechange
-from scripts.parsing.ssm import parse_ssm
-from scripts.parsing.stderr import parse_emergency_braking
-from scripts.parsing.vehroute import parse_lap_times
 from scripts.provenance import collect_provenance, sha256_file
 from scripts.run_spec import (
+    PIPELINE_V4_1,
     PreparedRun,
     RunSpec,
     atomic_write_json,
@@ -525,229 +516,6 @@ def build_sumo_command_v4_2(
 # ═══════════════════════════════════════════════════════════════════
 
 
-def _safe_div(numerator, denominator):
-    """安全除法"""
-    if denominator is None or (isinstance(denominator, float) and math.isnan(denominator)):
-        return float("nan")
-    if denominator == 0:
-        return float("nan")
-    if isinstance(numerator, float) and math.isnan(numerator):
-        return float("nan")
-    return numerator / denominator
-
-
-def _per_1000_veh_km(value, total_veh_km):
-    """归一化到 per-1000-veh-km"""
-    if isinstance(total_veh_km, float) and math.isnan(total_veh_km):
-        return float("nan")
-    if total_veh_km is None or total_veh_km <= 0:
-        return float("nan")
-    if isinstance(value, float) and math.isnan(value):
-        return float("nan")
-    return value / total_veh_km * 1000.0
-
-
-# 自由流参考读取 artifact（与 runner._load_free_flow_references 口径一致——HV 参考）。
-# v0.4.0 历史常量 FREE_FLOW_LAP_TIME_S 已移除（其 scenario_0 值 98.8 实为 CAV_IDM
-# 参考、与 artifact HV 111.8 不符——纯净分支不再保留错误口径回退）。
-_DEFAULT_FREE_FLOW_ARTIFACT = "artifacts/free_flow/v0.4.1-pilot-ff-1/free_flow_references.json"
-
-
-def _load_free_flow_hv_ref(net_meta: dict, net_scenario: str) -> float:
-    """读取 free-flow artifact 的 HV lap_time_s；缺失/损坏 fail-closed（抛 ValueError）。"""
-    artifact_rel = net_meta.get("free_flow_reference_path")
-    artifact_path = Path(artifact_rel) if artifact_rel else Path(_DEFAULT_FREE_FLOW_ARTIFACT)
-    try:
-        if not artifact_path.exists():
-            raise ValueError(f"free-flow artifact not found: {artifact_path}")
-        data = json.loads(artifact_path.read_text(encoding="utf-8"))
-        ref = (
-            data.get("results", {})
-            .get(net_scenario, {})
-            .get("references", {})
-            .get("HV", {})
-            .get("lap_time_s")
-        )
-        if ref is None or not math.isfinite(float(ref)):
-            raise ValueError(
-                f"free-flow artifact missing finite HV reference for {net_scenario}: {artifact_path}"
-            )
-        return float(ref)
-    except (OSError, ValueError, TypeError) as exc:
-        raise ValueError(f"free-flow artifact unreadable: {artifact_path}: {exc}") from exc
-
-
-def parse_run_outputs(
-    run_dir: Path, spec: RunSpec, network_file: str = DEFAULT_NETWORK_FILE
-) -> dict:
-    """解析单个 run 目录的全部原始输出，返回完整 summary dict。
-
-    供 parser_batch 和 run_simulation 共用，确保解析逻辑单一数据源。
-    SSM 优先读 ssm_compact.xml，fallback 到 ssm.xml。
-    """
-    import math as _math
-
-    net_meta = load_network_meta(network_file)
-    net_scenario = net_meta.get("scenario", "scenario_0")
-    num_lanes = net_meta.get("num_lanes", 1)
-    edges_per_lap = net_meta.get("num_sides", 4)
-    warmup_period = spec.warmup
-    sim_end_time = spec.simulation_end
-
-    # SSM 文件兼容：compact 优先
-    ssm_file = run_dir / "ssm_compact.xml"
-    if not ssm_file.exists():
-        ssm_file = run_dir / "ssm.xml"
-
-    # 读取 stderr
-    stderr_path = run_dir / "stderr.log"
-    stderr_text = ""
-    if stderr_path.exists():
-        stderr_text = stderr_path.read_text(encoding="utf-8", errors="replace")
-
-    # ── 解析 emergency braking (stderr) ──
-    eb_result = parse_emergency_braking(
-        stderr_text, warmup_period, simulation_end=spec.simulation_end
-    )
-
-    # ── 解析检测器 ──
-    detector_paths = [
-        str(run_dir / f"detector_lane{lane_index}.xml") for lane_index in range(max(num_lanes, 1))
-    ]
-    if num_lanes > 1:
-        mean_flow, max_flow, mean_speed, speed_variance, window_count = parse_detector_multi(
-            detector_paths, warmup_period, simulation_end=spec.simulation_end
-        )
-    else:
-        mean_flow, max_flow, mean_speed, speed_variance, window_count = parse_detector(
-            detector_paths[0], warmup_period, simulation_end=spec.simulation_end
-        )
-
-    # ── 解析 SSM（审阅 P2-1：legacy/单次路径传入 simulation_end，SSM 观测窗
-    #     [warmup, simulation_end)，防止 3600s 后极值混入——与 v0.4.2 阶段二一致）──
-    ssm_result = parse_ssm(
-        str(ssm_file),
-        warmup_period,
-        ttc_threshold=SSM_TTC_THRESHOLD_S,
-        drac_threshold=SSM_DRAC_THRESHOLD_MPS2,
-        simulation_end=spec.simulation_end,
-    )
-
-    # ── 解析换道 ──
-    lc_path = run_dir / "lanechange.xml"
-    lc_result = (
-        parse_lanechange(str(lc_path), warmup_period, simulation_end=spec.simulation_end)
-        if lc_path.exists()
-        else {
-            "lane_change_count": 0,
-            "unsafe_lc_gap_count": 0,
-            "unsafe_lc_gap_ratio": float("nan"),
-            "parse_success": False,
-        }
-    )
-
-    # ── 解析 edge performance / emissions ──
-    ep_result = parse_edge_performance(
-        str(run_dir / "performance.xml"), warmup_period, simulation_end=spec.simulation_end
-    )
-    ee_result = parse_edge_emissions(
-        str(run_dir / "emissions.xml"), warmup_period, simulation_end=spec.simulation_end
-    )
-
-    # ── 解析 vehroute ──
-    vr_result = parse_lap_times(
-        str(run_dir / "vehroute.xml"), edges_per_lap, warmup_period, sim_end_time
-    )
-
-    # ── 归一化 ──
-    total_veh_km = ep_result["total_vehicle_km"]
-    ttc_per_1000 = _per_1000_veh_km(ssm_result["ttc_conflict_event_count"], total_veh_km)
-    eb_per_1000 = _per_1000_veh_km(eb_result["emergency_braking_count"], total_veh_km)
-    lc_per_1000 = _per_1000_veh_km(lc_result["lane_change_count"], total_veh_km)
-    co2_per = _safe_div(ee_result["total_CO2_kg"] * 1000.0, total_veh_km)
-    nox_per = _safe_div(ee_result["total_NOx_g"] * 1000.0, total_veh_km)
-    pmx_per = _safe_div(ee_result["total_PMx_g"] * 1000.0, total_veh_km)
-    fuel_per = _safe_div(ee_result["total_fuel_kg"] * 1000.0, total_veh_km)
-    tl_per = _safe_div(ep_result["total_time_loss_s"], total_veh_km)
-
-    # ── 延误 ──
-    # 自由流参考读取 artifact HV（与阶段二 runner 一致）；缺失/损坏 fail-closed
-    free_flow = _load_free_flow_hv_ref(net_meta, net_scenario)
-    ml = vr_result["mean_lap_time_s"]
-    p95 = vr_result["p95_lap_time_s"]
-    mean_delay = (
-        ml - free_flow if not _math.isnan(ml) and not _math.isnan(free_flow) else float("nan")
-    )
-    p95_delay = (
-        p95 - free_flow if not _math.isnan(p95) and not _math.isnan(free_flow) else float("nan")
-    )
-
-    # ── 组装 summary ──
-    return {
-        "run_id": spec.run_id,
-        "scenario": net_scenario,
-        "model": spec.model,
-        "vehN": spec.vehicle_count,
-        "pCAV": spec.pcav,
-        "seed": spec.seed,
-        "step_length_s": spec.step_length,
-        "warmup_period_s": warmup_period,
-        "simulation_end_s": sim_end_time,
-        "detector_frequency_s": spec.detector_frequency,
-        "mean_flow_veh_h": mean_flow,
-        "max_flow_veh_h": max_flow,
-        "mean_speed_m_s": mean_speed,
-        "detector_mean_speed_temporal_variance": speed_variance,
-        "detector_speed_window_count": window_count,
-        "det_xml": ";".join(detector_paths),
-        "ssm_raw_record_count": ssm_result["ssm_raw_record_count"],
-        "ssm_invalid_record_count": ssm_result["ssm_invalid_record_count"],
-        "ssm_warmup_filtered_count": ssm_result["ssm_warmup_filtered_count"],
-        "ssm_valid_record_count": ssm_result["ssm_valid_record_count"],
-        "ssm_mirrored_record_count": ssm_result["ssm_mirrored_record_count"],
-        "ttc_conflict_event_count": ssm_result["ttc_conflict_event_count"],
-        "min_ttc_s": ssm_result["min_ttc_s"],
-        "ttc_affected_vehicle_count": ssm_result["ttc_involved_vehicle_count"],
-        "drac_conflict_event_count": ssm_result["drac_conflict_event_count"],
-        "max_drac_mps2": ssm_result["max_drac_mps2"],
-        "emergency_braking_count": eb_result["emergency_braking_count"],
-        "emergency_braking_affected_vehicle_count": eb_result[
-            "emergency_braking_affected_vehicle_count"
-        ],
-        "lane_change_count": lc_result["lane_change_count"],
-        "unsafe_lc_gap_count": lc_result["unsafe_lc_gap_count"],
-        "unsafe_lc_gap_ratio": lc_result["unsafe_lc_gap_ratio"],
-        "total_CO2_kg": ee_result["total_CO2_kg"],
-        "total_NOx_g": ee_result["total_NOx_g"],
-        "total_PMx_g": ee_result["total_PMx_g"],
-        "total_fuel_kg": ee_result["total_fuel_kg"],
-        "total_vehicle_km": total_veh_km,
-        "non_internal_edge_vehicle_km": ep_result["non_internal_edge_vehicle_km"],
-        "total_time_loss_s": ep_result["total_time_loss_s"],
-        "completed_lap_count": vr_result["completed_lap_count"],
-        "mean_lap_time_s": vr_result["mean_lap_time_s"],
-        "median_lap_time_s": vr_result["median_lap_time_s"],
-        "p95_lap_time_s": vr_result["p95_lap_time_s"],
-        "lap_time_std_s": vr_result["lap_time_std_s"],
-        "ttc_events_per_1000_veh_km": ttc_per_1000,
-        "emergency_brakes_per_1000_veh_km": eb_per_1000,
-        "lane_changes_per_1000_veh_km": lc_per_1000,
-        "CO2_g_per_veh_km": co2_per,
-        "NOx_mg_per_veh_km": nox_per,
-        "PMx_mg_per_veh_km": pmx_per,
-        "fuel_g_per_veh_km": fuel_per,
-        "time_loss_s_per_veh_km": tl_per,
-        "mean_lap_delay_s": mean_delay,
-        "p95_lap_delay_s": p95_delay,
-        # 审计台账
-        "ssm_parse_success": ssm_result["parse_success"],
-        "lc_parse_success": lc_result["parse_success"],
-        "ep_parse_success": ep_result["parse_success"],
-        "ee_parse_success": ee_result["parse_success"],
-        "vr_parse_success": vr_result["parse_success"],
-    }
-
-
 def run_simulation(
     vehicle_count: int,
     cav_ratio: float,
@@ -790,17 +558,22 @@ def run_simulation(
         "edge_data_frequency": DEFAULT_EDGEDATA_FREQ,
         "loops": loops,
         "network_file": network_file,
-        "pipeline_version": "v0.4.0.post1",
-        "schema_version": "1",
+        "pipeline_version": "v0.4.1",
+        "schema_version": "2",
     }
     config_sha256 = hashlib.sha256(canonical_json(resolved_config).encode("utf-8")).hexdigest()
     network_sha256 = sha256_file(network_file)
     experiment_id = f"single-{config_sha256[:12]}-{network_sha256[:12]}"
 
+    # 纯净分支：single_run 单跑迁移到 v0.4.1（schema=2，与 batch 同架构）——
+    # cav_count 取整、pcav 用 realized、requested_pcav 保留请求值。
+    cav_count = round(vehicle_count * cav_ratio)
+    realized_pcav = cav_count / vehicle_count
+
     spec = RunSpec(
         scenario=net_scenario,
         model=model,
-        pcav=cav_ratio,
+        pcav=realized_pcav,
         vehicle_count=vehicle_count,
         seed=seed,
         run_id=run_id,
@@ -814,6 +587,11 @@ def run_simulation(
         config_sha256=config_sha256,
         network_sha256=network_sha256,
         experiment_id=experiment_id,
+        pipeline_version=PIPELINE_V4_1,
+        schema_version="2",
+        cav_count=cav_count,
+        requested_pcav=cav_ratio,
+        sumo_seed=0,
     )
 
     print("\n[RUN CONFIG]")

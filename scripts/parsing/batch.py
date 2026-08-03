@@ -79,17 +79,6 @@ def main():
     parser.add_argument("--limit", type=int, default=0, help="限制解析数量（测试用）")
     parser.add_argument("--dry-run", action="store_true", help="只扫描不解析")
     parser.add_argument(
-        "--legacy",
-        action="store_true",
-        help="显式解析缺少 RunSpec 的历史 raw；输出始终标记为 legacy_unverified",
-    )
-    parser.add_argument("--legacy-end", type=float, default=3600)
-    parser.add_argument("--legacy-warmup", type=float, default=600)
-    parser.add_argument("--legacy-step-length", type=float, default=0.1)
-    parser.add_argument("--legacy-detector-frequency", type=int, default=120)
-    parser.add_argument("--legacy-edge-frequency", type=int, default=300)
-    parser.add_argument("--legacy-loops", type=int, default=300)
-    parser.add_argument(
         "--progress-interval", type=int, default=50, help="每 N 个 run 输出一次进度 (默认: 50)"
     )
     parser.add_argument(
@@ -104,33 +93,6 @@ def main():
     if not input_root.is_dir():
         print(f"[ERROR] {input_root} not found")
         sys.exit(1)
-    if args.legacy:
-        from scripts.parsing.legacy import parse_legacy_run
-
-        run_dirs = sorted(path for path in input_root.iterdir() if path.is_dir())
-        if args.limit > 0:
-            run_dirs = run_dirs[: args.limit]
-        print(
-            f"[LEGACY] {len(run_dirs)} directories; results are legacy_unverified "
-            "and cannot enter the current writer"
-        )
-        if args.dry_run:
-            return
-        counts: dict[str, int] = {}
-        for run_dir in run_dirs:
-            result = parse_legacy_run(
-                run_dir,
-                simulation_end=args.legacy_end,
-                warmup=args.legacy_warmup,
-                step_length=args.legacy_step_length,
-                detector_frequency=args.legacy_detector_frequency,
-                edge_data_frequency=args.legacy_edge_frequency,
-                loops=args.legacy_loops,
-            )
-            status = result["status"]
-            counts[status] = counts.get(status, 0) + 1
-        print(f"[LEGACY DONE] {counts}")
-        return
 
     experiment_manifest_path = input_root / "manifest.json"
     if not experiment_manifest_path.is_file():

@@ -16,9 +16,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from scripts.provenance import sha256_file
-from scripts.run_spec import PIPELINE_V4_1, PIPELINE_V4_2, atomic_write_json, load_run_spec
+from scripts.run_spec import PIPELINE_V4_2, atomic_write_json, load_run_spec
 from scripts.schema import validate_summary_contract
-from scripts.simulation.single_run import load_network_meta, parse_run_outputs
+from scripts.simulation.single_run import load_network_meta
 
 
 def load_and_validate_type_map(run_dir, spec):
@@ -310,31 +310,25 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
             if not _integrity_ok:
                 raise ValueError("input integrity: " + "; ".join(_integrity_errors))
 
-        # ── 解析 ──
+        # ── 解析（纯净分支：仅 schema=2 v0.4.1/v0.4.2 路径；schema=1 legacy 已移除）──
         net_file = network_file or spec.network_file
-        if spec.schema_version == "2" and spec.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2):
-            core, subgroup, errors = _parse_one_run_v4_1(run_dir, spec, net_file)
-            summary = core
-            import json as _json
+        core, subgroup, errors = _parse_one_run_v4_1(run_dir, spec, net_file)
+        summary = core
+        import json as _json
 
-            subgroup_path = run_dir / "subgroup_summary.jsonl"
-            tmp = subgroup_path.with_suffix(".jsonl.tmp")
-            with tmp.open("w", encoding="utf-8") as _f:
-                for rec in subgroup:
-                    _f.write(_json.dumps(rec, ensure_ascii=False) + "\n")
-                _f.flush()
-                import os as _os
-
-                _os.fsync(_f.fileno())
+        subgroup_path = run_dir / "subgroup_summary.jsonl"
+        tmp = subgroup_path.with_suffix(".jsonl.tmp")
+        with tmp.open("w", encoding="utf-8") as _f:
+            for rec in subgroup:
+                _f.write(_json.dumps(rec, ensure_ascii=False) + "\n")
+            _f.flush()
             import os as _os
 
-            _os.replace(tmp, subgroup_path)
-            subgroup_sha = sha256_file(subgroup_path)
-        else:
-            summary = parse_run_outputs(run_dir, spec, net_file)
+            _os.fsync(_f.fileno())
+        import os as _os
 
-            # ── 不变量校验 ──
-            errors = _validate_invariants(summary)
+        _os.replace(tmp, subgroup_path)
+        subgroup_sha = sha256_file(subgroup_path)
 
         wall_time = time.monotonic() - t0
         finished_at = datetime.now(timezone.utc).isoformat()

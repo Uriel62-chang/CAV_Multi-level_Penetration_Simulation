@@ -16,8 +16,7 @@ from pathlib import Path
 from scripts.experiment_config import _parse_bool  # 审阅 P2-2：严格布尔解析复用
 from scripts.provenance import sha256_file
 
-# pipeline 版本常量
-PIPELINE_V4_0_POST1 = "v0.4.0.post1"
+# pipeline 版本常量（纯净分支：v0.4.0~post3 已移除）
 PIPELINE_V4_1 = "v0.4.1"
 PIPELINE_V4_2 = "v0.4.2"
 
@@ -157,8 +156,8 @@ class RunSpec:
     loops: int = 300
     network_file: str = "net/scenario_0/loop.net.xml"
     seed_scope: str = "vehicle_type_assignment"
-    pipeline_version: str = PIPELINE_V4_0_POST1
-    schema_version: str = "1"
+    pipeline_version: str = PIPELINE_V4_1
+    schema_version: str = "2"
     config_sha256: str = ""
     network_sha256: str = ""
     experiment_id: str = ""
@@ -215,7 +214,9 @@ class RunSpec:
                     f"pcav={self.pcav} inconsistent with cav_count={self.cav_count} "
                     f"(vehicle_count={self.vehicle_count}, expected pcav={expected})"
                 )
-        if self.requested_pcav is None and self.pipeline_version == PIPELINE_V4_0_POST1:
+        # 旧式构造（cav_count 未显式）时 requested_pcav 回退到 pcav；cav_count
+        # 网格模式（cav_count 显式、requested_pcav=None）保持 None（v0.4.1 语义）
+        if self.requested_pcav is None and self.cav_count is None:
             object.__setattr__(self, "requested_pcav", self.pcav)
         if self.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2) and self.sumo_seed < 0:
             raise ValueError(f"sumo_seed must be non-negative, got {self.sumo_seed}")
@@ -362,14 +363,15 @@ class RunSpec:
 
     @classmethod
     def from_dict(cls, data: dict) -> RunSpec:
-        """从持久化数据重建规格，根据 pipeline_version 选择字段集。"""
-        pv = data.get("pipeline_version", PIPELINE_V4_0_POST1)
+        """从持久化数据重建规格，根据 pipeline_version 选择字段集。
+
+        纯净分支：仅支持 v0.4.1/v0.4.2（schema=2）；v0.4.0~post3 已移除。
+        """
+        pv = data.get("pipeline_version", PIPELINE_V4_1)
         if pv == PIPELINE_V4_1:
             return cls._from_dict_v4_1(data)
         if pv == PIPELINE_V4_2:
             return cls._from_dict_v4_2(data)
-        if pv == PIPELINE_V4_0_POST1:
-            return cls._from_dict_legacy(data)
         raise ValueError(f"unsupported pipeline_version: {pv}")
 
     @classmethod
@@ -501,47 +503,6 @@ class RunSpec:
             ssm_dedup_method=str(data.get("ssm_dedup_method", "greedy_one_to_one_80pct")),
             ssm_mirror_overlap_ratio=float(data.get("ssm_mirror_overlap_ratio", 0.8)),
             ssm_fragment_merge_gap_s=float(data.get("ssm_fragment_merge_gap_s", 0.0)),
-        )
-
-    @classmethod
-    def _from_dict_legacy(cls, data: dict) -> RunSpec:
-        """只读兼容 v0.4.0.post1 run_spec.json。"""
-        required = _LEGACY_TO_DICT_KEYS
-        missing = sorted(required - data.keys())
-        if missing:
-            raise ValueError(f"legacy run_spec.json missing fields: {', '.join(missing)}")
-        vn = int(data["vehicle_count"])
-        pcav = float(data["pcav"])
-        expected_cav = round(vn * pcav)
-        if data["cav_count"] != expected_cav:
-            raise ValueError("legacy run_spec.json inconsistent cav_count")
-        if data["hv_count"] != vn - expected_cav:
-            raise ValueError("legacy run_spec.json inconsistent hv_count")
-        if float(data["realized_pcav"]) != expected_cav / vn:
-            raise ValueError("legacy run_spec.json inconsistent realized_pcav")
-        return cls(
-            scenario=str(data["scenario"]),
-            model=str(data["model"]),
-            pcav=pcav,
-            vehicle_count=vn,
-            seed=int(data["seed"]),
-            run_id=str(data["run_id"]),
-            simulation_end=float(data["simulation_end"]),
-            warmup=float(data["warmup"]),
-            step_length=float(data["step_length"]),
-            detector_frequency=int(data["detector_frequency"]),
-            edge_data_frequency=int(data["edge_data_frequency"]),
-            loops=int(data["loops"]),
-            network_file=str(data["network_file"]),
-            seed_scope=str(data["seed_scope"]),
-            pipeline_version=PIPELINE_V4_0_POST1,
-            schema_version=str(data["schema_version"]),
-            config_sha256=str(data.get("config_sha256", "")),
-            network_sha256=str(data.get("network_sha256", "")),
-            experiment_id=str(data.get("experiment_id", "")),
-            sumo_seed=0,
-            cav_count=expected_cav,
-            requested_pcav=pcav,
         )
 
     def sha256(self) -> str:

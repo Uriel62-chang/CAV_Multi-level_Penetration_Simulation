@@ -62,7 +62,8 @@ def test_prepare_persists_non_default_frequencies(tmp_path):
     prepared = prepare_run(spec, tmp_path, spec.network_file)
     additional = prepared.additional_path.read_text()
 
-    assert additional.count('freq="5"') == 3
+    # 纯净分支：schema=2 subgroup 附加（detector all/HV/CAV + edgeData all/HV/CAV）
+    assert additional.count('freq="5"') == 9
     assert load_run_spec(tmp_path) == spec
 
 

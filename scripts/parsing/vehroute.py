@@ -60,7 +60,10 @@ def parse_lap_times(
         if not exit_times_str:
             continue
 
-        times = []
+        # 审阅 P1-1：保留原始 edge 位置——-1 = 未到达（断点），其他负值非法；
+        # 断点终止当前连续轨迹段，不得跨越未到达 edge 拼接圈次（原实现删除负值后
+        # 按固定步长重新切片会左移时间、构造虚假完整圈）
+        raw_times: list[float | None] = []
         for t in exit_times_str.split():
             try:
                 val = float(t)
@@ -71,16 +74,27 @@ def parse_lap_times(
                 invalid += 1
                 continue
             if val < 0:
-                continue  # -1 = not reached（合法）
-            times.append(val)
+                if val != -1.0:
+                    invalid += 1
+                    continue
+                raw_times.append(None)  # 断点：该 edge 未到达
+                continue
+            raw_times.append(val)
 
-        if len(times) < edges_per_lap * 1:
-            continue  # not even one complete lap
+        # 圈终点：每 edges_per_lap 个连续非断点 edge 的最后一个
+        lap_ends: list[float] = []
+        consecutive = 0
+        for t in raw_times:
+            if t is None:
+                consecutive = 0
+                continue
+            consecutive += 1
+            if consecutive == edges_per_lap:
+                lap_ends.append(t)
+                consecutive = 0
 
-        # 提取每圈终点时间
-        # 第1圈终点 = times[edges_per_lap - 1]
-        # 第2圈终点 = times[2*edges_per_lap - 1]
-        lap_ends = times[edges_per_lap - 1 :: edges_per_lap]
+        if not lap_ends:
+            continue  # 无完整圈
 
         # 计算圈时间
         for i in range(1, len(lap_ends)):
@@ -162,7 +176,9 @@ def parse_lap_times_subgroup(
         if not exit_times_str:
             continue
 
-        times = []
+        # 审阅 P1-1：保留原始 edge 位置——-1 = 未到达（断点），其他负值非法；
+        # 断点终止当前连续轨迹段，不得跨未到达 edge 拼接圈次
+        raw_times: list[float | None] = []
         for t in exit_times_str.split():
             try:
                 val = float(t)
@@ -173,13 +189,27 @@ def parse_lap_times_subgroup(
                 invalid += 1
                 continue
             if val < 0:
-                continue  # -1 = not reached（合法）
-            times.append(val)
+                if val != -1.0:
+                    invalid += 1
+                    continue
+                raw_times.append(None)  # 断点
+                continue
+            raw_times.append(val)
 
-        if len(times) < edges_per_lap * 1:
+        # 圈终点：每 edges_per_lap 个连续非断点 edge 的最后一个
+        lap_ends: list[float] = []
+        consecutive = 0
+        for t in raw_times:
+            if t is None:
+                consecutive = 0
+                continue
+            consecutive += 1
+            if consecutive == edges_per_lap:
+                lap_ends.append(t)
+                consecutive = 0
+
+        if not lap_ends:
             continue
-
-        lap_ends = times[edges_per_lap - 1 :: edges_per_lap]
 
         for i in range(1, len(lap_ends)):
             lap_start = lap_ends[i - 1]

@@ -314,6 +314,18 @@ class ExperimentConfig:
             )
         # P0-5：v0.4.2 双实验 role×ssm_enabled 一致性 + capture/analysis 阈值包络
         if self.pipeline_version == PIPELINE_V4_2:
+            # 审阅 P2-1：ssm_measures/ssm_range 可配置但不生效——SUMO 命令硬编码
+            # "TTC DRAC" 与 ssm_range_m（single_run.py）；非默认值直接拒绝，防配置与实现不一致
+            if self.ssm_measures != "TTC DRAC":
+                raise ValueError(
+                    f"ssm_measures={self.ssm_measures!r} 不生效——SUMO 命令硬编码 "
+                    "'TTC DRAC'；请移除该字段或保持默认值"
+                )
+            if self.ssm_range != "50.0":
+                raise ValueError(
+                    f"ssm_range={self.ssm_range!r} 为废弃字段（不生效）；"
+                    "请使用 ssm_range_m（当前有效字段）"
+                )
             if self.experiment_role not in ("main_factorial", "safety"):
                 raise ValueError(
                     f"experiment_role must be 'main_factorial' or 'safety', "

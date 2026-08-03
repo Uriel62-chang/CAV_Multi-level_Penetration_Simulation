@@ -10,7 +10,7 @@
   "parsing": {
    "artifact_generation_commit": "8544f75",
    "post_generation_validation_commit": "8544f75",
-   "note": "2026-08 审阅 P1-1（结果-源码版本闭包）：8544f75 全量重解析 3,972 runs（main 3888 + safety 84，全部 SUCCESS）；summary/subgroup_summary 字节级零变化（fail-closed 与 pair/role 修复对正式数据无数值影响），parse_status 仅运行元数据变化。subgroup 解析器 fail-closed 修订（vehroute/lanechange/detector multi）待审阅通过后执行二次全量重解析并同步本文件。"
+   "note": "2026-08 审阅 P1-1（结果-源码版本闭包）：8544f75 全量重解析 3,972 runs（main 3888 + safety 84，全部 SUCCESS），summary/subgroup_summary 字节级零变化，parse_status 仅运行元数据变化。当前 tracked 派生物（run-level/aggregated CSV、final_status）即由 8544f75 生成。HEAD 已推进至 d3cb187（含 vehroute 断点语义、FCD 缺失 time、lanechange gap 等后续解析器修复）——最新代码的二次全量重解析待决策者拍板执行，完成后更新本文件全部哈希。"
   },
   "writer": {
    "core_results_commit": "8f9ef4b",
@@ -32,17 +32,20 @@
   "main": {
    "runs": 3888,
    "success": 3888,
-   "groups": 528
+   "groups": 528,
+   "generated_by": "8544f75 全量重解析 + writer（当前 tracked 派生物）"
   },
   "safety": {
    "runs": 84,
    "success": 84,
-   "groups": 84
+   "groups": 84,
+   "generated_by": "8544f75 全量重解析 + writer（当前 tracked 派生物）"
   }
  },
  "writer_complete": {
   "main": true,
-  "safety": true
+  "safety": true,
+  "generated_by": "8544f75 时代 writer 产物；当前 HEAD d3cb187 的后续解析器修复（vehroute 断点、FCD 缺失 time、lanechange gap 等）尚未重生成正式派生物——待二次全量重解析后统一更新本文件与哈希"
  },
  "hashes": {
   "raw_v0.4.2/main/manifest.json": "3e2c1e7e64569931016f27eef7c56fadc7dccaaa2bae2d7e00e072893d43146b",

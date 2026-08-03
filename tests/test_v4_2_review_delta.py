@@ -1476,3 +1476,63 @@ def test_fcd_missing_time_attr_fails_closed(tmp_path):
     tm = {"v1": "CAV"}
     r = parse_fcd(str(p), tm, warmup_period=0)
     assert r["all"]["parse_success"] is False
+
+
+# ── 审查 P1-1（本轮）：vehroute 未完成路段断点语义 ──
+
+
+def test_vehroute_breakpoint_not_stitched(tmp_path):
+    """-1（未到达）出现在圈间 → 断点终止连续段，不得跨越拼接虚假圈次。"""
+    from scripts.parsing.vehroute import parse_lap_times
+
+    # 12 个位置，-1 在第 5 位（第 2 圈第 1 edge 未到达）
+    p = tmp_path / "vehroute.xml"
+    p.write_text(
+        '<routes><vehicle id="v0" depart="0.00">'
+        '<route edges="e0 e1 e2 e3 e0 e1 e2 e3 e0 e1 e2 e3" '
+        'exitTimes="10 20 30 40 -1 60 70 80 90 100 110 120"/>'
+        "</vehicle></routes>",
+        encoding="utf-8",
+    )
+    r = parse_lap_times(str(p), 4, warmup_period=0, sim_end_time=3600.0)
+    # 旧实现（删 -1 后压缩切片）：lap_ends=[40,80,120] → 圈时 [40,40]（80-40 跨未到达 edge）
+    # 新实现（断点重置）：lap_ends=[40,90] → 仅 1 个完整圈时 90-40=50
+    assert r["completed_lap_count"] == 1
+    assert r["mean_lap_time_s"] == 50.0
+    assert r["parse_success"] is True
+
+
+def test_vehroute_other_negative_value_invalid(tmp_path):
+    """除 -1 外的负值 → invalid（只接受约定的 -1 表示未到达）。"""
+    from scripts.parsing.vehroute import parse_lap_times
+
+    p = tmp_path / "vehroute.xml"
+    p.write_text(
+        '<routes><vehicle id="v0" depart="0.00">'
+        '<route edges="e0 e1 e2 e3" exitTimes="10 20 30 -5"/>'
+        "</vehicle></routes>",
+        encoding="utf-8",
+    )
+    r = parse_lap_times(str(p), 4, warmup_period=0, sim_end_time=3600.0)
+    assert r["parse_success"] is False
+
+
+# ── 审查 P2-1（本轮）：ssm_measures/ssm_range 一致性校验 ──
+
+
+def test_config_rejects_non_default_ssm_measures(tmp_path):
+    data = json.loads(Path("configs/v0.4.2/main.json").read_text(encoding="utf-8"))
+    data["ssm_measures"] = "DRAC"  # SUMO 命令硬编码 "TTC DRAC"，此值不生效
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="不生效"):
+        load_experiment_config(path)
+
+
+def test_config_rejects_non_default_ssm_range(tmp_path):
+    data = json.loads(Path("configs/v0.4.2/main.json").read_text(encoding="utf-8"))
+    data["ssm_range"] = "99.0"  # 废弃字段（single_run 用 ssm_range_m）
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="废弃"):
+        load_experiment_config(path)

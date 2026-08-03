@@ -89,7 +89,14 @@ def generate_polygon_loop(
 
 
 def build_network(scenario_dir: str | Path, netconvert_command: str = "netconvert") -> Path:
-    """从已跟踪的 node/edge 源文件编译 SUMO `loop.net.xml`。"""
+    """从已跟踪的 node/edge 源文件编译 SUMO `loop.net.xml`。
+
+    审阅 P2-2：先校验 net.json 锚定的源 SHA（未锚定/不匹配直接失败），再执行
+    netconvert——不产生"新 XML + 旧元数据"的中间状态。
+    """
+    import hashlib
+    import json as _json
+
     directory = Path(scenario_dir)
     node_path = directory / "nodes.nod.xml"
     edge_path = directory / "edges.edg.xml"
@@ -97,6 +104,29 @@ def build_network(scenario_dir: str | Path, netconvert_command: str = "netconver
     for path in (node_path, edge_path):
         if not path.is_file():
             raise FileNotFoundError(f"network source not found: {path}")
+
+    # 审阅 P1-1 / P2-2：源文件变更检测前置——net.json 必须锚定 network_sources_sha256：
+    # 未锚定或锚定不匹配均直接抛 RuntimeError（强制门禁，杜绝"新路网 XML + 旧元数据"）。
+    # 不自动重建 net.json（其包含 bottleneck/detector 等场景专属元数据，需人工核对）。
+    digest = hashlib.sha256()
+    for path in (node_path, edge_path):
+        digest.update(path.read_bytes())
+    sources_sha256 = digest.hexdigest()
+    net_json_path = directory / "net.json"
+    if net_json_path.exists():
+        meta = _json.loads(net_json_path.read_text(encoding="utf-8"))
+        anchored = meta.get("network_sources_sha256")
+        if anchored is None:
+            raise RuntimeError(
+                f"{net_json_path} 未锚定 network_sources_sha256——路网元数据一致性无法验证；"
+                f"请将当前源 SHA {sources_sha256[:12]}... 写入 net.json 后重试"
+            )
+        if anchored != sources_sha256:
+            raise RuntimeError(
+                f"{net_json_path} 锚定的源 SHA {anchored[:12]}... 与当前源 "
+                f"{sources_sha256[:12]}... 不一致——路网元数据可能过期，请核对/更新 net.json"
+            )
+
     subprocess.run(
         [
             netconvert_command,
@@ -109,31 +139,6 @@ def build_network(scenario_dir: str | Path, netconvert_command: str = "netconver
         ],
         check=True,
     )
-    # 审阅 P2-1 / P1-1：源文件变更检测——net.json 必须锚定 network_sources_sha256：
-    # 未锚定或锚定不匹配均直接抛 RuntimeError（强制门禁，杜绝"新路网 XML + 旧元数据"）。
-    # 不自动重建 net.json（其包含 bottleneck/detector 等场景专属元数据，需人工核对）。
-    import hashlib
-    import json as _json
-
-    digest = hashlib.sha256()
-    for path in (node_path, edge_path):
-        digest.update(path.read_bytes())
-    sources_sha256 = digest.hexdigest()
-    net_json_path = directory / "net.json"
-    if net_json_path.exists():
-        meta = _json.loads(net_json_path.read_text(encoding="utf-8"))
-        anchored = meta.get("network_sources_sha256")
-        if anchored is None:
-            # 审阅 P1-1：缺少源文件哈希为强制门禁——直接失败，不得"新路网 XML + 旧元数据"
-            raise RuntimeError(
-                f"{net_json_path} 未锚定 network_sources_sha256——路网元数据一致性无法验证；"
-                f"请将当前源 SHA {sources_sha256[:12]}... 写入 net.json 后重试"
-            )
-        if anchored != sources_sha256:
-            raise RuntimeError(
-                f"{net_json_path} 锚定的源 SHA {anchored[:12]}... 与当前源 "
-                f"{sources_sha256[:12]}... 不一致——路网元数据可能过期，请核对/更新 net.json"
-            )
     print(f"SUMO 路网已编译: {output_path}")
     return output_path
 

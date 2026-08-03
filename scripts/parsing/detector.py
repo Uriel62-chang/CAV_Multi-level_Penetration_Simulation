@@ -39,6 +39,8 @@ def parse_detector(
     for interval in root.findall("interval"):
         try:
             begin = float(interval.get("begin", "0"))
+            end_raw = interval.get("end")
+            end = float(end_raw) if end_raw is not None else None
             flow = float(interval.get("flow", "0"))
             speed = float(interval.get("speed", "0"))
         except (ValueError, TypeError):
@@ -48,6 +50,9 @@ def parse_detector(
                 f"detector: non-finite interval attribute in {xml_path} "
                 f"(begin={begin!r}, flow={flow!r}, speed={speed!r})"
             )
+        # 审阅 P2-2：end 必须存在、有限且 >= begin（XML 结构完整性统一校验）
+        if end is None or not math.isfinite(end) or end < begin:
+            raise ValueError(f"detector: invalid end in {xml_path} (begin={begin!r}, end={end!r})")
         # 审阅 P2-2：数值域校验——负流量/负均速拒绝；仅允许 SUMO 空窗口
         # "flow=0 且 speed=-1" 的占位形态
         if flow < 0:
@@ -116,6 +121,8 @@ def parse_detector_multi(
             # 审阅 P1-2（multi）：非数值/非有限 → 抛 ValueError（fail-closed，与单车道一致）
             try:
                 begin = float(interval.get("begin", "0"))
+                end_raw = interval.get("end")
+                end = float(end_raw) if end_raw is not None else None
                 flow = float(interval.get("flow", "0"))
                 speed = float(interval.get("speed", "0"))
             except (ValueError, TypeError):
@@ -125,6 +132,9 @@ def parse_detector_multi(
                     f"detector: non-finite interval attribute in {path} "
                     f"(begin={begin!r}, flow={flow!r}, speed={speed!r})"
                 )
+            # 审阅 P2-2：end 必须存在、有限且 >= begin（与单车道一致）
+            if end is None or not math.isfinite(end) or end < begin:
+                raise ValueError(f"detector: invalid end in {path} (begin={begin!r}, end={end!r})")
             if flow < 0:
                 raise ValueError(f"detector: negative flow in {path} (flow={flow!r})")
             if speed < 0 and not (flow == 0 and speed == -1):

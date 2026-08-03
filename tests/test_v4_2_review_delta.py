@@ -2116,3 +2116,25 @@ def test_detector_single_lane_duplicate_begin_fails_closed(tmp_path):
     )
     with pytest.raises(ValueError, match="duplicate interval for begin"):
         parse_detector_multi([str(p)], warmup_period=600, simulation_end=3600)
+
+
+def test_detector_invalid_end_fails_closed(tmp_path):
+    """审阅 P2-2：end 缺失/非有限/end<begin → fail-closed（单车道与多车道统一）。"""
+    from scripts.parsing.detector import parse_detector, parse_detector_multi
+
+    # 单车道：缺失 end
+    p1 = tmp_path / "det1.xml"
+    p1.write_text(
+        '<detector><interval begin="600" flow="100.0" speed="10.0"/></detector>',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="invalid end"):
+        parse_detector(str(p1), warmup_period=600, simulation_end=3600)
+    # 多车道：end < begin
+    p2 = tmp_path / "det2.xml"
+    p2.write_text(
+        '<detector><interval begin="600" end="500" flow="100.0" speed="10.0"/></detector>',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="invalid end"):
+        parse_detector_multi([str(p2)], warmup_period=600, simulation_end=3600)

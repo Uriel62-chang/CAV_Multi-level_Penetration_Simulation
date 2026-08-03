@@ -262,6 +262,13 @@ def aggregate(
         grouped.insert(2, "pCAV", grouped["requested_pcav"])
         requested_pcav_col = grouped.pop("requested_pcav")
         grouped.insert(4, "requested_pcav", requested_pcav_col)
+    # 审阅 P2-2（本轮）：聚合输出保留 experiment_role——单角色时写入首列；
+    # 输出层自描述，且可视化角色门禁依赖此列（防止 main/safety 聚合产物混用）
+    if schema_ver == "2" and "experiment_role" in df_ok.columns:
+        roles = df_ok["experiment_role"].dropna().unique()
+        if len(roles) == 1:
+            grouped.insert(0, "experiment_role", str(roles[0]))
+
     grouped.insert(
         5,
         "realized_pcav",

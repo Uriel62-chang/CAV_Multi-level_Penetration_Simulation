@@ -80,7 +80,20 @@ def generate_polygon_loop(
     with open(meta_path, "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2, ensure_ascii=False)
 
-    print(f"路网源文件已生成: {scenario_dir}/ (nodes.nod.xml, edges.edg.xml, net.json)")
+    # 审阅 P2-2（本轮）：生成场景同时写入 sources.sha256——build_network() 强制要求
+    # 该锚定文件存在（否则"生成并编译"流程失败）
+    import hashlib as _h
+
+    digest = _h.sha256()
+    for name in ("nodes.nod.xml", "edges.edg.xml"):
+        with open(os.path.join(scenario_dir, name), "rb") as f:
+            digest.update(f.read())
+    with open(os.path.join(scenario_dir, "sources.sha256"), "w", encoding="utf-8") as f:
+        f.write(digest.hexdigest() + "\n")
+
+    print(
+        f"路网源文件已生成: {scenario_dir}/ (nodes.nod.xml, edges.edg.xml, net.json, sources.sha256)"
+    )
     print(
         f"  边数={num_sides}  车道数={num_lanes}  边长={edge_length:.2f}m  "
         f"环路总长={total_length:.2f}m  ({total_length / 1000:.3f}km)"

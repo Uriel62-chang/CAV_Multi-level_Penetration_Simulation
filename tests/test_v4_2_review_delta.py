@@ -1656,3 +1656,54 @@ def test_detector_negative_flow_fails_closed(tmp_path):
     )
     with pytest.raises(ValueError, match="negative flow"):
         parse_detector(str(p), warmup_period=0)
+
+
+# ── 审查 P2（本轮）：聚合输出保留角色列 + 生成函数写 sources.sha256 ──
+
+
+def test_aggregate_output_preserves_experiment_role(tmp_path):
+    """聚合输出保留 experiment_role 列（可视化角色门禁依赖此列）。"""
+    import pandas as pd
+
+    from scripts.results.aggregate import aggregate
+
+    df = pd.DataFrame(
+        {
+            "run_id": ["r1", "r2", "r3", "r4"],
+            "scenario": ["scenario_0"] * 4,
+            "model": ["IDM"] * 4,
+            "vehN": [10] * 4,
+            "cav_count": [5] * 4,
+            "assignment_seed": [1, 1, 2, 2],
+            "sumo_seed": [101, 102, 101, 102],
+            "experiment_role": ["safety"] * 4,
+            "data_quality": ["ok"] * 4,
+            "mean_flow_veh_h": [100.0, 110.0, 120.0, 130.0],
+        }
+    )
+    p = tmp_path / "r.csv"
+    df.to_csv(p, index=False)
+    manifest = {
+        "results": [
+            {"run_id": f"r{i}", "assignment_seed": a, "sumo_seed": s}
+            for i, (a, s) in enumerate(((1, 101), (1, 102), (2, 101), (2, 102)), start=1)
+        ],
+        "resolved_config": {
+            "treatments": [{"vehicle_count": 10, "assignment_seeds": [1, 2]}],
+            "sumo_seeds": [101, 102],
+        },
+    }
+    out = aggregate(p, tmp_path / "agg.csv", "2", manifest=manifest)
+    assert "experiment_role" in out.columns
+    assert (out["experiment_role"] == "safety").all()
+
+
+def test_generate_polygon_loop_writes_sources_anchor(tmp_path):
+    """生成场景同时写入 sources.sha256（build_network 强制门禁要求）。"""
+    from scripts.simulation.network_generator import generate_polygon_loop
+
+    out_dir = tmp_path / "scenario_new"
+    generate_polygon_loop(str(out_dir), num_sides=16, radius=500.0, num_lanes=2, speed=20.0)
+    assert (out_dir / "sources.sha256").exists()
+    content = (out_dir / "sources.sha256").read_text(encoding="utf-8").strip()
+    assert len(content) == 64

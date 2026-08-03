@@ -99,8 +99,11 @@ def parse_detector_multi(
     import math
 
     lane_data = {}
-    window_intervals = 0
+    # 审阅 P1-4：每个车道文件分别维护窗内 interval 计数——任一车道无窗内观测
+    # 即 fail-closed（不得把缺失车道按零贡献处理导致流量低估）
+    window_intervals_per_file: list[tuple[str, int]] = []
     for path in xml_paths:
+        file_window_count = 0
         root = ET.parse(path).getroot()
         for interval in root.findall("interval"):
             # 审阅 P1-2（multi）：非数值/非有限 → 抛 ValueError（fail-closed，与单车道一致）
@@ -125,16 +128,20 @@ def parse_detector_multi(
                 continue
             if simulation_end is not None and begin >= simulation_end:
                 continue
-            window_intervals += 1
+            file_window_count += 1
             if begin not in lane_data:
                 lane_data[begin] = {"flow": 0.0, "weighted_speed": 0.0}
             lane_data[begin]["flow"] += flow
             lane_data[begin]["weighted_speed"] += flow * speed
+        window_intervals_per_file.append((str(path), file_window_count))
 
-    # 审阅 P1-1/P1-3：窗口内无观测 interval → 抛错
-    if window_intervals == 0:
+    # 审阅 P1-1/P1-3/P1-4：任一车道在窗口内无观测 interval → fail-closed
+    # （全部缺失或部分车道缺失均不允许）
+    empty_files = [name for name, cnt in window_intervals_per_file if cnt == 0]
+    if empty_files:
         raise ValueError(
-            f"detector: no interval in window [{warmup_period}, {simulation_end}) in {xml_paths}"
+            f"detector: no interval in window [{warmup_period}, {simulation_end}) in "
+            f"lane file(s): {empty_files}"
         )
 
     if not lane_data:

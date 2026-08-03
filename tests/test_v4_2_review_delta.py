@@ -2014,3 +2014,22 @@ def test_detector_only_outside_window_intervals_fails_closed(tmp_path):
     )
     r = parse_detector_subgroup([str(p)], [str(p)], [str(p)], warmup_period=600)
     assert r["all"]["parse_success"] is False
+
+
+def test_detector_multi_partial_lane_missing_window_fails_closed(tmp_path):
+    """审阅 P1-4：多车道中仅部分车道缺少窗内 interval → fail-closed。"""
+    from scripts.parsing.detector import parse_detector_multi
+
+    lane0 = tmp_path / "det0.xml"
+    lane0.write_text(
+        '<detector><interval begin="0" end="60" flow="0" speed="-1"/></detector>',  # 仅窗外
+        encoding="utf-8",
+    )
+    lane1 = tmp_path / "det1.xml"
+    lane1.write_text(
+        '<detector><interval begin="600" end="660" flow="120.0" speed="10.0"/>'
+        "</detector>",  # 窗内正常
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="lane file"):
+        parse_detector_multi([str(lane0), str(lane1)], warmup_period=600, simulation_end=3600)

@@ -105,6 +105,7 @@ def parse_detector_multi(
     window_sets_per_file: list[tuple[str, set[tuple[float, float]]]] = []
     for path in xml_paths:
         window_set: set[tuple[float, float]] = set()
+        seen_begins: set[float] = set()
         root = ET.parse(path).getroot()
         for interval in root.findall("interval"):
             # 审阅 P1-2（multi）：非数值/非有限 → 抛 ValueError（fail-closed，与单车道一致）
@@ -130,11 +131,14 @@ def parse_detector_multi(
             if simulation_end is not None and begin >= simulation_end:
                 continue
             window_key = (begin, float(interval.get("end", "0")))
-            # 审阅 P1-6：同一车道重复 (begin, end) interval → fail-closed
-            # （不得被集合去重后静默累加导致流量高估）
-            if window_key in window_set:
-                raise ValueError(f"detector: duplicate interval {window_key} in lane file {path}")
+            # 审阅 P1-6/P1-7：同一车道重复 (begin, end) 或重复 begin（不同 end）
+            # interval → fail-closed（不得静默累加导致流量高估）
+            if window_key in window_set or begin in seen_begins:
+                raise ValueError(
+                    f"detector: duplicate interval for begin={begin} in lane file {path}"
+                )
             window_set.add(window_key)
+            seen_begins.add(begin)
             if begin not in lane_data:
                 lane_data[begin] = {"flow": 0.0, "weighted_speed": 0.0}
             lane_data[begin]["flow"] += flow

@@ -2076,3 +2076,27 @@ def test_detector_multi_duplicate_window_in_lane_fails_closed(tmp_path):
     )
     with pytest.raises(ValueError, match="duplicate interval"):
         parse_detector_multi([str(lane0), str(lane1)], warmup_period=600, simulation_end=3600)
+
+
+def test_detector_multi_same_begin_diff_end_fails_closed(tmp_path):
+    """审阅 P1-7：同一车道相同 begin、不同 end → fail-closed（不得累加流量）。"""
+    from scripts.parsing.detector import parse_detector_multi
+
+    lane0 = tmp_path / "det0.xml"
+    lane0.write_text(
+        "<detector>"
+        '<interval begin="600" end="660" flow="100.0" speed="10.0"/>'
+        '<interval begin="600" end="720" flow="100.0" speed="10.0"/>'  # 同 begin 不同 end
+        "</detector>",
+        encoding="utf-8",
+    )
+    lane1 = tmp_path / "det1.xml"
+    lane1.write_text(
+        "<detector>"
+        '<interval begin="600" end="660" flow="100.0" speed="10.0"/>'
+        '<interval begin="600" end="720" flow="100.0" speed="10.0"/>'
+        "</detector>",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="duplicate interval for begin"):
+        parse_detector_multi([str(lane0), str(lane1)], warmup_period=600, simulation_end=3600)

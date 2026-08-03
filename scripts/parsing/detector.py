@@ -99,11 +99,12 @@ def parse_detector_multi(
     import math
 
     lane_data = {}
-    # 审阅 P1-4：每个车道文件分别维护窗内 interval 计数——任一车道无窗内观测
-    # 即 fail-closed（不得把缺失车道按零贡献处理导致流量低估）
-    window_intervals_per_file: list[tuple[str, int]] = []
+    # 审阅 P1-4/P1-5：每个车道文件分别维护窗内 interval 集合——任一车道无窗内观测
+    # 即 fail-closed；各车道 begin（及对应 end）集合必须完全一致，缺失/多余窗口
+    # 同样 fail-closed（不得把缺失窗口按零贡献处理导致流量低估）
+    window_sets_per_file: list[tuple[str, set[tuple[float, float]]]] = []
     for path in xml_paths:
-        file_window_count = 0
+        window_set: set[tuple[float, float]] = set()
         root = ET.parse(path).getroot()
         for interval in root.findall("interval"):
             # 审阅 P1-2（multi）：非数值/非有限 → 抛 ValueError（fail-closed，与单车道一致）
@@ -128,20 +129,28 @@ def parse_detector_multi(
                 continue
             if simulation_end is not None and begin >= simulation_end:
                 continue
-            file_window_count += 1
+            window_set.add((begin, float(interval.get("end", "0"))))
             if begin not in lane_data:
                 lane_data[begin] = {"flow": 0.0, "weighted_speed": 0.0}
             lane_data[begin]["flow"] += flow
             lane_data[begin]["weighted_speed"] += flow * speed
-        window_intervals_per_file.append((str(path), file_window_count))
+        window_sets_per_file.append((str(path), window_set))
 
     # 审阅 P1-1/P1-3/P1-4：任一车道在窗口内无观测 interval → fail-closed
-    # （全部缺失或部分车道缺失均不允许）
-    empty_files = [name for name, cnt in window_intervals_per_file if cnt == 0]
+    empty_files = [name for name, wset in window_sets_per_file if not wset]
     if empty_files:
         raise ValueError(
             f"detector: no interval in window [{warmup_period}, {simulation_end}) in "
             f"lane file(s): {empty_files}"
+        )
+
+    # 审阅 P1-5：各车道窗内 (begin, end) 集合必须完全一致
+    first_set = window_sets_per_file[0][1]
+    mismatched = [name for name, wset in window_sets_per_file[1:] if wset != first_set]
+    if mismatched:
+        raise ValueError(
+            f"detector: lane interval sets inconsistent across files: {mismatched} "
+            f"(first={sorted(first_set)}, differs from expected consistent set)"
         )
 
     if not lane_data:

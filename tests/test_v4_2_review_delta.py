@@ -2033,3 +2033,25 @@ def test_detector_multi_partial_lane_missing_window_fails_closed(tmp_path):
     )
     with pytest.raises(ValueError, match="lane file"):
         parse_detector_multi([str(lane0), str(lane1)], warmup_period=600, simulation_end=3600)
+
+
+def test_detector_multi_lane_interval_sets_must_match(tmp_path):
+    """审阅 P1-5：各车道窗内 (begin, end) 集合不一致 → fail-closed。"""
+    from scripts.parsing.detector import parse_detector_multi
+
+    lane0 = tmp_path / "det0.xml"
+    lane0.write_text(
+        "<detector>"
+        '<interval begin="600" end="660" flow="100.0" speed="10.0"/>'
+        '<interval begin="660" end="720" flow="200.0" speed="10.0"/>'
+        "</detector>",
+        encoding="utf-8",
+    )
+    lane1 = tmp_path / "det1.xml"
+    lane1.write_text(
+        '<detector><interval begin="600" end="660" flow="100.0" speed="10.0"/>'
+        "</detector>",  # 缺 660 窗口
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="inconsistent"):
+        parse_detector_multi([str(lane0), str(lane1)], warmup_period=600, simulation_end=3600)

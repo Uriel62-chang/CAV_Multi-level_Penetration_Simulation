@@ -14,7 +14,7 @@ from scripts.simulation.single_run import load_network_meta
 
 
 def measure_free_flow(
-    config_path="configs/v0.4.1/free_flow.json", output_dir="artifacts/free_flow/v0.4.1-pilot-ff-1"
+    config_path="configs/free_flow.json", output_dir="artifacts/free_flow/v0.4.1-pilot-ff-1"
 ):
     with open(config_path) as f:
         cfg = json.load(f)
@@ -47,6 +47,10 @@ def measure_free_flow(
             cav_count=0,
             requested_pcav=None,
             with_internal=False,
+            # v0.4.2 迁移（阶段 5）：自由流参考测量无 SSM，experiment_role 取
+            # main_factorial（SSM 关闭语义）、ssm_enabled=False；analysis 配置走默认。
+            experiment_role="main_factorial",
+            ssm_enabled=False,
         )
         hv_lap = _run_free_flow(run_id, spec, network_file, net_meta, cfg)
 
@@ -73,6 +77,9 @@ def measure_free_flow(
                 cav_count=1,
                 requested_pcav=None,
                 with_internal=False,
+                # v0.4.2 迁移（阶段 5）：同 HV-only arm。
+                experiment_role="main_factorial",
+                ssm_enabled=False,
             )
             lap = _run_free_flow(run_id, spec, network_file, net_meta, cfg)
             refs[f"CAV_{model}"] = {"lap_time_s": lap, "source_run_id": run_id}
@@ -181,7 +188,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Measure free-flow reference lap times")
-    parser.add_argument("--config", default="configs/v0.4.1/free_flow.json")
+    parser.add_argument("--config", default="configs/free_flow.json")
     parser.add_argument("--output-dir", default="artifacts/free_flow/v0.4.1-pilot-ff-1")
     args = parser.parse_args()
     measure_free_flow(config_path=args.config, output_dir=args.output_dir)

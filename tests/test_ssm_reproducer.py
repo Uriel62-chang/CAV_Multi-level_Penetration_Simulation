@@ -26,8 +26,8 @@ def test_attempt_directory_is_monotonic_and_non_reusable(tmp_path):
 
 
 def test_frozen_s2_and_s3_cases_only_differ_by_scenario():
-    s2 = load_case("configs/v0.4.1/ssm_reproducer_s2.json")
-    s3 = load_case("configs/v0.4.1/ssm_reproducer_s3.json")
+    s2 = load_case("configs/ssm_reproducer_s2.json")
+    s3 = load_case("configs/ssm_reproducer_s3.json")
 
     assert s2["expected_ttc"] == "zero"
     assert s3["expected_ttc"] == "positive"
@@ -43,7 +43,7 @@ def test_frozen_s2_and_s3_cases_only_differ_by_scenario():
 
 
 def test_load_case_rejects_noncanonical_full_cav_seed(tmp_path):
-    case = json.loads(Path("configs/v0.4.1/ssm_reproducer_s2.json").read_text(encoding="utf-8"))
+    case = json.loads(Path("configs/ssm_reproducer_s2.json").read_text(encoding="utf-8"))
     case["assignment_seed"] = 1
     path = tmp_path / "case.json"
     path.write_text(json.dumps(case), encoding="utf-8")

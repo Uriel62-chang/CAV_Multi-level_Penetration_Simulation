@@ -252,15 +252,11 @@ def aggregate(
 
     grouped.columns = grouped.columns.map(lambda x: new_columns.get(x, f"{x[0]}_{x[1]}"))
     grouped = grouped.reset_index()
-    # P0-2：count 网格下 realized_pcav 为权威渗透率（纯净分支无 requested_pcav 契约列）
+    # P0-2：count 网格下 realized_pcav 为权威渗透率（纯净分支无 requested_pcav 契约列）。
+    # insert 顺序保持"删一列后相对顺序不变"：pCAV → realized_pcav → seed_scope →
+    # flow_valid_run_count（vehN/cav_count 保持在原始 groupby 位置），exp_role 最后
+    # 插到首列（不干扰后续 loc 计算）。
     grouped.insert(2, "pCAV", grouped["cav_count"] / grouped["vehN"])
-    # 审阅 P2-2（本轮）：聚合输出保留 experiment_role——单角色时写入首列；
-    # 输出层自描述，且可视化角色门禁依赖此列（防止 main/safety 聚合产物混用）
-    if "experiment_role" in df_ok.columns:
-        roles = df_ok["experiment_role"].dropna().unique()
-        if len(roles) == 1:
-            grouped.insert(0, "experiment_role", str(roles[0]))
-
     grouped.insert(
         4,
         "realized_pcav",
@@ -269,6 +265,13 @@ def aggregate(
     # P1-1：输出 seed_scope（设计要求的统计单位说明）
     grouped.insert(5, "seed_scope", "vehicle_type_assignment")
     grouped.insert(6, "flow_valid_run_count", grouped["n_valid"])
+    # 审阅 P2-2（本轮）：聚合输出保留 experiment_role——单角色时写入首列；
+    # 输出层自描述，且可视化角色门禁依赖此列（防止 main/safety 聚合产物混用）
+    if "experiment_role" in df_ok.columns:
+        roles = df_ok["experiment_role"].dropna().unique()
+        if len(roles) == 1:
+            grouped.insert(0, "experiment_role", str(roles[0]))
+
     # P0-3：双 seed 统计单位——assignment 水平数、sumo 水平数、组合数、有效 n
     if seed_stats is not None:
         grouped = grouped.merge(

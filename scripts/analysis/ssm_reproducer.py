@@ -330,6 +330,23 @@ def run_case(
             fcd_profile=case["fcd_profile"],
             fcd_max_leader_distance_m=float(case["fcd_max_leader_distance_m"]),
             with_internal=bool(case["with_internal"]),
+            # v0.4.2 迁移（阶段 5）：SSM 诊断 arm 带 experiment_role/ssm_enabled 与
+            # analysis 配置单源。case 未显式提供 analysis_* 时回退到 capture 阈值
+            # （该工具直接统计原始 SSM 事件，analysis 阈值与采集阈值同语义）与
+            # 默认 dedup 配置。experiment_role 跟随 arm：ssm_on 为 safety（SSM 采集
+            # 语义，满足 RunSpec safety→ssm_enabled 不变量），ssm_off 对照为
+            # main_factorial（SSM 关闭语义）。
+            experiment_role="safety" if ssm_enabled else "main_factorial",
+            ssm_enabled=bool(ssm_enabled),
+            analysis_ttc_threshold_s=float(
+                case.get("analysis_ttc_threshold_s", case["ssm_capture_ttc_threshold_s"])
+            ),
+            analysis_drac_threshold_mps2=float(
+                case.get("analysis_drac_threshold_mps2", case["ssm_capture_drac_threshold_mps2"])
+            ),
+            ssm_dedup_method=str(case.get("ssm_dedup_method", "greedy_one_to_one_80pct")),
+            ssm_mirror_overlap_ratio=float(case.get("ssm_mirror_overlap_ratio", 0.8)),
+            ssm_fragment_merge_gap_s=float(case.get("ssm_fragment_merge_gap_s", 0.0)),
         )
         run_dir.mkdir()
         write_run_spec(spec, run_dir)

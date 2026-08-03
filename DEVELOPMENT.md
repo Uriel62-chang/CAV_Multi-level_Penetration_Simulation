@@ -182,11 +182,11 @@
 - **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-31
 - **可运行入口**：
   ```bash
-  .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.1/smoke_v4_1.json --output-root /tmp/smoke --sumo-processes 1
+  .venv/bin/python3 -m scripts.simulation.batch_run --config configs/smoke.json --output-root /tmp/smoke --sumo-processes 1
   .venv/bin/python3 -m scripts.parsing.batch --input-root /tmp/smoke
   .venv/bin/python3 -m scripts.results.writer --input-root /tmp/smoke --output-dir /tmp/smoke-out --manifest /tmp/smoke/manifest.json
   .venv/bin/python3 -m scripts.results.aggregate --input /tmp/smoke-out/run_level_results.csv --output /tmp/smoke-out/aggregated_results.csv --schema-version 2 --manifest /tmp/smoke/manifest.json
-  .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.1/pilot.json --dry-run
+  .venv/bin/python3 -m scripts.simulation.batch_run --config docs/internal/archive/configs-v0.4.1/pilot.json --dry-run
   .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.0.json --dry-run
   ```
 
@@ -295,7 +295,7 @@ Agent 的修改说明只作为索引，Git diff 才是实际依据。核对：�
 ### D-012：SSM 诊断证据使用不可复用 attempt，而非 case 根目录
 
 - **状态**：Implemented（历史）；s3/s2 运行结果曾为 Developer 预检，正式 Reviewer 复核已由 2026-07-31 核验覆盖
-- **适用范围**：`scripts/analysis/ssm_reproducer.py`、`configs/v0.4.1/ssm_reproducer_s[2|3].json`
+- **适用范围**：`scripts/analysis/ssm_reproducer.py`、`configs/ssm_reproducer_s[2|3].json`
 - **决定**：每次诊断写入 `case_id/attempt-###/{raw,report}`；启动前原子写 RUNNING，finally 写终态、错误与存在文件 SHA/缺失清单；仅完整成功且控制条件满足时生成派生 report。
 - **原因**：使失败、超时、解析和报告异常均可审计，防止覆盖或倒灌追认。
 

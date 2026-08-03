@@ -130,7 +130,7 @@ python3 -m scripts.results.visualization \
   G2 v0.4.1 并入 v0.4.2 单管线 + Part 3 requested_pcav 契约列删除；schema=2 主路径
   零行为变化，RunSpec 内部 requested_pcav 字段保留（D3））
 - Ruff / mypy / compileall / format 全通过
-- dry-run: safety 84 / main 3,888 / v0.4.1 smoke（v0.4.0 10,080 网格数据红线不重跑，配置已移除）
+- dry-run: safety 84 / main 3,888 / smoke（configs/smoke.json；v0.4.0 10,080 网格数据红线不重跑，配置已移除；v0.4.1 正式实验配置已归档 docs/internal/archive/configs-v0.4.1/）
 - aggregate 现已要求 --schema-version 参数
 - 使用项目根目录的 `.venv` 虚拟环境运行所有 Python 命令（`ruff`、`mypy`、`pytest`、`compileall` 等）
   ```bash

@@ -39,7 +39,7 @@ def test_default_config_is_stable_and_generates_3888_runs():
 
 
 def test_smoke_config_passes_current_window_validation():
-    config = load_experiment_config("configs/v0.4.1/smoke_v4_1.json")
+    config = load_experiment_config("configs/smoke.json")
     assert config.warmup == config.detector_frequency == config.edge_data_frequency == 60
 
 
@@ -80,7 +80,7 @@ def test_warmup_must_align_with_detector_intervals(tmp_path):
 
 
 def test_batch_validation_rejects_detector_window_misalignment():
-    config = load_experiment_config("configs/v0.4.1/smoke_v4_1.json")
+    config = load_experiment_config("configs/smoke.json")
     specs = build_run_specs(
         list(config.scenarios),
         list(config.models),

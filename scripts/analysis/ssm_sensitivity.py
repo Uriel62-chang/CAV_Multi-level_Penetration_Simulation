@@ -439,7 +439,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-root", required=True)
     parser.add_argument("--output-dir", required=True)
-    parser.add_argument("--analysis-config", default="configs/v0.4.1/analysis.json")
+    parser.add_argument("--analysis-config", default="configs/analysis.json")
     args = parser.parse_args()
     run_sensitivity(args.input_root, args.output_dir, args.analysis_config)
 

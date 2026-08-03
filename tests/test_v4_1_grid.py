@@ -1,7 +1,5 @@
 """v0.4.1 cav_count 网格回归测试"""
 
-import json
-
 import pytest
 
 from scripts.run_spec import PIPELINE_V4_2, RunSpec, build_run_id
@@ -129,19 +127,3 @@ def test_endpoint_seed_full_cav_must_be_zero():
             treatments=[{"vehicle_count": 10, "cav_counts": [0, 10]}],
             sumo_seeds=[101],
         )
-
-
-def test_unique_run_ids_162():
-    """pilot.json 展开为 162 个唯一 run_id。"""
-    with open("configs/v0.4.1/pilot.json") as f:
-        config = json.load(f)
-    specs = build_run_specs(
-        list(config["scenarios"]),
-        list(config["models"]),
-        config["pipeline_version"],
-        treatments=list(config["treatments"]),
-        sumo_seeds=list(config["sumo_seeds"]),
-    )
-    ids = [s.run_id for s in specs]
-    assert len(ids) == 162
-    assert len(set(ids)) == 162

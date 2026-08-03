@@ -59,6 +59,15 @@
   input_pair 移除）；**Part 3** requested_pcav 契约列删除——schema 列集/metrics
   输出/writer/aggregate/visualization 不再输出该列（RunSpec 内部字段保留，
   存量 raw 可重解析，D3），batch_run requested_pcav 死代码分支移除。
+- 纯净分支阶段 5（本版发布说明随收尾更新）：**ssm_reproducer/free_flow 迁移
+  v0.4.2**——RunSpec 补 experiment_role/ssm_enabled/analysis_* 字段（ssm_reproducer
+  arm 语义：ssm_on=safety、ssm_off=main_factorial，analysis 阈值回退 capture 阈值）；
+  **configs/v0.4.1 归档**——工具配置 analysis.json/free_flow.json/
+  ssm_reproducer_s2/s3.json 迁 configs/ 根，门禁配置 smoke_v4_1.json（阶段 2 已
+  迁移 v0.4.2 pipeline）迁根为 configs/smoke.json，其余 v0.4.1 正式实验配置
+  （pilot/micro_pilot/mitigation/smoke 网格）归档 docs/internal/archive/
+  configs-v0.4.1/（gitignored，不进 Git）；引用与测试同步（test_v4_1_grid 删除
+  pilot 专属 run_id 测试，基线 459→458）。
 - 审查复核（第三轮返工）：P1-1 真实 resume 路径修复——is_simulation_complete 的
   run_spec_sha256/network_sha256/persisted_spec 三处 fresh 直接比较在网络再生
   （字节漂移）时误拒（此前仅放宽下游 network_xml_sha256 块，未触及更早比较）。

@@ -43,7 +43,12 @@
 
 ### 测试与门禁
 
-- **508 tests**；Ruff / mypy / compileall / format 全通过
+- **512 tests**；Ruff / mypy / compileall / format 全通过
+- 审查复核（第二轮）P2 三项：P2-1 writer all 圈数>0 门禁贯通 subgroup 排除
+  （run-level 与 subgroup CSV 共用同一判定，不再不一致）、P2-2 v0.4.2 run_spec
+  专属键（experiment_role/ssm_enabled/analysis_*）缺失 fail-closed（不再静默
+  当 main_factorial）、P2-3 validate_subgroup_invariants 增加 FCD 台账闭合
+  断言（all==HV+CAV，样本数 + 排除计数）
 - 审查循环（多轮 P0/P1/P2）修复条目：P0-1 all-level 圈时统计变量遮蔽
   （metrics.py delay 循环重绑定 vr → 5 列错标/缺失，正式 CSV 3,888 行全受影响；
   修复后需全量重解析以产出正确 all-level 圈时统计）、P1-1 FCD speed 台账对齐设计

@@ -589,4 +589,20 @@ def validate_subgroup_invariants(primitives):
         if role_drac + uncl_drac != ssm_all_drac:
             errors.append(f"SSM role+uncl DRAC {role_drac + uncl_drac} != all {ssm_all_drac}")
 
+    # P2-3（审查）：FCD 台账闭合——样本数与三类排除计数 all == HV+CAV。
+    # parse_fcd 构造上保证（all_arr/hv_arr/cav_arr 独立累计、排除计数 all 与
+    # vt 同步自增），此处显式断言设计 §6.2 台账不变量，防未来改动破坏。
+    if primitives.fcd is not None:
+        for key in (
+            "valid_thw_sample_count",
+            "low_speed_excluded_count",
+            "no_leader_count",
+            "self_leader_count",
+        ):
+            a = primitives.fcd.get("all", {}).get(key, 0) or 0
+            h = primitives.fcd.get("HV", {}).get(key, 0) or 0
+            c = primitives.fcd.get("CAV", {}).get(key, 0) or 0
+            if h + c != a:
+                errors.append(f"fcd.{key}: HV({h})+CAV({c}) != all({a})")
+
     return errors

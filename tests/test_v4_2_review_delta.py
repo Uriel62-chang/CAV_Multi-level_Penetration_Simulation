@@ -2467,3 +2467,201 @@ def test_audit_cav_count_main_grid_planned_3888():
     assert audit.planned_run_count == 3888
     # 与同函数端点口径一致（端点已乘场景数，planned 不得少乘）
     assert audit.endpoint_run_count == 432
+
+
+# ── 本轮审查 P2-1：writer all 圈数>0 门禁贯通 subgroup 排除 ──
+
+
+def test_all_lap_stats_missing_shared_judgement():
+    """P2-1：all 圈数>0 判定函数——vehroute 解析成功但 completed_lap_count<=0
+    → True（run-level 与 subgroup 排除共用同一判定，保证两输出一致）。"""
+    from scripts.results.writer import _all_lap_stats_missing
+
+    assert _all_lap_stats_missing({"vr_parse_success": True, "completed_lap_count": 0}, "v0.4.2")
+    assert _all_lap_stats_missing(
+        {"vr_parse_success": True, "completed_lap_count": 0, "mean_lap_time_s": float("nan")},
+        "v0.4.2",
+    )
+    assert not _all_lap_stats_missing(
+        {"vr_parse_success": True, "completed_lap_count": 40}, "v0.4.2"
+    )
+    # 非 v0.4.2 不触发；vr_parse_success 非 True 不触发
+    assert not _all_lap_stats_missing(
+        {"vr_parse_success": True, "completed_lap_count": 0}, "v0.4.1"
+    )
+    assert not _all_lap_stats_missing(
+        {"vr_parse_success": False, "completed_lap_count": 0}, "v0.4.2"
+    )
+
+
+def test_writer_subgroup_excluded_when_lap_stats_missing(tmp_path, monkeypatch):
+    """P2-1（集成）：P1-2 门禁触发的 run（all 圈数=0），其 subgroup 行同样被
+    排除出 subgroup CSV——旧实现仅 run-level 置 invariant_failed，subgroup 仍进入。"""
+    import hashlib
+
+    from scripts.results.writer import build_run_level_results
+
+    def _write_run(run_id, lap_count):
+        run_dir = tmp_path / run_id
+        run_dir.mkdir()
+        summary = _valid_v4_2_summary()
+        summary["run_id"] = run_id
+        summary["completed_lap_count"] = lap_count
+        summary["vr_parse_success"] = True
+        if lap_count == 0:
+            summary["mean_lap_time_s"] = float("nan")
+        summary_bytes = json.dumps(summary).encode("utf-8")
+        (run_dir / "summary.json").write_bytes(summary_bytes)
+        sub_bytes = json.dumps({"run_id": run_id}).encode("utf-8")
+        (run_dir / "subgroup_summary.jsonl").write_bytes(sub_bytes)
+        (run_dir / "run_spec.json").write_text(json.dumps({"run_id": run_id}), encoding="utf-8")
+        status_common = {
+            "pipeline_version": "v0.4.2",
+            "schema_version": "2",
+            "config_sha256": "a" * 64,
+            "run_spec_sha256": "b" * 64,
+        }
+        (run_dir / "simulation_status.json").write_text(
+            json.dumps({**status_common, "run_id": run_id, "status": "SUCCESS"}),
+            encoding="utf-8",
+        )
+        (run_dir / "parse_status.json").write_text(
+            json.dumps(
+                {
+                    **status_common,
+                    "run_id": run_id,
+                    "status": "SUCCESS",
+                    "summary_sha256": hashlib.sha256(summary_bytes).hexdigest(),
+                    "subgroup_summary_sha256": hashlib.sha256(sub_bytes).hexdigest(),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    _write_run("buggy-run", 0)
+    _write_run("healthy-run", 40)
+    manifest = {
+        "pipeline_version": "v0.4.2",
+        "schema_version": "2",
+        "config_sha256": "a" * 64,
+        "total": 2,
+        "results": [
+            {"run_id": "buggy-run", "run_spec_sha256": "b" * 64},
+            {"run_id": "healthy-run", "run_spec_sha256": "b" * 64},
+        ],
+    }
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    monkeypatch.setattr("scripts.results.writer._valid_subgroup_rows", lambda *a, **k: True)
+    report = build_run_level_results(tmp_path, tmp_path / "out", "v0.4.2", manifest_path)
+    # 仅 buggy-run 的 subgroup 被排除（旧实现 subgroup_excluded=0）
+    assert report["subgroup_excluded_runs"] == 1
+    assert report["subgroup_csv_rows"] == 1
+    # run-level：buggy 置 invariant_failed、healthy ok
+    import csv
+
+    with (tmp_path / "out" / "run_level_results.csv").open(newline="", encoding="utf-8") as f:
+        q = {row["run_id"]: row["data_quality"] for row in csv.DictReader(f)}
+    assert q["buggy-run"] == "invariant_failed"
+    assert q["healthy-run"] == "ok"
+
+
+# ── 本轮审查 P2-2：v0.4.2 run_spec 专属键缺失 fail-closed ──
+
+
+def test_run_spec_v4_2_missing_role_keys_fails_closed():
+    """P2-2：v0.4.2 run_spec.json 缺 experiment_role/ssm_enabled/analysis_* →
+    ValueError（不得静默默认 main_factorial 处理损坏的 run_spec）。"""
+    from scripts.run_spec import PIPELINE_V4_2, RunSpec
+
+    spec = RunSpec(
+        scenario="scenario_0",
+        model="IDM",
+        pcav=0.5,
+        vehicle_count=10,
+        seed=1,
+        run_id="s0_IDM_v010_c005_as01_ss101",
+        pipeline_version=PIPELINE_V4_2,
+        schema_version="2",
+        sumo_seed=101,
+        cav_count=5,
+        requested_pcav=None,
+        experiment_role="safety",
+        ssm_enabled=True,
+    )
+    d = spec.to_dict()
+    for missing_key in ("experiment_role", "ssm_enabled", "analysis_ttc_threshold_s"):
+        broken = dict(d)
+        del broken[missing_key]
+        with pytest.raises(ValueError, match="missing fields"):
+            RunSpec.from_dict(broken)
+    # 完整 dict 仍可反序列化
+    assert RunSpec.from_dict(d) == spec
+
+
+# ── 本轮审查 P2-3：FCD 台账闭合显式断言 ──
+
+
+def _fcd_closure_primitives(broken=False):
+    fcd = {
+        "all": {
+            "valid_thw_sample_count": 10,
+            "low_speed_excluded_count": 2,
+            "no_leader_count": 3,
+            "self_leader_count": 1,
+            "parse_success": True,
+        },
+        "HV": {
+            "valid_thw_sample_count": 6,
+            "low_speed_excluded_count": 1,
+            "no_leader_count": 2,
+            "self_leader_count": 1,
+            "parse_success": True,
+        },
+        "CAV": {
+            "valid_thw_sample_count": 4,
+            "low_speed_excluded_count": 1,
+            "no_leader_count": 1,
+            "self_leader_count": 0,
+            "parse_success": True,
+        },
+    }
+    if broken:
+        fcd["all"]["no_leader_count"] = 99
+    return SubgroupPrimitives(
+        detector={"all": {}, "HV": {"parse_success": True}, "CAV": {"parse_success": True}},
+        ssm={"all": {}},
+        lanechange={
+            "all": {},
+            "HV": {"parse_success": True},
+            "CAV": {"parse_success": True},
+        },
+        edge_perf={
+            "all": {},
+            "HV": {"parse_success": True},
+            "CAV": {"parse_success": True},
+        },
+        edge_emis={
+            "all": {},
+            "HV": {"parse_success": True},
+            "CAV": {"parse_success": True},
+        },
+        vehroute={
+            "all": {"parse_success": True},
+            "HV": {"parse_success": True},
+            "CAV": {"parse_success": True},
+        },
+        emerg_brake={"all": {}},
+        fcd=fcd,
+    )
+
+
+def test_subgroup_invariants_fcd_closure():
+    """P2-3：FCD 台账闭合（all == HV+CAV，样本数 + 排除计数）显式断言——
+    破坏闭合时 validate_subgroup_invariants 必须报错。"""
+    from scripts.parsing.metrics import validate_subgroup_invariants
+
+    assert validate_subgroup_invariants(_fcd_closure_primitives()) == []
+    errors = validate_subgroup_invariants(_fcd_closure_primitives(broken=True))
+    assert any("fcd.no_leader_count" in e for e in errors)

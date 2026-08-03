@@ -120,6 +120,19 @@ _V4_1_EXTRA_KEYS = {
     "fcd_max_leader_distance_m",
 }
 
+# v0.4.2 补充字段（P2 审查）：缺失不得静默默认——损坏的 run_spec.json 会
+# 被当作 main_factorial 处理（experiment_role/ssm_enabled 决定 SSM 完整性
+# 判定与 role 口径），必须 fail-closed。
+_V4_2_EXTRA_KEYS = {
+    "experiment_role",
+    "ssm_enabled",
+    "analysis_ttc_threshold_s",
+    "analysis_drac_threshold_mps2",
+    "ssm_dedup_method",
+    "ssm_mirror_overlap_ratio",
+    "ssm_fragment_merge_gap_s",
+}
+
 
 @dataclass(frozen=True)
 class RunSpec:
@@ -436,8 +449,10 @@ class RunSpec:
         P2-1（新审阅）：消除 object.__setattr__ 二次突变——直构与反序列化
         只有 __post_init__ 一个约束实现（role×ssm_enabled、阈值包络、
         dedup/overlap/gap、正数/有限性全部在构造时校验）。
+        P2（reviewer 复核）：v0.4.2 专属键（experiment_role/ssm_enabled/
+        analysis_*）纳入必填——缺失报错而非静默默认 main_factorial。
         """
-        required = _LEGACY_TO_DICT_KEYS | _V4_1_EXTRA_KEYS
+        required = _LEGACY_TO_DICT_KEYS | _V4_1_EXTRA_KEYS | _V4_2_EXTRA_KEYS
         missing = sorted(required - data.keys())
         if missing:
             raise ValueError(f"v0.4.2 run_spec.json missing fields: {', '.join(missing)}")

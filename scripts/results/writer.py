@@ -181,6 +181,20 @@ def _build_row_legacy(summary: dict, parse_status: str) -> dict:
     return row
 
 
+def _all_lap_stats_missing(summary: dict, pipeline_version: str | None) -> bool:
+    """P1-2/P2-1（审查）：all 圈数>0 回归保护判定——vehroute 解析成功但
+    completed_lap_count<=0 说明 all-level 圈时统计缺失（P0-1 变量遮蔽回归）。
+
+    run-level data_quality 与 subgroup 排除共用同一判定，保证两输出一致
+    （P2-1：仅 run-level 置 invariant_failed 而 subgroup 仍进 CSV 会不一致）。
+    """
+    return (
+        pipeline_version == "v0.4.2"
+        and summary.get("vr_parse_success") is True
+        and not (summary.get("completed_lap_count", 0) > 0)
+    )
+
+
 def _build_row_v4_1(summary: dict, parse_status: str, pipeline_version: str | None = None) -> dict:
     columns = RUN_LEVEL_COLUMNS_V4_2 if pipeline_version == "v0.4.2" else RUN_LEVEL_COLUMNS_V4_1
     row = {col: summary.get(col, float("nan")) for col in columns}
@@ -205,11 +219,7 @@ def _build_row_v4_1(summary: dict, parse_status: str, pipeline_version: str | No
         # P1-2（本轮审查）：all 口径圈数>0 回归保护。vehroute 解析成功时窗内必有完成圈；
         # completed_lap_count<=0 说明 all-level 圈时统计缺失（如 P0-1 变量遮蔽回归——
         # 被 CAV 空子群覆盖时恰好 0 + NaN 通过 SUMMARY_NAN_RULES companion 检查）。
-        if (
-            pipeline_version == "v0.4.2"
-            and summary.get("vr_parse_success") is True
-            and not (summary.get("completed_lap_count", 0) > 0)
-        ):
+        if _all_lap_stats_missing(summary, pipeline_version):
             row["data_quality"] = "invariant_failed"
             row["data_quality_detail"] = (
                 "completed_lap_count<=0 while vehroute parse succeeded "
@@ -746,6 +756,12 @@ def build_run_level_results(
                     subgroup_excluded += 1
                     continue
                 if sd.get("_invariant_errors"):
+                    subgroup_excluded += 1
+                    continue
+                # P2-1（审查）：P1-2 all 圈数>0 门禁贯通 subgroup 排除——
+                # run-level 置 invariant_failed 的 run，subgroup 行同样不得
+                # 进入 subgroup CSV（否则两输出不一致）。
+                if _all_lap_stats_missing(sd, pipeline_version):
                     subgroup_excluded += 1
                     continue
 

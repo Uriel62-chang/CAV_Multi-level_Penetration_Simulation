@@ -195,5 +195,13 @@ def _spec_dict(cfg_dict: dict) -> dict:
         "with_internal": True,
         "fcd_profile": None,
         "fcd_max_leader_distance_m": None,
+        # v0.4.2 专属键（P2 审查后必填；cfg_dict 可覆盖）
+        "experiment_role": "main_factorial",
+        "ssm_enabled": False,
+        "analysis_ttc_threshold_s": 3.0,
+        "analysis_drac_threshold_mps2": 3.0,
+        "ssm_dedup_method": "greedy_one_to_one_80pct",
+        "ssm_mirror_overlap_ratio": 0.8,
+        "ssm_fragment_merge_gap_s": 0.0,
         **cfg_dict,
     }

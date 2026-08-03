@@ -418,7 +418,7 @@ def aggregate_subgroup(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="v0.4.0 多种子聚合")
+    parser = argparse.ArgumentParser(description="多种子聚合（纯净分支 schema=2）")
     parser.add_argument("--input", required=True, help="run_level_results.csv 路径")
     parser.add_argument("--output", required=True, help="输出 aggregated_results.csv 路径")
     parser.add_argument(

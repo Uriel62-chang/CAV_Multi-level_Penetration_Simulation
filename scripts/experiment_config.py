@@ -467,7 +467,7 @@ def _check_required(data: dict[str, Any], required: set[str]) -> None:
     missing = sorted(required - data.keys())
     if missing:
         raise ValueError(
-            f"experiment config missing fields for {data.get('grid_mode', 'legacy')!r} mode: {', '.join(missing)}"
+            f"experiment config missing fields for {data.get('grid_mode', '?')!r} mode: {', '.join(missing)}"
         )
 
 

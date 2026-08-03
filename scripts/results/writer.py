@@ -776,7 +776,7 @@ def build_run_level_results(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="v0.4.0 统一结果写入")
+    parser = argparse.ArgumentParser(description="阶段三：统一结果写入（纯净分支 schema=2）")
     parser.add_argument("--input-root", required=True, help="raw run 目录根路径")
     parser.add_argument("--output-dir", required=True, help="输出目录")
     parser.add_argument("--manifest", required=True, help="正式实验 manifest.json")

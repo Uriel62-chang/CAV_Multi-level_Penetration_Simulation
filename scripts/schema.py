@@ -37,30 +37,6 @@ CONFIG_COLUMNS_V4_1 = [
     "with_internal",
 ]
 
-# ═══════════════════════════════════════════════════════════════
-# v0.4.0 schema_version=1 列定义（只读兼容，不修改）
-# ═══════════════════════════════════════════════════════════════
-
-IDENTIFIER_COLUMNS = [
-    "run_id",
-    "scenario",
-    "model",
-    "pCAV",
-    "requested_pcav",
-    "realized_pcav",
-    "cav_count",
-    "hv_count",
-    "vehN",
-    "seed",
-]
-
-CONFIG_COLUMNS = [
-    "step_length_s",
-    "warmup_period_s",
-    "simulation_end_s",
-    "detector_frequency_s",
-]
-
 CAPACITY_COLUMNS = [
     "mean_flow_veh_h",
     "max_flow_veh_h",
@@ -70,23 +46,10 @@ CAPACITY_COLUMNS = [
     "det_xml",
 ]
 
-SAFETY_SSM_COLUMNS = [
-    "ssm_raw_record_count",
-    "ssm_invalid_record_count",
-    "ssm_warmup_filtered_count",
-    "ssm_valid_record_count",
-    "ssm_mirrored_record_count",
-    "ttc_conflict_event_count",
-    "min_ttc_s",
-    "ttc_affected_vehicle_count",
-    "drac_conflict_event_count",
-    "max_drac_mps2",
-]
-
 # v0.4.1 fragment merge 扩展（a424cb8）：仅 schema=2 producer/parser 输出该键。
-# 独立于 SAFETY_SSM_COLUMNS，避免改变 legacy schema=1 的冻结字段集（仿
-# EMISSIONS_COLUMNS_V4_2 先例）。fragment 恢复历史相对位置（ssm_mirrored_record_count
-# 与 ttc_conflict_event_count 之间，与正式 v0.4.2 CSV header 一致）。
+# 独立于 SAFETY_SSM_COLUMNS_V4_1 的冻结字段集（仿 EMISSIONS_COLUMNS_V4_2 先例）。
+# fragment 恢复历史相对位置（ssm_mirrored_record_count 与 ttc_conflict_event_count
+# 之间，与正式 v0.4.2 CSV header 一致）。
 SAFETY_SSM_COLUMNS_V4_1 = [
     "ssm_raw_record_count",
     "ssm_invalid_record_count",

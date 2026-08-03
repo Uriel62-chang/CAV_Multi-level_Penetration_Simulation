@@ -519,7 +519,7 @@ def run_safety_v4_2(args) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="v0.4.0 数据可视化")
+    parser = argparse.ArgumentParser(description="结果可视化（纯净分支）")
     # v0.3.0 参数
     parser.add_argument(
         "--csv", default="out/results_raw_p05.csv", help="v0.3.0 模式：批量仿真 CSV"

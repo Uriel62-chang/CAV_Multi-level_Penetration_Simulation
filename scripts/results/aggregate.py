@@ -92,6 +92,14 @@ def aggregate(
     group_keys = GROUP_KEYS_V4_1 if schema_ver == "2" else GROUP_KEYS_LEGACY
 
     df = pd.read_csv(input_csv)
+    # 审阅 P2-2：schema=2 聚合入口强制单一 experiment_role——main factorial 与
+    # safety 不得混合聚合（分组键不含角色，混合会串组）
+    if schema_ver == "2" and "experiment_role" in df.columns:
+        roles = sorted(str(r) for r in df["experiment_role"].dropna().unique())
+        if len(roles) > 1:
+            raise ValueError(
+                f"run-level CSV 含多个 experiment_role: {roles}——main/safety 必须分开聚合"
+            )
     if schema_ver == "1" and "requested_pcav" not in df.columns:
         df["requested_pcav"] = df["pCAV"]
 

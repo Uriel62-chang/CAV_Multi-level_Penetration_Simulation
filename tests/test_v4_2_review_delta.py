@@ -1370,3 +1370,86 @@ def test_build_network_unanchored_warns(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(ng.subprocess, "run", lambda *a, **k: None)
     ng.build_network(str(d), netconvert_command="netconvert")
     assert "未锚定" in capsys.readouterr().out
+
+
+# ── 审查 P1-1：FCD 非法时间戳 fail-closed ──
+
+
+def test_fcd_invalid_timestep_time_fails_closed(tmp_path):
+    """非法/非有限 timestep time → invalid，parse_success=False（不得静默丢弃 FCD 数据）。"""
+    import gzip
+
+    from scripts.parsing.fcd import parse_fcd
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        "<fcd-export>"
+        '<timestep time="nan">'
+        '<vehicle id="v1" x="0.0" y="0.0" angle="0.0" speed="5.0" lane="e0_0" '
+        'pos="5.0" type="passenger"/>'
+        "</timestep>"
+        "</fcd-export>"
+    )
+    p = tmp_path / "fcd.xml.gz"
+    with gzip.open(p, "wb") as f:
+        f.write(xml.encode("utf-8"))
+    tm = {"v1": "CAV"}
+    r = parse_fcd(str(p), tm, warmup_period=0)
+    assert r["all"]["parse_success"] is False
+
+
+# ── 审查 P2-1：lanechange gap 非法字符串 fail-closed ──
+
+
+def test_lanechange_bad_gap_fails_closed(tmp_path):
+    from scripts.parsing.lanechange import parse_lanechange
+
+    p = tmp_path / "lc.xml"
+    p.write_text(
+        '<laneChanges><change id="v0" time="100.0" type="LC" lane="0" '
+        'leaderGap="BAD" leaderSecureGap="5.0" followerGap="10.0" followerSecureGap="5.0"/>'
+        "</laneChanges>",
+        encoding="utf-8",
+    )
+    r = parse_lanechange(str(p), warmup_period=0)
+    assert r["parse_success"] is False
+
+
+def test_lanechange_subgroup_bad_gap_fails_closed(tmp_path):
+    from scripts.parsing.lanechange import parse_lanechange_subgroup
+
+    p = tmp_path / "lc.xml"
+    p.write_text(
+        '<laneChanges><change id="v0" time="100.0" type="LC" lane="0" '
+        'leaderGap="nan" leaderSecureGap="5.0" followerGap="10.0" followerSecureGap="5.0"/>'
+        "</laneChanges>",
+        encoding="utf-8",
+    )
+    r = parse_lanechange_subgroup(str(p), {"v0": "CAV"}, warmup_period=0)
+    assert r["all"]["parse_success"] is False
+
+
+# ── 审查 P2-2：aggregate 混合角色拒绝 ──
+
+
+def test_aggregate_rejects_mixed_experiment_role(tmp_path):
+    import pandas as pd
+
+    from scripts.results.aggregate import aggregate
+
+    df = pd.DataFrame(
+        {
+            "scenario": ["scenario_0", "scenario_0"],
+            "model": ["IDM", "IDM"],
+            "vehN": [10, 10],
+            "cav_count": [5, 5],
+            "assignment_seed": [1, 2],
+            "sumo_seed": [101, 102],
+            "experiment_role": ["main_factorial", "safety"],
+            "mean_flow_veh_h": [100.0, 120.0],
+        }
+    )
+    p = tmp_path / "mixed.csv"
+    df.to_csv(p, index=False)
+    with pytest.raises(ValueError, match="experiment_role"):
+        aggregate(p, tmp_path / "out.csv", "2", manifest={})

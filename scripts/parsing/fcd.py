@@ -31,6 +31,8 @@ def parse_fcd(
         }
 
     result = {"all": _init(), "HV": _init(), "CAV": _init()}
+    # 审阅 P1-1：非法/非有限 timestep 时间计数——fail-closed，不得静默丢弃 FCD 数据
+    invalid = 0
 
     open_fn = gzip.open if fcd_path.endswith(".gz") else open
 
@@ -46,6 +48,11 @@ def parse_fcd(
                 try:
                     time = float(elem.get("time", "0"))
                 except (ValueError, TypeError):
+                    invalid += 1
+                    elem.clear()
+                    continue
+                if not math.isfinite(time):
+                    invalid += 1
                     elem.clear()
                     continue
                 if time < warmup_period:
@@ -125,7 +132,7 @@ def parse_fcd(
                 elem.clear()
 
         for label, arr in [("all", all_arr), ("HV", hv_arr), ("CAV", cav_arr)]:
-            result[label]["parse_success"] = True
+            result[label]["parse_success"] = invalid == 0
             if len(arr) == 0:
                 continue
             a = np.array(arr, dtype=np.float64)

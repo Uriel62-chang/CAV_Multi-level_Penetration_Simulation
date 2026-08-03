@@ -53,11 +53,15 @@ def parse_lanechange(xml_path: str, warmup_period: float = 600.0):
 
         total += 1
 
-        # 间隙安全判定
-        leader_gap = _parse_float_attr(change, "leaderGap")
-        leader_secure = _parse_float_attr(change, "leaderSecureGap")
-        follower_gap = _parse_float_attr(change, "followerGap")
-        follower_secure = _parse_float_attr(change, "followerSecureGap")
+        # 间隙安全判定（审阅 P2-1：gap 字段非法字符串 → invalid，不得静默当 None 处理）
+        try:
+            leader_gap = _parse_float_attr(change, "leaderGap")
+            leader_secure = _parse_float_attr(change, "leaderSecureGap")
+            follower_gap = _parse_float_attr(change, "followerGap")
+            follower_secure = _parse_float_attr(change, "followerSecureGap")
+        except ValueError:
+            invalid += 1
+            continue
 
         leader_unsafe = (
             leader_gap is not None and leader_secure is not None and leader_gap < leader_secure
@@ -128,10 +132,14 @@ def parse_lanechange_subgroup(
         counts["all"]["total"] += 1
         counts[veh_type]["total"] += 1
 
-        leader_gap = _parse_float_attr(change, "leaderGap")
-        leader_secure = _parse_float_attr(change, "leaderSecureGap")
-        follower_gap = _parse_float_attr(change, "followerGap")
-        follower_secure = _parse_float_attr(change, "followerSecureGap")
+        try:
+            leader_gap = _parse_float_attr(change, "leaderGap")
+            leader_secure = _parse_float_attr(change, "leaderSecureGap")
+            follower_gap = _parse_float_attr(change, "followerGap")
+            follower_secure = _parse_float_attr(change, "followerSecureGap")
+        except ValueError:
+            invalid += 1
+            continue
 
         leader_unsafe = (
             leader_gap is not None and leader_secure is not None and leader_gap < leader_secure
@@ -160,11 +168,18 @@ def parse_lanechange_subgroup(
 
 
 def _parse_float_attr(elem, attr_name):
-    """安全解析 XML 属性为 float，None 或 'None' 都返回 None。"""
+    """解析 XML 属性为 float。
+
+    合法缺失（属性不存在或值为 "None"）返回 None（无法参与 unsafe 判定）；
+    出现但非数值/非有限 → 抛 ValueError（审阅 P2-1：fail-closed，不得静默当缺失处理）。
+    """
     val = elem.get(attr_name)
     if val is None or val == "None":
         return None
     try:
-        return float(val)
+        result = float(val)
     except (ValueError, TypeError):
-        return None
+        raise ValueError(f"lanechange: invalid numeric attribute {attr_name}={val!r}") from None
+    if not math.isfinite(result):
+        raise ValueError(f"lanechange: non-finite numeric attribute {attr_name}={val!r}")
+    return result

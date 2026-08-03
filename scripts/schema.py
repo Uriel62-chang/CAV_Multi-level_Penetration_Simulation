@@ -1,10 +1,8 @@
 """统一数据 Schema — 阶段二/三共用，避免字段清单漂移。
 
-RUN_LEVEL_COLUMNS: 正式 CSV 列定义（阶段三 writer 使用）
-SUMMARY_REQUIRED_KEYS: summary.json 必需字段（阶段二 parser 校验使用）
-
-从 v0.4.1 起 schema_version=2，新增双 seed 标识列与 subgroup 长表。
-旧 schema_version=1 列定义保留以支持只读加载。
+从 v0.4.1 起 schema_version=2（双 seed 标识列 + subgroup 长表 + 审计字段）；
+v0.4.2 在其上扩展采集状态列与排放双口径。
+纯净分支：schema_version=1（v0.4.0~post3）契约已移除，仅支持 schema=2。
 """
 
 from __future__ import annotations
@@ -185,35 +183,22 @@ QUALITY_COLUMNS = [
     "data_quality_detail",
 ]
 
-RUN_LEVEL_COLUMNS = (
-    IDENTIFIER_COLUMNS
-    + CONFIG_COLUMNS
-    + CAPACITY_COLUMNS
-    + SAFETY_SSM_COLUMNS
-    + SAFETY_EB_COLUMNS
-    + LANECHANGE_COLUMNS
-    + EMISSIONS_COLUMNS
-    + EFFICIENCY_COLUMNS
-    + NORMALIZED_COLUMNS
-    + DELAY_COLUMNS
-    + QUALITY_COLUMNS
-)
-
 # ── summary.json 审计字段（仅供阶段二内部，不进入 CSV） ──
-
-AUDIT_COLUMNS = [
-    "ssm_parse_success",
-    "lc_parse_success",
-    "ep_parse_success",
-    "ee_parse_success",
-    "vr_parse_success",
-]
+# 纯净分支（v0.4.0~post3 已移除）：仅保留 v0.4.1 起的 schema=2 审计字段。
 
 # ═══════════════════════════════════════════════════════════════
 # v0.4.1 schema_version=2 审计字段
 # ═══════════════════════════════════════════════════════════════
 
-AUDIT_COLUMNS_V4_1 = AUDIT_COLUMNS + ["fcd_parse_success", "ssm_not_collected"]
+AUDIT_COLUMNS_V4_1 = [
+    "ssm_parse_success",
+    "lc_parse_success",
+    "ep_parse_success",
+    "ee_parse_success",
+    "vr_parse_success",
+    "fcd_parse_success",
+    "ssm_not_collected",
+]
 
 # v0.4.1 schema_version=2 核心 run-level CSV 列 (65 列)
 RUN_LEVEL_COLUMNS_V4_1 = (
@@ -323,38 +308,6 @@ SUMMARY_REQUIRED_KEYS_V4_2 = _dedup_keep_order(
     + list(EMISSIONS_COLUMNS_V4_2)
 )
 
-# ── summary.json 完整必需字段 = CSV 列（去掉 quality 列）+ 审计字段 ──
-
-SUMMARY_REQUIRED_KEYS = (
-    [
-        column
-        for column in IDENTIFIER_COLUMNS
-        if column
-        not in {
-            "requested_pcav",
-            "realized_pcav",
-            "cav_count",
-            "hv_count",
-        }
-    ]
-    + CONFIG_COLUMNS
-    + CAPACITY_COLUMNS
-    + SAFETY_SSM_COLUMNS
-    + SAFETY_EB_COLUMNS
-    + LANECHANGE_COLUMNS
-    + EMISSIONS_COLUMNS
-    + [column for column in EFFICIENCY_COLUMNS if column != "non_internal_edge_vehicle_km"]
-    + [
-        column
-        for column in NORMALIZED_COLUMNS
-        if column != "whole_network_ttc_events_per_1000_non_internal_edge_veh_km"
-    ]
-    + DELAY_COLUMNS
-    + AUDIT_COLUMNS
-)
-
-# ── v0.4.1 subgroup 长表列定义 ──
-
 SUBGROUP_LONG_COLUMNS_V4_1 = [
     "run_id",
     "scenario",
@@ -374,7 +327,9 @@ SUBGROUP_LONG_COLUMNS_V4_1 = [
 ]
 
 # metric -> (companion field, maximum companion value for which NaN is valid)
-SUMMARY_NAN_RULES = {
+# v0.4.1（schema=2）冻结 companion 表：排放强度跟随 total_vehicle_km（v0.4.1
+# summary 不含 non_internal_edge_vehicle_km 键）。纯净分支已移除 schema=1 契约。
+SUMMARY_NAN_RULES_V4_1 = {
     "min_ttc_s": ("ttc_conflict_event_count", 0),
     "max_drac_mps2": ("drac_conflict_event_count", 0),
     "mean_speed_m_s": ("detector_speed_window_count", 0),
@@ -403,9 +358,8 @@ SUMMARY_NAN_RULES = {
 }
 
 # 审阅 P1-2（v0.4.2 专属）：主 estimand 为 non-internal（metrics.py P0-7），
-# 排放强度 NaN companion 跟随 non-internal veh-km。仅用于 schema=2 +
-# pipeline v0.4.2，不污染 legacy 契约。
-SUMMARY_NAN_RULES_V4_2 = dict(SUMMARY_NAN_RULES)
+# 排放强度 NaN companion 跟随 non-internal veh-km。
+SUMMARY_NAN_RULES_V4_2 = dict(SUMMARY_NAN_RULES_V4_1)
 SUMMARY_NAN_RULES_V4_2.update(
     {
         "CO2_g_per_veh_km": ("non_internal_edge_vehicle_km", 0),
@@ -421,39 +375,32 @@ def validate_summary_contract(
 ) -> list[str]:
     """Return field-level schema errors; valid no-event extrema may be NaN.
 
-    schema=2 时按 pipeline_version 分流：v0.4.2 要求 V4_2（含排放双口径扩展），
-    v0.4.1 保持 V4_1 冻结契约（P1-1）。
+    纯净分支：仅支持 schema=2。按 pipeline_version 分流：v0.4.2 要求 V4_2
+    （含排放双口径扩展），v0.4.1 保持 V4_1 冻结契约（P1-1）。
     """
-    if schema_version == "2":
-        required = (
-            SUMMARY_REQUIRED_KEYS_V4_2
-            if pipeline_version == "v0.4.2"
-            else SUMMARY_REQUIRED_KEYS_V4_1
-        )
-    else:
-        required = SUMMARY_REQUIRED_KEYS
+    if schema_version != "2":
+        raise ValueError(f"unsupported schema_version: {schema_version!r} (only '2' supported)")
+    required = (
+        SUMMARY_REQUIRED_KEYS_V4_2 if pipeline_version == "v0.4.2" else SUMMARY_REQUIRED_KEYS_V4_1
+    )
     # 审阅 P2（复核）：v0.4.2 时 eb_parse_success 作为可选审计字段（若存在必须为 bool）
     eb_audit_keys: set[str] = set()
-    if schema_version == "2" and pipeline_version == "v0.4.2" and "eb_parse_success" in summary:
+    if pipeline_version == "v0.4.2" and "eb_parse_success" in summary:
         eb_audit_keys = {"eb_parse_success"}
     # 审阅 P1-2：NaN companion 表按 pipeline 分流——v0.4.2 用 non-internal
-    # 主 estimand 覆盖表，legacy（schema=1 / v0.4.1 schema=2）保持冻结表。
-    nan_rules = (
-        SUMMARY_NAN_RULES_V4_2
-        if schema_version == "2" and pipeline_version == "v0.4.2"
-        else SUMMARY_NAN_RULES
-    )
+    # 主 estimand 覆盖表，v0.4.1 保持 V4_1 冻结表。
+    nan_rules = SUMMARY_NAN_RULES_V4_2 if pipeline_version == "v0.4.2" else SUMMARY_NAN_RULES_V4_1
     errors = [f"summary missing required key: {key}" for key in required if key not in summary]
     if errors:
         return errors
 
     string_keys = {"run_id", "scenario", "model", "det_xml", "experiment_role", "ssm_dedup_method"}
     bool_keys = (
-        set(AUDIT_COLUMNS_V4_1 if schema_version == "2" else AUDIT_COLUMNS)
+        set(AUDIT_COLUMNS_V4_1)
         | eb_audit_keys
         | {"with_internal"}
-        # P0-1（新审阅）：SSM 采集状态列（仅 schema=2）为 bool
-        | ({"ssm_enabled", "ssm_not_collected"} if schema_version == "2" else set())
+        # P0-1（新审阅）：SSM 采集状态列为 bool
+        | {"ssm_enabled", "ssm_not_collected"}
     )
     integer_keys = {
         "vehN",
@@ -526,7 +473,7 @@ def validate_summary_contract(
     # P0-1（新审阅）：SSM 未采集（ssm_not_collected=True）时，SSM 原始/处理计数、
     # 事件数、极值、受影响车辆数与事件率均为 NaN（"未采集"语义），跳过这些键的
     # 类型与有限性检查；safety 合法零检出仍为数值 0（不走此分支）。
-    ssm_not_collected = schema_version == "2" and summary.get("ssm_not_collected") is True
+    ssm_not_collected = summary.get("ssm_not_collected") is True
     keys_to_validate = list(required)
     for optional_key in (
         "non_internal_edge_vehicle_km",

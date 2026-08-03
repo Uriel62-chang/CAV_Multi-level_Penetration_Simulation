@@ -7,17 +7,26 @@ from scripts.results.writer import (
 
 
 def _summary(**overrides):
+    """纯净分支：_build_row 走 schema=2 v4_1 语义——summary 需自带身份/审计字段。"""
     summary = {
         "run_id": "writer-test",
-        "pCAV": 0.5,
+        "scenario": "scenario_0",
+        "model": "IDM",
+        "requested_pcav": 0.5,
+        "realized_pcav": 0.5,
+        "cav_count": 5,
+        "hv_count": 5,
         "vehN": 10,
         "total_vehicle_km": 2.0,
+        "non_internal_edge_vehicle_km": 2.0,
         "ttc_events_per_1000_veh_km": 500.0,
+        "whole_network_ttc_events_per_1000_non_internal_edge_veh_km": 500.0,
         "ssm_parse_success": True,
         "lc_parse_success": True,
         "ep_parse_success": True,
         "ee_parse_success": True,
         "vr_parse_success": True,
+        "fcd_parse_success": True,
     }
     summary.update(overrides)
     return summary

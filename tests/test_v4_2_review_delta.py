@@ -218,12 +218,12 @@ def test_summary_contract_rejects_negative_whole_network_fields():
 
 def test_summary_nan_rule_uses_non_internal_companion():
     """SUMMARY_NAN_RULES_V4_2 的排放强度 companion 跟随 non-internal 主 estimand；
-    legacy 冻结表保持 total_vehicle_km（不污染 schema=1）。"""
-    from scripts.schema import SUMMARY_NAN_RULES, SUMMARY_NAN_RULES_V4_2
+    v0.4.1 冻结表保持 total_vehicle_km。"""
+    from scripts.schema import SUMMARY_NAN_RULES_V4_1, SUMMARY_NAN_RULES_V4_2
 
     for key in ("CO2_g_per_veh_km", "NOx_mg_per_veh_km", "PMx_mg_per_veh_km", "fuel_g_per_veh_km"):
         assert SUMMARY_NAN_RULES_V4_2[key][0] == "non_internal_edge_vehicle_km"
-        assert SUMMARY_NAN_RULES[key][0] == "total_vehicle_km"
+        assert SUMMARY_NAN_RULES_V4_1[key][0] == "total_vehicle_km"
 
 
 def test_summary_nan_rule_rejects_nan_with_exposure():
@@ -2650,12 +2650,12 @@ def test_v4_2_core_summary_excludes_legacy_mismatched_ttc_column():
 
 def test_v4_2_column_set_excludes_legacy_mismatched_ttc():
     """P2-1：RUN_LEVEL_COLUMNS_V4_2 不含 legacy 空间错配列（aggregate 不再
-    输出其 _mean），legacy 列集保持。"""
-    from scripts.schema import RUN_LEVEL_COLUMNS, RUN_LEVEL_COLUMNS_V4_2
+    输出其 _mean）；v0.4.1 列集保持（v0.4.0~post3 schema=1 已移除）。"""
+    from scripts.schema import RUN_LEVEL_COLUMNS_V4_1, RUN_LEVEL_COLUMNS_V4_2
 
     legacy_col = "whole_network_ttc_events_per_1000_non_internal_edge_veh_km"
     assert legacy_col not in RUN_LEVEL_COLUMNS_V4_2
-    assert legacy_col in RUN_LEVEL_COLUMNS  # schema=1 legacy 保留
+    assert legacy_col in RUN_LEVEL_COLUMNS_V4_1  # v0.4.1 契约保留该列
 
 
 # ── 本轮审查 P2-2：SSM subgroup 未知车辆 fail-closed ──

@@ -93,24 +93,3 @@ def test_duplicate_seed_pair_rejected(tmp_path):
     df.loc[3, "sumo_seed"] = 101  # 与 row0 重复 (0, 101)
     with pytest.raises(ValueError, match="duplicate"):
         _aggregate(df, tmp_path)
-
-
-def test_legacy_schema1_unchanged(tmp_path):
-    """schema=1 仍用 n_valid 作为 assignment_seed_run_count（无 sumo_seed 列）。"""
-    df = pd.DataFrame(
-        {
-            "scenario": ["s0"] * 2,
-            "model": ["IDM"] * 2,
-            "requested_pcav": [0.5, 0.5],
-            "vehN": [10, 10],
-            "mean_flow_veh_h": [100.0, 110.0],
-            "data_quality": ["ok", "ok"],
-        }
-    )
-    # schema=1 路径直接调用
-    in_csv = tmp_path / "in_legacy.csv"
-    out_csv = tmp_path / "out_legacy.csv"
-    df.to_csv(in_csv, index=False)
-    res = aggregate(in_csv, out_csv, "1")
-    assert res["assignment_seed_run_count"].iloc[0] == 2
-    assert res["independent_random_replication_count"].iloc[0] == 0

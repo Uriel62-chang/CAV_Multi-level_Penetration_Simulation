@@ -53,7 +53,6 @@ METRIC_COLUMNS = (
 _NON_AGGREGATABLE = {"det_xml"}
 METRIC_COLUMNS = tuple(c for c in METRIC_COLUMNS if c not in _NON_AGGREGATABLE)
 
-GROUP_KEYS_LEGACY = ["scenario", "model", "requested_pcav", "vehN"]
 GROUP_KEYS_V4_1 = ["scenario", "model", "vehN", "cav_count"]
 
 
@@ -81,28 +80,27 @@ def _expected_seed_pairs(manifest: dict, vehN: int, cav_count: int) -> set[tuple
 def aggregate(
     input_csv: Path, output_csv: Path, schema_ver: str, manifest: dict | None = None
 ) -> pd.DataFrame:
-    if schema_ver not in ("1", "2"):
-        raise ValueError(f"schema_ver must be '1' or '2', got {schema_ver!r}")
+    # 纯净分支：仅支持 schema=2（v0.4.1/v0.4.2）——schema=1（v0.4.0~post3）已移除
+    if schema_ver != "2":
+        raise ValueError(f"schema_ver must be '2', got {schema_ver!r}")
     # P1-2（审阅）：schema=2 在函数层强制 manifest（CLI 强制可被 import 调用绕过）。
-    if schema_ver == "2" and manifest is None:
+    if manifest is None:
         raise ValueError(
             "schema=2 aggregation requires experiment manifest (--manifest); "
             "run_id / seed-pair completeness cannot be verified without it"
         )
 
-    group_keys = GROUP_KEYS_V4_1 if schema_ver == "2" else GROUP_KEYS_LEGACY
+    group_keys = GROUP_KEYS_V4_1
 
     df = pd.read_csv(input_csv)
-    # 审阅 P2-2：schema=2 聚合入口强制单一 experiment_role——main factorial 与
+    # 审阅 P2-2：聚合入口强制单一 experiment_role——main factorial 与
     # safety 不得混合聚合（分组键不含角色，混合会串组）
-    if schema_ver == "2" and "experiment_role" in df.columns:
+    if "experiment_role" in df.columns:
         roles = sorted(str(r) for r in df["experiment_role"].dropna().unique())
         if len(roles) > 1:
             raise ValueError(
                 f"run-level CSV 含多个 experiment_role: {roles}——main/safety 必须分开聚合"
             )
-    if schema_ver == "1" and "requested_pcav" not in df.columns:
-        df["requested_pcav"] = df["pCAV"]
 
     # 排除 data_quality != ok 的行（仅对 ok 数据做聚合）
     df_ok = df[df["data_quality"] == "ok"].copy()
@@ -457,7 +455,7 @@ def main():
 
     # 汇总
     groups = len(df)
-    metrics = sum(1 for c in df.columns if c not in GROUP_KEYS_LEGACY and c != "n_valid") // 5
+    metrics = sum(1 for c in df.columns if c not in GROUP_KEYS_V4_1 and c != "n_valid") // 5
     print(f"[DONE] {groups} groups × {metrics} metrics × 5 statistics (mean/std/median/min/max)")
     print(f"       input: {input_csv}")
     print(f"       output: {args.output}")

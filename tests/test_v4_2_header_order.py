@@ -13,13 +13,10 @@ import json
 from pathlib import Path
 
 from scripts.schema import (
-    RUN_LEVEL_COLUMNS,
     RUN_LEVEL_COLUMNS_V4_1,
     RUN_LEVEL_COLUMNS_V4_2,
-    SAFETY_SSM_COLUMNS,
     SAFETY_SSM_COLUMNS_V4_1,
     STATUS_COLUMNS_V4_2,
-    SUMMARY_REQUIRED_KEYS,
 )
 
 FIXTURE = json.loads(Path("tests/baselines/v0.4.2-schema-header.json").read_text(encoding="utf-8"))
@@ -34,10 +31,6 @@ def test_fragment_restored_between_mirrored_and_ttc():
     )
     # 与正式 v0.4.2 CSV 原相对顺序一致（fragment 紧跟 mirrored 之后）
     assert cols[cols.index("ssm_mirrored_record_count") + 1] == "ssm_fragment_merged_count"
-    # legacy 集合保持不含 fragment
-    assert "ssm_fragment_merged_count" not in SAFETY_SSM_COLUMNS
-    assert "ssm_fragment_merged_count" not in RUN_LEVEL_COLUMNS
-    assert "ssm_fragment_merged_count" not in SUMMARY_REQUIRED_KEYS
 
 
 def test_status_columns_follow_identifiers():
@@ -70,6 +63,5 @@ def test_v4_2_header_matches_frozen_fixture():
 
 def test_status_columns_do_not_leak_to_legacy_sets():
     for col in STATUS_COLUMNS_V4_2:
-        assert col not in RUN_LEVEL_COLUMNS
         assert col not in RUN_LEVEL_COLUMNS_V4_1
         assert col not in SAFETY_SSM_COLUMNS_V4_1

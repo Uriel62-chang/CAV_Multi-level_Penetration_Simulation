@@ -21,7 +21,6 @@ from pathlib import Path
 from scripts.provenance import sha256_file
 from scripts.run_spec import atomic_write_json
 from scripts.schema import (
-    RUN_LEVEL_COLUMNS,
     RUN_LEVEL_COLUMNS_V4_1,
     RUN_LEVEL_COLUMNS_V4_2,
     SUBGROUP_LONG_COLUMNS_V4_1,
@@ -122,63 +121,9 @@ def _read_sim_status(run_dir: Path) -> str:
         return "UNREADABLE"
 
 
-def _build_row(
-    summary: dict, parse_status: str, schema_ver: str = "1", pipeline_version: str | None = None
-) -> dict:
-    if schema_ver == "2":
-        return _build_row_v4_1(summary, parse_status, pipeline_version)
-    else:
-        return _build_row_legacy(summary, parse_status)
-
-
-def _build_row_legacy(summary: dict, parse_status: str) -> dict:
-    row = {col: summary.get(col, float("nan")) for col in RUN_LEVEL_COLUMNS}
-    vehicle_count = int(summary["vehN"])
-    requested_pcav = float(summary["pCAV"])
-    cav_count = round(vehicle_count * requested_pcav)
-    row.update(
-        {
-            "requested_pcav": requested_pcav,
-            "realized_pcav": cav_count / vehicle_count,
-            "cav_count": cav_count,
-            "hv_count": vehicle_count - cav_count,
-            "non_internal_edge_vehicle_km": summary.get(
-                "non_internal_edge_vehicle_km",
-                summary.get("total_vehicle_km", float("nan")),
-            ),
-            "whole_network_ttc_events_per_1000_non_internal_edge_veh_km": _recompute_rate(
-                summary.get("ttc_conflict_event_count"),
-                summary.get("non_internal_edge_vehicle_km"),
-                summary.get("ttc_events_per_1000_veh_km"),
-            ),
-        }
-    )
-
-    errors = summary.get("_invariant_errors", [])
-    parser_flags = [
-        summary.get(name)
-        for name in (
-            "ssm_parse_success",
-            "lc_parse_success",
-            "ep_parse_success",
-            "ee_parse_success",
-            "vr_parse_success",
-        )
-    ]
-    if parse_status == "SUCCESS" and all(flag is True for flag in parser_flags):
-        row["data_quality"] = "ok"
-        row["data_quality_detail"] = ""
-    elif parse_status == "SUCCESS":
-        row["data_quality"] = "parser_warning"
-        row["data_quality_detail"] = "one or more parser audit flags are not true"
-    elif parse_status == "INVALID_DATA":
-        row["data_quality"] = "invariant_failed"
-        row["data_quality_detail"] = json.dumps(errors, ensure_ascii=False) if errors else ""
-    else:
-        row["data_quality"] = "parser_warning"
-        row["data_quality_detail"] = f"parse_status={parse_status}"
-
-    return row
+def _build_row(summary: dict, parse_status: str, pipeline_version: str | None = None) -> dict:
+    """纯净分支：仅 schema=2（v0.4.1/v0.4.2）——schema=1 legacy 已移除。"""
+    return _build_row_v4_1(summary, parse_status, pipeline_version)
 
 
 def _all_lap_stats_missing(summary: dict, pipeline_version: str | None) -> bool:
@@ -561,11 +506,10 @@ def build_run_level_results(
         raise ValueError("manifest schema_version missing")
     if not manifest.get("config_sha256"):
         raise ValueError("manifest config_sha256 missing")
-    schema_ver = manifest.get("schema_version", "1")
-    # P2-5（本轮审查）：未知 schema_version 拒绝——旧实现静默回落 legacy contract
-    # （非 "2" 一律走 schema=1 列集/校验），未知版本会被当 v0.4.0 处理。
-    if schema_ver not in ("1", "2"):
-        raise ValueError(f"unsupported schema_version: {schema_ver!r}")
+    schema_ver = manifest.get("schema_version")
+    # 纯净分支：仅支持 schema=2（v0.4.1/v0.4.2）——schema=1（v0.4.0~post3）已移除
+    if schema_ver != "2":
+        raise ValueError(f"unsupported schema_version: {schema_ver!r} (only '2' supported)")
     results_value = manifest.get("results")
     total_value = manifest.get("total")
     manifest_structure_valid = not _manifest_structure_errors(manifest)
@@ -690,38 +634,24 @@ def build_run_level_results(
             continue
 
         # 构建 CSV 行
-        row = _build_row(summary, parse_status, schema_ver, pipeline_version)
+        row = _build_row(summary, parse_status, pipeline_version)
         success_rows.append(row)
 
-    # ── 排序 ──
-    if schema_ver == "2":
-        success_rows.sort(
-            key=lambda r: (
-                r.get("scenario", ""),
-                r.get("model", ""),
-                r.get("cav_count", 0),
-                r.get("vehN", 0),
-                r.get("assignment_seed", 0),
-                r.get("sumo_seed", 0),
-            )
+    # ── 排序（schema=2 双 seed 排序键） ──
+    success_rows.sort(
+        key=lambda r: (
+            r.get("scenario", ""),
+            r.get("model", ""),
+            r.get("cav_count", 0),
+            r.get("vehN", 0),
+            r.get("assignment_seed", 0),
+            r.get("sumo_seed", 0),
         )
-    else:
-        success_rows.sort(
-            key=lambda r: (
-                r.get("scenario", ""),
-                r.get("model", ""),
-                r.get("pCAV", 0),
-                r.get("vehN", 0),
-                r.get("seed", 0),
-            )
-        )
+    )
 
     # ── 写入 run_level_results.csv ──
     csv_path = output_dir / results_filename
-    if schema_ver == "2":
-        columns = RUN_LEVEL_COLUMNS_V4_2 if pipeline_version == "v0.4.2" else RUN_LEVEL_COLUMNS_V4_1
-    else:
-        columns = RUN_LEVEL_COLUMNS
+    columns = RUN_LEVEL_COLUMNS_V4_2 if pipeline_version == "v0.4.2" else RUN_LEVEL_COLUMNS_V4_1
     _atomic_write_csv(csv_path, success_rows, columns)
     print(f"[WRITE] {len(success_rows)} rows → {csv_path}")
 

@@ -209,6 +209,16 @@ def _paired_ttc_metric_column(df: pd.DataFrame) -> str:
     )
 
 
+def _assert_experiment_role(df: pd.DataFrame, expected: str) -> None:
+    """审阅 P2-2：可视化入口校验 experiment_role——误把 main/safety CSV 传给错误
+    模式时 fail-closed（而非生成空图/语义错误图）。CSV 无角色列时跳过（legacy 兼容）。"""
+    if "experiment_role" not in df.columns:
+        return
+    roles = sorted(str(r) for r in df["experiment_role"].dropna().unique())
+    if roles and roles != [expected]:
+        raise ValueError(f"当前模式需要 experiment_role={expected!r} 的 CSV，实际含 {roles}")
+
+
 def _paired_drac_metric_column(df: pd.DataFrame) -> str:
     """v0.4.2 --safety 路径（审阅 P0-1）：DRAC 空间配对事件率列，缺失 fail-closed。"""
     if _PAIRED_DRAC_METRIC in df.columns:
@@ -416,6 +426,7 @@ def run_v4_2(args) -> None:
         print(f"错误: 找不到文件 {args.aggregated}")
         return
     df = pd.read_csv(args.aggregated)
+    _assert_experiment_role(df, "main_factorial")  # 审阅 P2-2：角色门禁
     out_dir = Path(args.outDir)
     _ensure_dir(out_dir)
     chart_observed_peak_flow_v4(df, out_dir)
@@ -437,6 +448,7 @@ def run_safety_v4_2(args) -> None:
         print(f"错误: 找不到文件 {args.aggregated}")
         return
     df = pd.read_csv(args.aggregated)
+    _assert_experiment_role(df, "safety")  # 审阅 P2-2：角色门禁
     out_dir = Path(args.outDir)
     _ensure_dir(out_dir)
     ttc_col = _paired_ttc_metric_column(df)  # P1-3：fail-closed，不回退 legacy 错配列

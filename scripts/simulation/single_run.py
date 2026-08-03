@@ -591,12 +591,14 @@ def parse_run_outputs(
             detector_paths[0], warmup_period
         )
 
-    # ── 解析 SSM ──
+    # ── 解析 SSM（审阅 P2-1：legacy/单次路径传入 simulation_end，SSM 观测窗
+    #     [warmup, simulation_end)，防止 3600s 后极值混入——与 v0.4.2 阶段二一致）──
     ssm_result = parse_ssm(
         str(ssm_file),
         warmup_period,
         ttc_threshold=SSM_TTC_THRESHOLD_S,
         drac_threshold=SSM_DRAC_THRESHOLD_MPS2,
+        simulation_end=spec.simulation_end,
     )
 
     # ── 解析换道 ──

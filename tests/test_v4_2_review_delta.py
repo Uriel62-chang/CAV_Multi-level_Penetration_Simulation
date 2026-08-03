@@ -1536,3 +1536,20 @@ def test_config_rejects_non_default_ssm_range(tmp_path):
     path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(ValueError, match="废弃"):
         load_experiment_config(path)
+
+
+def test_input_integrity_network_source_change_detected(tmp_path):
+    """审阅 P1-1：源文件变化但 net.json 锚定未更新 → verify False。"""
+    from tests.test_v4_2_review_round4 import _make_stub, _write_full_status, _full_raw_hashes, _SpecStub  # noqa: E501
+    from scripts.parsing.input_integrity import verify
+
+    stub = _make_stub(tmp_path)
+    rd = tmp_path / "run-1"
+    rd.mkdir()
+    _write_full_status(rd, _full_raw_hashes(rd, stub), stub)
+    # 修改源文件（锚定失效）
+    src = tmp_path / "net" / "nodes.nod.xml"
+    src.write_text("<nodes changed/>", encoding="utf-8")
+    ok, errors = verify(rd, stub)
+    assert ok is False
+    assert any("network source changed" in e for e in errors)

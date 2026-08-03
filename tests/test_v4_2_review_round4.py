@@ -155,11 +155,24 @@ class _SpecStub:
 
 
 def _make_stub(tmp_path) -> "_SpecStub":
-    """创建 tmp 内 dummy 路网（clean archive 无本地 net 生成物）。"""
+    """创建 tmp 内 dummy 路网（clean archive 无本地 net 生成物）。
+
+    审阅 P1-1：net.json 含 network_sources_sha256 锚定（真实场景一致），源文件存在。
+    """
+    import hashlib as _h
+
     net_dir = tmp_path / "net"
     net_dir.mkdir()
     (net_dir / "loop.net.xml").write_text("<net/>", encoding="utf-8")
-    (net_dir / "net.json").write_text(json.dumps({"num_lanes": 1}), encoding="utf-8")
+    (net_dir / "nodes.nod.xml").write_text("<nodes/>", encoding="utf-8")
+    (net_dir / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
+    digest = _h.sha256()
+    digest.update((net_dir / "nodes.nod.xml").read_bytes())
+    digest.update((net_dir / "edges.edg.xml").read_bytes())
+    (net_dir / "net.json").write_text(
+        json.dumps({"num_lanes": 1, "network_sources_sha256": digest.hexdigest()}),
+        encoding="utf-8",
+    )
     stub = _SpecStub()
     stub.network_file = str(net_dir / "loop.net.xml")
     return stub

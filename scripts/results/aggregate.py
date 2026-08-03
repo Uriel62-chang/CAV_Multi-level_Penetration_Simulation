@@ -6,8 +6,9 @@
           含双 seed 组合的等权算术 mean/std/median/min/max/count）
 
     python3 -m scripts.results.aggregate \
-      --input /home/lyc/simdata/cav-v0.4.0/results/run_level_results.csv \
-      --output /home/lyc/simdata/cav-v0.4.0/results/aggregated_results.csv
+      --input results/v0.4.2/main/run_level_results.csv \
+      --output results/v0.4.2/main/aggregated_results.csv \
+      --schema-version 2 --manifest raw_v0.4.2/main/manifest.json
 """
 
 import argparse

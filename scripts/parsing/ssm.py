@@ -170,7 +170,8 @@ def parse_ssm(
                 invalid += 1
                 continue
             # 审阅 P1-2：元素存在时 value/time 必须有限（"nan" 等语义损坏 fail-closed）
-            if not (math.isfinite(ttc_val) and math.isfinite(ttc_time)):
+            # 审阅 P2-1：物理域校验——TTC >= 0（负 TTC 为异常记录）
+            if not (math.isfinite(ttc_val) and math.isfinite(ttc_time)) or ttc_val < 0:
                 invalid += 1
                 continue
             if ttc_time < warmup_period or (
@@ -189,7 +190,8 @@ def parse_ssm(
             except (ValueError, TypeError):
                 invalid += 1
                 continue
-            if not (math.isfinite(drac_val) and math.isfinite(drac_time)):
+            # 审阅 P2-1：物理域校验——DRAC >= 0（负 DRAC 为异常记录）
+            if not (math.isfinite(drac_val) and math.isfinite(drac_time)) or drac_val < 0:
                 invalid += 1
                 continue
             if drac_time < warmup_period or (
@@ -433,7 +435,8 @@ def parse_ssm_subgroup(
                 invalid += 1
                 continue
             # 审阅 P1-2：value/time 必须有限（"nan" 等语义损坏 fail-closed）
-            if not (math.isfinite(ttc_val) and math.isfinite(ttc_time)):
+            # 审阅 P2-1：物理域校验——TTC >= 0
+            if not (math.isfinite(ttc_val) and math.isfinite(ttc_time)) or ttc_val < 0:
                 invalid += 1
                 continue
             if ttc_time < warmup_period or (
@@ -454,7 +457,8 @@ def parse_ssm_subgroup(
             except (ValueError, TypeError):
                 invalid += 1
                 continue
-            if not (math.isfinite(drac_val) and math.isfinite(drac_time)):
+            # 审阅 P2-1：物理域校验——DRAC >= 0
+            if not (math.isfinite(drac_val) and math.isfinite(drac_time)) or drac_val < 0:
                 invalid += 1
                 continue
             if drac_time < warmup_period or (

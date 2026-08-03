@@ -33,8 +33,10 @@ def parse_detector(
 
     root = ET.parse(xml_path).getroot()
     flow_values, speed_values = [], []
+    interval_count = 0
 
     for interval in root.findall("interval"):
+        interval_count += 1
         try:
             begin = float(interval.get("begin", "0"))
             flow = float(interval.get("flow", "0"))
@@ -61,6 +63,10 @@ def parse_detector(
         flow_values.append(flow)
         if flow > 0:
             speed_values.append(speed)
+
+    # 审阅 P1-1：空/截断 XML（无观测 interval）→ 抛错（fail-closed，不得制造零流量结果）
+    if interval_count == 0:
+        raise ValueError(f"detector: no observation interval in {xml_path}")
 
     if len(flow_values) == 0:
         return 0.0, 0.0, 0.0, float("nan"), 0
@@ -89,9 +95,11 @@ def parse_detector_multi(
     import math
 
     lane_data = {}
+    total_intervals = 0
     for path in xml_paths:
         root = ET.parse(path).getroot()
         for interval in root.findall("interval"):
+            total_intervals += 1
             # 审阅 P1-2（multi）：非数值/非有限 → 抛 ValueError（fail-closed，与单车道一致）
             try:
                 begin = float(interval.get("begin", "0"))
@@ -118,6 +126,10 @@ def parse_detector_multi(
                 lane_data[begin] = {"flow": 0.0, "weighted_speed": 0.0}
             lane_data[begin]["flow"] += flow
             lane_data[begin]["weighted_speed"] += flow * speed
+
+    # 审阅 P1-1：空/截断 XML（无观测 interval）→ 抛错
+    if total_intervals == 0:
+        raise ValueError(f"detector: no observation interval in {xml_paths}")
 
     if not lane_data:
         return 0.0, 0.0, 0.0, float("nan"), 0
@@ -164,6 +176,8 @@ def parse_detector_subgroup(
                 "mean_speed_m_s": ms,
                 "speed_variance": sv,
                 "window_count": wc,
+                # 审阅 P1-1：空/截断 XML 由 parse_detector 抛 ValueError（此处捕获 →
+                # parse_success=False）；有观测窗口（含全零流量）为合法
                 "parse_success": True,
             }
         except (ValueError, ET.ParseError, OSError):

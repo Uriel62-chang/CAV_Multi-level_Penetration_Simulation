@@ -34,6 +34,9 @@ def parse_fcd(
     result = {"all": _init(), "HV": _init(), "CAV": _init()}
     # 审阅 P1-1：非法/非有限 timestep 时间计数——fail-closed，不得静默丢弃 FCD 数据
     invalid = 0
+    # 审阅 P1-2：窗内 timestep 计数——空/全窗外 FCD 不得判为成功（与"正常采集但
+    # 无有效样本"可区分）
+    windowed_timesteps = 0
 
     open_fn = gzip.open if fcd_path.endswith(".gz") else open
 
@@ -68,6 +71,8 @@ def parse_fcd(
                 if simulation_end is not None and time >= simulation_end:
                     elem.clear()
                     continue
+
+                windowed_timesteps += 1
 
                 for veh in elem.findall("vehicle"):
                     vid = veh.get("id", "")
@@ -141,7 +146,7 @@ def parse_fcd(
                 elem.clear()
 
         for label, arr in [("all", all_arr), ("HV", hv_arr), ("CAV", cav_arr)]:
-            result[label]["parse_success"] = invalid == 0
+            result[label]["parse_success"] = invalid == 0 and windowed_timesteps > 0
             if len(arr) == 0:
                 continue
             a = np.array(arr, dtype=np.float64)

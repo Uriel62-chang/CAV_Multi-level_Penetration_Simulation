@@ -1931,3 +1931,73 @@ def test_summary_contract_eb_parse_success_bool_check():
     summary["eb_parse_success"] = "yes"  # 非 bool
     errors = validate_summary_contract(summary, "2", pipeline_version=PIPELINE)
     assert any("eb_parse_success" in e for e in errors)
+
+
+# ── 审查 P1-1/P1-2/P2-1（本轮）：空 detector/FCD + SSM 负值域 ──
+
+
+def test_detector_empty_xml_marks_parse_failure(tmp_path):
+    """空/无观测窗口 detector XML → parse_success=False（不得制造零流量结果）。"""
+    from scripts.parsing.detector import parse_detector_subgroup
+
+    p = tmp_path / "det.xml"
+    p.write_text("<detector/>", encoding="utf-8")
+    r = parse_detector_subgroup([str(p)], [str(p)], [str(p)], warmup_period=0)
+    assert r["all"]["parse_success"] is False
+
+
+def test_detector_zero_flow_with_windows_still_ok(tmp_path):
+    """有观测窗口但 flow=0（合法空车窗口）→ parse_success=True。"""
+    from scripts.parsing.detector import parse_detector_subgroup
+
+    p = tmp_path / "det.xml"
+    p.write_text(
+        '<detector><interval begin="0.00" end="60.00" id="det0" flow="0.0" speed="-1.0"/>'
+        "</detector>",
+        encoding="utf-8",
+    )
+    r = parse_detector_subgroup([str(p)], [str(p)], [str(p)], warmup_period=0)
+    assert r["all"]["parse_success"] is True
+
+
+def test_fcd_empty_file_fails_closed(tmp_path):
+    """合法但不含窗内 timestep 的 FCD → parse_success=False（与"无有效样本"区分）。"""
+    import gzip
+
+    from scripts.parsing.fcd import parse_fcd
+
+    xml = '<?xml version="1.0" encoding="UTF-8"?><fcd-export></fcd-export>'
+    p = tmp_path / "fcd.xml.gz"
+    with gzip.open(p, "wb") as f:
+        f.write(xml.encode("utf-8"))
+    r = parse_fcd(str(p), {"v1": "CAV"}, warmup_period=0)
+    assert r["all"]["parse_success"] is False
+
+
+def test_ssm_negative_ttc_fails_closed(tmp_path):
+    """负 TTC → invalid（物理域校验）。"""
+    from scripts.parsing.ssm import parse_ssm
+
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="100" end="200" ego="v1" foe="v2">'
+        '<minTTC time="150" type="3" value="-1.0"/></conflict></SSMLog>',
+        encoding="utf-8",
+    )
+    r = parse_ssm(str(p), warmup_period=0)
+    assert r["parse_success"] is False
+    assert r["ssm_invalid_record_count"] == 1
+
+
+def test_ssm_negative_drac_fails_closed(tmp_path):
+    """负 DRAC → invalid（物理域校验）。"""
+    from scripts.parsing.ssm import parse_ssm_subgroup
+
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="100" end="200" ego="v1" foe="v2">'
+        '<maxDRAC time="150" type="3" value="-2.0"/></conflict></SSMLog>',
+        encoding="utf-8",
+    )
+    r = parse_ssm_subgroup(str(p), {"v1": "CAV", "v2": "HV"}, warmup_period=0)
+    assert r["all"]["parse_success"] is False

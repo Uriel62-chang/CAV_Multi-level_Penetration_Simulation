@@ -95,7 +95,6 @@ def build_network(scenario_dir: str | Path, netconvert_command: str = "netconver
     netconvert——不产生"新 XML + 旧元数据"的中间状态。
     """
     import hashlib
-    import json as _json
 
     directory = Path(scenario_dir)
     node_path = directory / "nodes.nod.xml"

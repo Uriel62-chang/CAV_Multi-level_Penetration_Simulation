@@ -1486,8 +1486,12 @@ def test_config_rejects_non_default_ssm_range(tmp_path):
 
 def test_input_integrity_network_source_change_detected(tmp_path):
     """审阅 P1-1：源文件变化但 net.json 锚定未更新 → verify False。"""
-    from tests.test_v4_2_review_round4 import _make_stub, _write_full_status, _full_raw_hashes, _SpecStub  # noqa: E501
     from scripts.parsing.input_integrity import verify
+    from tests.test_v4_2_review_round4 import (
+        _full_raw_hashes,
+        _make_stub,
+        _write_full_status,
+    )
 
     stub = _make_stub(tmp_path)
     rd = tmp_path / "run-1"

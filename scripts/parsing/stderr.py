@@ -34,19 +34,30 @@ def parse_emergency_braking(
     # 匹配格式：
     # Warning: Vehicle 'veh113' performs emergency braking on lane 'e14_0'
     #          with decel=9.00, wished=4.50, severity=1.00, time=405.80.
-    pattern = re.compile(
-        r"Vehicle '(\S+?)' performs emergency braking.*?time=([0-9]+(?:\.[0-9]+)?)"
-    )
+    # P2-3（本轮审查）：事件声明与 time 提取分离——旧正则强制 time= 后跟数字，
+    # 损坏行（time 缺失/非数值）整行不匹配被静默跳过（与真实零检出不可区分）。
+    # 现先匹配事件声明，再在同一行内提取 time；行内无合法 time → invalid。
+    event_pattern = re.compile(r"Vehicle '(\S+?)' performs emergency braking")
+    time_pattern = re.compile(r"time=([0-9]+(?:\.[0-9]+)?)")
 
     events = []
     affected = set()
+    invalid = 0
 
-    for match in pattern.finditer(stderr_text):
+    for match in event_pattern.finditer(stderr_text):
         vehicle_id = match.group(1)
-        try:
-            event_time = float(match.group(2))
-        except ValueError:
+        tail = stderr_text[match.end() : match.end() + 200]
+        newline = tail.find("\n")
+        if newline != -1:
+            tail = tail[:newline]
+        tm = time_pattern.search(tail)
+        if tm is None:
+            # P2-3（本轮审查）：匹配到紧急制动但同行无合法 time → 损坏记录
+            # fail-closed（parse_success=False），与 subgroup 版 raise 语义对齐
+            # （解析器用标志而非 raise）——"日志损坏"与"真实零检出"可区分。
+            invalid += 1
             continue
+        event_time = float(tm.group(1))
 
         if event_time < warmup_period:
             continue
@@ -61,8 +72,9 @@ def parse_emergency_braking(
         "emergency_braking_affected_vehicle_count": len(affected),
         # 审阅 P2-2：显式解析质量标志（声明"日志已处理"；供未来严格校验扩展，
         # 与其他解析器接口对齐——"确实无制动"与"日志未解析"可区分）
-        "parse_success": True,
-        "invalid_record_count": 0,
+        # P2-3（本轮审查）：time 损坏行存在 → parse_success=False
+        "parse_success": invalid == 0,
+        "invalid_record_count": invalid,
     }
 
 
@@ -83,19 +95,25 @@ def parse_emergency_braking_subgroup(
             for label in ("all", "HV", "CAV")
         }
 
-    pattern = re.compile(
-        r"Vehicle '(\S+?)' performs emergency braking.*?time=([0-9]+(?:\.[0-9]+)?)"
-    )
+    pattern = re.compile(r"Vehicle '(\S+?)' performs emergency braking")
+    time_pattern = re.compile(r"time=([0-9]+(?:\.[0-9]+)?)")
 
     grouped_events: dict[str, list[float]] = {"all": [], "HV": [], "CAV": []}
     grouped_affected: dict[str, set[str]] = {"all": set(), "HV": set(), "CAV": set()}
+    invalid = 0
 
     for match in pattern.finditer(stderr_text):
         vehicle_id = match.group(1)
-        try:
-            event_time = float(match.group(2))
-        except ValueError:
+        tail = stderr_text[match.end() : match.end() + 200]
+        newline = tail.find("\n")
+        if newline != -1:
+            tail = tail[:newline]
+        tm = time_pattern.search(tail)
+        if tm is None:
+            # P2-3（本轮审查）：与顶层版一致——同行无合法 time → invalid
+            invalid += 1
             continue
+        event_time = float(tm.group(1))
 
         if event_time < warmup_period:
             continue
@@ -118,8 +136,8 @@ def parse_emergency_braking_subgroup(
         label: {
             "emergency_braking_count": len(grouped_events[label]),
             "emergency_braking_affected_vehicle_count": len(grouped_affected[label]),
-            "parse_success": True,
-            "invalid_record_count": 0,
+            "parse_success": invalid == 0,
+            "invalid_record_count": invalid,
         }
         for label in ("all", "HV", "CAV")
     }

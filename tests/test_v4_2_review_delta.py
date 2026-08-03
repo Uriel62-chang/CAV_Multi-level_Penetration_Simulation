@@ -2665,3 +2665,193 @@ def test_subgroup_invariants_fcd_closure():
     assert validate_subgroup_invariants(_fcd_closure_primitives()) == []
     errors = validate_subgroup_invariants(_fcd_closure_primitives(broken=True))
     assert any("fcd.no_leader_count" in e for e in errors)
+
+
+# ── 本轮审查 P1-2：SSM 台账不掩盖解析失败 ──
+
+
+def test_invariants_skip_ssm_ledger_when_parse_failed():
+    """P1-2：ssm_parse_success=False（损坏/不可读 XML）时台账 0=0+0+0 不再
+    "验证通过"——跳过台账检查（run 由 writer 按 parse_success 标 parser_warning）。"""
+    from scripts.parsing.runner import _validate_invariants
+
+    base = {"vehN": 10, "total_vehicle_km": 100.0, "completed_lap_count": 5}
+    # 解析失败 + 全 0 计数：不得因台账 0=0+0+0 而通过（旧实现"伪零通过"）
+    broken = dict(
+        base,
+        ssm_parse_success=False,
+        ssm_raw_record_count=0,
+        ssm_invalid_record_count=0,
+        ssm_warmup_filtered_count=0,
+        ssm_valid_record_count=0,
+        ttc_conflict_event_count=0,
+    )
+    assert _validate_invariants(broken) == []
+    # 解析成功但台账不一致 → 必须报错
+    inconsistent = dict(
+        base,
+        ssm_parse_success=True,
+        ssm_raw_record_count=5,
+        ssm_invalid_record_count=0,
+        ssm_warmup_filtered_count=0,
+        ssm_valid_record_count=0,
+    )
+    assert any("SSM ledger" in e for e in _validate_invariants(inconsistent))
+
+
+# ── 本轮审查 P2-1：legacy 空间错配列不再导出 v0.4.2 ──
+
+
+def test_v4_2_core_summary_excludes_legacy_mismatched_ttc_column():
+    """P2-1：v0.4.2 core summary 不含 legacy 空间错配列
+    whole_network_ttc_events_per_1000_non_internal_edge_veh_km（全路网 TTC /
+    non-internal veh-km），避免正式工件残留错误口径列。"""
+    from scripts.parsing.metrics import compute_core_summary
+    from scripts.run_spec import PIPELINE_V4_0_POST1, RunSpec
+
+    legacy_col = "whole_network_ttc_events_per_1000_non_internal_edge_veh_km"
+    core = compute_core_summary(_lap_primitives(), _lap_spec(), {"HV": 100.0, "IDM": 100.0})
+    assert legacy_col not in core
+    # legacy（v0.4.0.post1）仍输出该列
+    spec_legacy = _lap_spec()
+    spec_legacy = RunSpec(
+        scenario="scenario_0",
+        model="IDM",
+        pcav=0.5,
+        vehicle_count=10,
+        seed=1,
+        run_id="legacy",
+        pipeline_version=PIPELINE_V4_0_POST1,
+        sumo_seed=101,
+        cav_count=5,
+        requested_pcav=None,
+    )
+    core_legacy = compute_core_summary(_lap_primitives(), spec_legacy, {"HV": 100.0, "IDM": 100.0})
+    assert legacy_col in core_legacy
+
+
+def test_v4_2_column_set_excludes_legacy_mismatched_ttc():
+    """P2-1：RUN_LEVEL_COLUMNS_V4_2 不含 legacy 空间错配列（aggregate 不再
+    输出其 _mean），legacy 列集保持。"""
+    from scripts.schema import RUN_LEVEL_COLUMNS, RUN_LEVEL_COLUMNS_V4_2
+
+    legacy_col = "whole_network_ttc_events_per_1000_non_internal_edge_veh_km"
+    assert legacy_col not in RUN_LEVEL_COLUMNS_V4_2
+    assert legacy_col in RUN_LEVEL_COLUMNS  # schema=1 legacy 保留
+
+
+# ── 本轮审查 P2-2：SSM subgroup 未知车辆 fail-closed ──
+
+
+def test_ssm_subgroup_unknown_vehicle_fails_closed(tmp_path):
+    """P2-2：conflict 车辆不在 type_map → invalid（parse_success=False），
+    不再 type_map.get(...,"UNKNOWN") 静默归类导致 pair 键不匹配丢失事件。"""
+    from scripts.parsing.ssm import parse_ssm_subgroup
+
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        "<SSMLog>"
+        '<conflict begin="100" end="200" ego="veh1" foe="ghost">'
+        '<minTTC time="150" type="2" value="1.0"/>'
+        '<maxDRAC time="150" type="2" value="4.0"/>'
+        "</conflict>"
+        "</SSMLog>",
+        encoding="utf-8",
+    )
+    type_map = {"veh1": "HV"}
+    r = parse_ssm_subgroup(str(p), type_map, warmup_period=0)
+    assert r["all"]["parse_success"] is False
+    assert r["all"]["ssm_invalid_record_count"] == 1
+
+
+# ── 本轮审查 P2-3：stderr time 损坏行 fail-closed ──
+
+
+def test_stderr_bad_time_fails_closed():
+    """P2-3：匹配到紧急制动但 time 缺失/非数值 → parse_success=False（损坏日志
+    与真实零检出可区分）。"""
+    from scripts.parsing.stderr import parse_emergency_braking
+
+    good = (
+        "Warning: Vehicle 'v1' performs emergency braking on lane 'e0_0' "
+        "with decel=9.00, wished=4.50, severity=1.00, time=700.0.\n"
+    )
+    r = parse_emergency_braking(good, warmup_period=600, simulation_end=3600)
+    assert r["parse_success"] is True
+    assert r["emergency_braking_count"] == 1
+
+    bad = "Warning: Vehicle 'v2' performs emergency braking on lane 'e0_0' (time=截断)\n"
+    r2 = parse_emergency_braking(bad, warmup_period=600, simulation_end=3600)
+    assert r2["parse_success"] is False
+    assert r2["invalid_record_count"] == 1
+    assert r2["emergency_braking_count"] == 0
+
+
+# ── 本轮审查 P2-4：visualization --v4 角色门禁 ──
+
+
+def test_run_v4_rejects_safety_csv(tmp_path, monkeypatch):
+    """P2-4：--v4 旧入口对含 experiment_role=safety 的 CSV fail-closed
+    （禁止渲染设计 §3.4 的联合 trade-off）。"""
+    import argparse
+
+    from scripts.results import visualization as viz
+
+    agg = tmp_path / "agg.csv"
+    agg.write_text(
+        "experiment_role,realized_pcav,mean_flow_veh_h,mean_lap_delay_s\nsafety,0.5,100,5.0\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "out"
+    out.mkdir()
+    args = argparse.Namespace(aggregated=str(agg), outDir=str(out))
+    monkeypatch.setattr(viz.plt, "show", lambda: None)
+    import pytest as _pt
+
+    with _pt.raises(ValueError, match="experiment_role"):
+        viz.run_v4(args)
+    # legacy（无角色列）仍放行
+    agg_legacy = tmp_path / "agg_legacy.csv"
+    agg_legacy.write_text("realized_pcav,mean_flow_veh_h\n0.5,100\n", encoding="utf-8")
+    args2 = argparse.Namespace(aggregated=str(agg_legacy), outDir=str(out))
+    # 需最小列集避免 chart 内部报错——run_v4 首断言角色列，无列直接跳过门禁；
+    # 后续 chart 需要列，这里仅验证不抛角色错误（用 monkeypatch 拦截 chart 函数）
+    monkeypatch.setattr(viz, "chart_observed_peak_flow_v4", lambda *a, **k: None)
+    monkeypatch.setattr(viz, "chart_safety_flow_v4", lambda *a, **k: None)
+    monkeypatch.setattr(viz, "chart_co2_flow_v4", lambda *a, **k: None)
+    monkeypatch.setattr(viz, "chart_delay_v4", lambda *a, **k: None)
+    viz.run_v4(args2)
+
+
+# ── 本轮审查 P2-5：writer schema_version 未知拒绝 ──
+
+
+def test_writer_rejects_unknown_schema_version(tmp_path):
+    """P2-5：manifest schema_version 未知（非 1/2）→ 拒绝，不再静默回落
+    legacy contract。"""
+    from scripts.results.writer import build_run_level_results
+
+    manifest = {
+        "pipeline_version": "v0.4.0.post1",
+        "schema_version": "3",
+        "config_sha256": "a" * 64,
+        "total": 0,
+        "results": [],
+    }
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="schema_version"):
+        build_run_level_results(tmp_path, tmp_path / "out", "v0.4.0.post1", manifest_path)
+
+
+# ── 本轮审查 P2-6：cav_count 端点 assignment 冗余语义 ──
+
+
+def test_audit_cav_count_endpoint_assignment_redundancy_zero():
+    """P2-6：cav_count 模式端点 assignment seed 失活（截断 1）→ assignment 冗余
+    恒 0（旧实现误报 sumo-seed 展开冗余 288，标签误导）。"""
+    from scripts.experiment_audit import audit_experiment_config
+
+    cfg = load_experiment_config("configs/v0.4.2/main.json")
+    audit = audit_experiment_config(cfg)
+    assert audit.endpoint_assignment_redundant_runs == 0

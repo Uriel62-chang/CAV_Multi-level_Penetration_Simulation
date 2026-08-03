@@ -562,6 +562,10 @@ def build_run_level_results(
     if not manifest.get("config_sha256"):
         raise ValueError("manifest config_sha256 missing")
     schema_ver = manifest.get("schema_version", "1")
+    # P2-5（本轮审查）：未知 schema_version 拒绝——旧实现静默回落 legacy contract
+    # （非 "2" 一律走 schema=1 列集/校验），未知版本会被当 v0.4.0 处理。
+    if schema_ver not in ("1", "2"):
+        raise ValueError(f"unsupported schema_version: {schema_ver!r}")
     results_value = manifest.get("results")
     total_value = manifest.get("total")
     manifest_structure_valid = not _manifest_structure_errors(manifest)

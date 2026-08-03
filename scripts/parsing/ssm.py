@@ -426,6 +426,13 @@ def parse_ssm_subgroup(
         if not ego or not foe:
             invalid += 1
             continue
+        # P2-2（本轮审查）：未知车辆（不在 type_map）→ fail-closed（invalid）。
+        # 旧实现 _pair_type 用 type_map.get(..., "UNKNOWN") 静默归类 → pair 键不
+        # 匹配 result 键集 → 事件静默丢失，仅暴露为晦涩的 pair-closure 报错
+        # （validate_subgroup_invariants HV+CAV != all）。
+        if ego not in type_map or foe not in type_map:
+            invalid += 1
+            continue
 
         ttc_val = None
         ttc_type_code = None

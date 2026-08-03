@@ -169,13 +169,20 @@ def _audit_cav_count_grid(config: ExperimentConfig) -> ExperimentAudit:
     # （与 requested_pcav 模式语义一致）。
     planned_run_count *= len(config.scenarios)
 
+    # P2-6（本轮审查）：cav_count 模式端点（cav=0/vn）的 assignment seed 在
+    # _build_cav_count_specs 截断为失活 sentinel 0（不可区分）→ assignment 维度
+    # 无冗余，该字段恒 0。旧实现算成 sumo-seed 展开冗余（如 main 288）——端点
+    # sumo_seeds 保留是有效重复（独立随机流，构成统计单位），不属 assignment 冗余，
+    # 标签语义误导。
+    endpoint_assignment_redundant = 0
+
     return ExperimentAudit(
         planned_run_count=planned_run_count,
         requested_realized_mismatch_runs=0,
         duplicate_penetration_treatment_runs=duplicate_runs * len(config.scenarios),
         endpoint_run_count=endpoint_runs,
         endpoint_unique_assignment_treatments=endpoint_unique,
-        endpoint_assignment_redundant_runs=endpoint_runs - endpoint_unique,
+        endpoint_assignment_redundant_runs=endpoint_assignment_redundant,
         by_vehicle_count=tuple(by_vehicle_count),
     )
 

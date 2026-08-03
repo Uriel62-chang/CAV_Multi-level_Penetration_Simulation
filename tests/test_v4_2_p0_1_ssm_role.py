@@ -155,6 +155,16 @@ def _dummy_network(tmp_path: Path) -> tuple[str, str]:
     net_file = net_dir / "loop.net.xml"
     net_file.write_text("<net/>", encoding="utf-8")
     (net_dir / "net.json").write_text(json.dumps({"num_lanes": 1}), encoding="utf-8")
+    # P1-1（本轮审查）：sources.sha256 源锚定（is_simulation_complete 语义门禁
+    # 与 input_integrity 同口径——网络字节再生不误拒，源变化才拒）
+    (net_dir / "nodes.nod.xml").write_text("<nodes/>", encoding="utf-8")
+    (net_dir / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
+    import hashlib as _h
+
+    _digest = _h.sha256()
+    _digest.update((net_dir / "nodes.nod.xml").read_bytes())
+    _digest.update((net_dir / "edges.edg.xml").read_bytes())
+    (net_dir / "sources.sha256").write_text(_digest.hexdigest(), encoding="utf-8")
     return str(net_file), sha256_file(str(net_file))
 
 

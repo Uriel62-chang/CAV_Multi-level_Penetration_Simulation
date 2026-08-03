@@ -1359,7 +1359,10 @@ def _resolve_cli_overrides(config, args, parser) -> dict:
 
     if config.grid_mode == "cav_count":
         # cav_count 模式：CLI 覆盖 treatments/sumo_seeds 可选
-        treatments = list(config.treatments)
+        # 另（本轮审查）：复制 dict 元素（list() 仅浅拷贝，dict 对象仍共享）——
+        # 后续 CLI 覆盖 t["assignment_seeds"] 会就地改写 config.treatments 的
+        # frozen 数据（若 config 对象被复用会污染）。
+        treatments = [dict(t) for t in config.treatments]
         if args.vehN_list is not None:
             try:
                 veh_levels = [int(x.strip()) for x in args.vehN_list.split(",") if x.strip()]

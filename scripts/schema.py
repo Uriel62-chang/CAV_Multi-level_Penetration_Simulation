@@ -271,7 +271,15 @@ RUN_LEVEL_COLUMNS_V4_2 = (
     + list(LANECHANGE_COLUMNS)
     + list(EMISSIONS_COLUMNS)
     + list(EFFICIENCY_COLUMNS)
-    + list(NORMALIZED_COLUMNS)
+    # P2-1（本轮审查）：排除 legacy 空间错配列 whole_network_ttc_events_per_
+    # 1000_non_internal_edge_veh_km（全路网 TTC / non-internal veh-km，P1-4 已用
+    # 空间配对列替代）——错误口径列残留正式工件易被按名误选。NORMALIZED_COLUMNS
+    # 本身保留（schema=1 / v0.4.1 契约含该列）。
+    + [
+        c
+        for c in NORMALIZED_COLUMNS
+        if c != "whole_network_ttc_events_per_1000_non_internal_edge_veh_km"
+    ]
     + list(DELAY_COLUMNS)
     + list(QUALITY_COLUMNS)
     + list(EMISSIONS_COLUMNS_V4_2)
@@ -302,7 +310,14 @@ SUMMARY_REQUIRED_KEYS_V4_2 = _dedup_keep_order(
     + list(LANECHANGE_COLUMNS)
     + list(EMISSIONS_COLUMNS)
     + list(EFFICIENCY_COLUMNS)
-    + list(NORMALIZED_COLUMNS)
+    # P2-1（本轮审查）：与 RUN_LEVEL_COLUMNS_V4_2 一致排除 legacy 空间错配列
+    # whole_network_ttc_events_per_1000_non_internal_edge_veh_km（metrics 不再
+    # 输出，不再必填）
+    + [
+        c
+        for c in NORMALIZED_COLUMNS
+        if c != "whole_network_ttc_events_per_1000_non_internal_edge_veh_km"
+    ]
     + list(DELAY_COLUMNS)
     + list(AUDIT_COLUMNS_V4_1)
     + list(EMISSIONS_COLUMNS_V4_2)

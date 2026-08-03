@@ -176,7 +176,10 @@ def _validate_invariants(summary: dict) -> list[str]:
     s = summary
 
     # SSM 台账（P0-1 新审阅：未采集时全部 NaN，跳过台账/极值检查）
-    if s.get("ssm_not_collected") is not True:
+    # P1-2（本轮审查）：SSM 解析失败（损坏/不可读 XML → parse_success=False）
+    # 时同样跳过——0=0+0+0 的"伪零通过"不得掩盖解析失败（run 由 writer 按
+    # ssm_parse_success 标 parser_warning 兜底，与 ssm_sensitivity fail-closed 对齐）。
+    if s.get("ssm_not_collected") is not True and s.get("ssm_parse_success") is True:
         raw = s.get("ssm_raw_record_count", 0)
         inv = s.get("ssm_invalid_record_count", 0)
         warm = s.get("ssm_warmup_filtered_count", 0)

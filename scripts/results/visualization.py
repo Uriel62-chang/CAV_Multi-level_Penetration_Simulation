@@ -408,6 +408,9 @@ def run_v4(args) -> None:
         print(f"错误: 找不到文件 {args.aggregated}")
         return
     df = pd.read_csv(args.aggregated)
+    # P2-4（本轮审查）：旧入口同样加 experiment_role 门禁——误传 v0.4.2 safety
+    # CSV 会渲染设计 §3.4 禁止的联合 trade-off 图（无角色列时跳过，legacy 兼容）。
+    _assert_experiment_role(df, "main_factorial")
     out_dir = Path(args.outDir)
     _ensure_dir(out_dir)
     chart_observed_peak_flow_v4(df, out_dir)

@@ -43,7 +43,15 @@
 
 ### 测试与门禁
 
-- **512 tests**；Ruff / mypy / compileall / format 全通过
+- **521 tests**；Ruff / mypy / compileall / format 全通过
+- 审查复核（第三轮）修复：P1-1 resume 闭包与解析闭包网络口径统一（字节比对 →
+  sources.sha256 语义锚定，网络再生不再误拒全量重跑）、P1-2 SSM 损坏 XML 台账
+  不"伪零通过"（parse_success=False 时跳过台账检查）、P2-1 v0.4.2 不再导出 legacy
+  空间错配列 whole_network_ttc_events_per_1000_non_internal_edge_veh_km（列集/
+  required/metrics 三处一致）、P2-2 SSM subgroup 未知车辆 fail-closed、P2-3 stderr
+  time 损坏行 fail-closed（损坏与零检出可区分）、P2-4 visualization --v4 角色门禁、
+  P2-5 writer schema_version 未知拒绝、P2-6 audit cav_count 端点 assignment 冗余
+  语义修正（恒 0）
 - 审查复核（第二轮）P2 三项：P2-1 writer all 圈数>0 门禁贯通 subgroup 排除
   （run-level 与 subgroup CSV 共用同一判定，不再不一致）、P2-2 v0.4.2 run_spec
   专属键（experiment_role/ssm_enabled/analysis_*）缺失 fail-closed（不再静默

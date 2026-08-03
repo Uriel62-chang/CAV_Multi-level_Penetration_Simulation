@@ -1,6 +1,7 @@
-"""v0.4.2 P0-6 回归测试：resume 闭包（additional + network XML 实际重新哈希）。"""
+"""v0.4.2 P0-6/P1-1 回归测试：resume 闭包（additional 重新哈希 + 网络源锚定语义门禁）。"""
 
 import json
+from pathlib import Path
 
 from scripts.provenance import sha256_file
 from scripts.run_spec import PIPELINE_V4_2, RunSpec, is_simulation_complete
@@ -15,6 +16,16 @@ def _make_v4_2_run(tmp_path):
     net_file = net_dir / "loop.net.xml"
     net_file.write_text("<net/>")
     (net_dir / "net.json").write_text(json.dumps({"num_lanes": 1}))
+    # P1-1（本轮审查）：sources.sha256 源锚定（与 input_integrity 同口径）——
+    # 网络为生成物，语义门禁走源文件锚定而非网络字节比对。
+    (net_dir / "nodes.nod.xml").write_text("<nodes/>")
+    (net_dir / "edges.edg.xml").write_text("<edges/>")
+    import hashlib as _h
+
+    _digest = _h.sha256()
+    _digest.update((net_dir / "nodes.nod.xml").read_bytes())
+    _digest.update((net_dir / "edges.edg.xml").read_bytes())
+    (net_dir / "sources.sha256").write_text(_digest.hexdigest())
     spec = RunSpec(
         scenario="scenario_0",
         model="IDM",
@@ -92,11 +103,24 @@ def test_v4_2_complete_run_passes(tmp_path):
     assert is_simulation_complete(spec, rd, PIPELINE_V4_2)
 
 
-def test_v4_2_rejects_tampered_network(tmp_path):
-    """P0-6：网络文件被修改后 resume 必须拒绝（重新哈希，而非仅与同源 SHA 比较）。"""
+def test_v4_2_network_regen_semantics_unchanged_passes(tmp_path):
+    """P1-1（本轮审查）：网络文件字节变化（netconvert 再生、语义不变）不得误拒
+    resume——与 input_integrity 对同一网络文件的口径一致（源文件 + sources.sha256
+    锚定为语义门禁）。旧字节比对在网络再生后误判 is_simulation_complete=False →
+    --resume 全量重跑 scenario0（约 8-24 h 浪费）。"""
     rd, spec, net_file = _make_v4_2_run(tmp_path)
     assert is_simulation_complete(spec, rd, PIPELINE_V4_2)
-    net_file.write_text("<tampered-network/>")
+    # 模拟 netconvert 再生：loop.net.xml 字节变化，node/edge 源与锚定不变
+    net_file.write_text("<net regenerated/>")
+    assert is_simulation_complete(spec, rd, PIPELINE_V4_2)
+
+
+def test_v4_2_rejects_changed_network_source(tmp_path):
+    """P1-1（本轮审查）：网络源文件变化但 sources.sha256 未更新 → 拒绝（锚定检测）。"""
+    rd, spec, net_file = _make_v4_2_run(tmp_path)
+    assert is_simulation_complete(spec, rd, PIPELINE_V4_2)
+    net_dir = Path(spec.network_file).parent
+    (net_dir / "nodes.nod.xml").write_text("<nodes changed/>")
     assert not is_simulation_complete(spec, rd, PIPELINE_V4_2)
 
 

@@ -89,6 +89,9 @@ def parse_detector(
     max_flow = max(flow_values)
     mean_speed = sum(speed_values) / len(speed_values) if speed_values else 0.0
     speed_variance = _compute_speed_variance(speed_values)
+    # 另（本轮审查）：window_count 实为「非零流量窗口数」（speed 只在 flow>0 时
+    # 采样，:75-76）——作为 mean_speed/方差 companion 语义正确（速度仅在有流量时
+    # 有意义）；列名保留（schema 冻结），此处注释明确实际语义。
     return mean_flow, max_flow, mean_speed, speed_variance, len(speed_values)
 
 

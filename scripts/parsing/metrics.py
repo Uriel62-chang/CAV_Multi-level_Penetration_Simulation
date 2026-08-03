@@ -187,9 +187,19 @@ def compute_core_summary(primitives, spec, free_flow_refs):
         "p95_lap_time_s": vr.get("p95_lap_time_s", float("nan")),
         "lap_time_std_s": vr.get("lap_time_std_s", float("nan")),
         "ttc_events_per_1000_veh_km": ttc_per_1000,
-        "whole_network_ttc_events_per_1000_non_internal_edge_veh_km": _per_1000_veh_km(
-            ssm_all.get("ttc_conflict_event_count", 0),
-            ep.get("non_internal_edge_vehicle_km", float("nan")),
+        # P2-1（本轮审查）：legacy 空间错配列（全路网 TTC 分子 / non-internal
+        # veh-km 分母）仅 legacy 输出——v0.4.2 用空间配对列（whole_network_ttc /
+        # whole_network veh-km）已由 P1-4 实现，错误口径列残留正式工件易被按名
+        # 误选（aggregate 曾输出其 _mean 0-5942）。
+        **(
+            {
+                "whole_network_ttc_events_per_1000_non_internal_edge_veh_km": _per_1000_veh_km(
+                    ssm_all.get("ttc_conflict_event_count", 0),
+                    ep.get("non_internal_edge_vehicle_km", float("nan")),
+                )
+            }
+            if getattr(spec, "pipeline_version", "") != "v0.4.2"
+            else {}
         ),
         "emergency_brakes_per_1000_veh_km": eb_per_1000,
         "lane_changes_per_1000_veh_km": lc_per_1000,

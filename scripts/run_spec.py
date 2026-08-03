@@ -746,11 +746,32 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
         else:
             return False
         network_sha = data.get("network_xml_sha256")
-        if network_sha:
-            # P0-6：重新哈希实际网络文件比对（不能只与 RunSpec 内同源 SHA 比较）
-            if sha256_file(spec.network_file) != network_sha:
+        if not network_sha:
+            return False
+        # P1-1（本轮审查）：与 input_integrity 对同一网络文件的口径一致——
+        # 本地 net 为 netconvert 生成物，字节含时间戳/输出路径漂移（已披露已知
+        # 状态，以 net_semantic_sha256 为主门禁，runner 加载 artifact 时校验）；
+        # 此处仅核验 SHA-256 格式 + sources.sha256 源锚定（语义一致性）。
+        # 旧实现字节比对在网络再生（--build-all 后字节变、语义不变）时误判
+        # is_simulation_complete=False → --resume 全量重跑 scenario0（约 8-24 h
+        # 浪费），且与解析侧 input_integrity 语义矛盾。
+        if len(network_sha) != 64 or any(c not in "0123456789abcdef" for c in network_sha):
+            return False
+        net_meta_path = Path(spec.network_file).with_name("net.json")
+        anchor_path = net_meta_path.with_name("sources.sha256")
+        if not anchor_path.exists():
+            return False
+        try:
+            anchored = anchor_path.read_text(encoding="utf-8").strip()
+            digest = hashlib.sha256()
+            for src_name in ("nodes.nod.xml", "edges.edg.xml"):
+                src_path = net_meta_path.with_name(src_name)
+                if not src_path.exists():
+                    return False
+                digest.update(src_path.read_bytes())
+            if digest.hexdigest() != anchored:
                 return False
-        else:
+        except OSError:
             return False
         # P0-1：net.json 与 raw SUMO 输出进入 SHA 闭包（Reviewer 复检）
         net_json_sha = data.get("net_json_sha256")

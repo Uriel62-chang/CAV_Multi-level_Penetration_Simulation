@@ -43,7 +43,7 @@
 
 ### 测试与门禁
 
-- **507 tests**；Ruff / mypy / compileall / format 全通过
+- **508 tests**；Ruff / mypy / compileall / format 全通过
 - 审查循环（多轮 P0/P1/P2）修复条目：P0-1 all-level 圈时统计变量遮蔽
   （metrics.py delay 循环重绑定 vr → 5 列错标/缺失，正式 CSV 3,888 行全受影响；
   修复后需全量重解析以产出正确 all-level 圈时统计）、P1-1 FCD speed 台账对齐设计

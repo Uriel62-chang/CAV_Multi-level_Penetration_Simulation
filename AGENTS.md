@@ -126,7 +126,7 @@ python3 -m scripts.results.visualization \
 - S8 剩余项：PreparedRun.fcd_path（canonical_json_bytes、atomic_write_bytes、--acceptance 已在阶段 2 实现）
 
 ### 测试基线
-- 507 tests passed（v0.4.2 P0/P1/P2 修复 + 重算 + 门禁补齐后基线；本轮审查新增 9 个回归测试）
+- 508 tests passed（v0.4.2 P0/P1/P2 修复 + 重算 + 门禁补齐后基线；审查循环累计新增 10 个回归测试）
 - Ruff / mypy / compileall / format 全通过
 - dry-run: v0.4.0 10,080 / pilot 162 / safety 84 / main 3,888
 - aggregate 现已要求 --schema-version 参数

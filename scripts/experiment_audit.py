@@ -163,6 +163,12 @@ def _audit_cav_count_grid(config: ExperimentConfig) -> ExperimentAudit:
     endpoint_unique = len(config.scenarios) * endpoint_model_cells
     endpoint_runs = endpoint_unique * len(config.sumo_seeds)
 
+    # P2（reviewer 复核）：planned_run_count 需乘场景数——旧实现逐 treatment
+    # 累加单场景口径，与同函数 duplicate/endpoint 的乘数不一致（main.json 实测
+    # 972 vs 应为 3,888）。by_vehicle_count 为 per-vehN 审计，保持不乘场景
+    # （与 requested_pcav 模式语义一致）。
+    planned_run_count *= len(config.scenarios)
+
     return ExperimentAudit(
         planned_run_count=planned_run_count,
         requested_realized_mismatch_runs=0,

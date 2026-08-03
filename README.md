@@ -553,7 +553,7 @@ python -m compileall -q scripts tests
 Expected result:
 
 ```text
-507 passed
+508 passed
 ```
 
 ### Run one simulation

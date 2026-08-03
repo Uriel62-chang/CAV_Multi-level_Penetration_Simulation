@@ -2454,3 +2454,16 @@ def test_ssm_all_mirror_merge_keeps_extremes(tmp_path):
     assert r["min_ttc_s"] == 1.0
     assert r["max_drac_mps2"] == 8.0
     assert r["parse_success"] is True
+
+
+def test_audit_cav_count_main_grid_planned_3888():
+    """P2（reviewer 复核）：cav_count 模式 planned_run_count 必须乘场景数——
+    main.json 实配（4 场景）输出 3,888（旧实现 972，缺场景乘数）。"""
+    from scripts.experiment_audit import audit_experiment_config
+
+    cfg = load_experiment_config("configs/v0.4.2/main.json")
+    assert cfg.grid_mode == "cav_count"
+    audit = audit_experiment_config(cfg)
+    assert audit.planned_run_count == 3888
+    # 与同函数端点口径一致（端点已乘场景数，planned 不得少乘）
+    assert audit.endpoint_run_count == 432

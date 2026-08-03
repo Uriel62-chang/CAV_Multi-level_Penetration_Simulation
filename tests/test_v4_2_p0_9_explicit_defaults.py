@@ -12,15 +12,15 @@ def test_v4_2_emission_class_explicit(tmp_path):
     assert text.count("emissionClass=") == 2
 
 
-def test_legacy_no_emission_class(tmp_path):
-    """legacy 路径（默认 explicit_emission_class=False）字节不变。"""
-    out = tmp_path / "r_legacy.xml"
+def test_no_explicit_emission_class_default(tmp_path):
+    """默认 explicit_emission_class=False（v0.4.1 路径）不写 emissionClass。"""
+    out = tmp_path / "r_default.xml"
     generate_flow(4, 0.5, 2, 1, str(out), cav_count=2)
     text = out.read_text(encoding="utf-8")
     assert "emissionClass" not in text
 
 
-def test_legacy_byte_identical_to_baseline(tmp_path):
+def test_v4_1_command_byte_identical(tmp_path):
     """v0.4.1 路径（explicit_emission_class 默认 False）字节不变。"""
 
     import sys

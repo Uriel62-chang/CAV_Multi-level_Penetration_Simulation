@@ -43,7 +43,14 @@
 
 ### 测试与门禁
 
-- **522 tests**；Ruff / mypy / compileall / format 全通过
+- **476 tests**；Ruff / mypy / compileall / format 全通过
+- 纯净分支重构（draft/pure-v042）：移除 v0.4.0~post3 兼容支持——schema=1 契约
+  （RUN_LEVEL_COLUMNS/SUMMARY_REQUIRED_KEYS/_build_row_legacy）、PIPELINE_V4_0_POST1
+  （_from_dict_legacy/默认值/白名单）、reanalyze_post3.py、FREE_FLOW_LAP_TIME_S
+  历史常量、legacy.py 与 --legacy CLI、v0.4.0 配置；single_run 单跑迁移 v0.4.1
+  （schema=2）。v0.4.0 数据红线不变（不重跑 10,080 网格、历史数据/tag 保留）；
+  历史 post3 复现需 checkout v0.4.0.post3 tag。测试净减（legacy 契约测试移除，
+  schema=2 主路径零行为变化）。
 - 审查复核（第三轮返工）：P1-1 真实 resume 路径修复——is_simulation_complete 的
   run_spec_sha256/network_sha256/persisted_spec 三处 fresh 直接比较在网络再生
   （字节漂移）时误拒（此前仅放宽下游 network_xml_sha256 块，未触及更早比较）。

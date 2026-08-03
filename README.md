@@ -307,9 +307,8 @@ parameters from the run directory name.
 
 For small vehicle populations, `realized_pcav` can differ from
 `requested_pcav` because the CAV count follows Python's existing
-`round(vehicle_count * requested_pcav)` rule. The legacy CSV `pCAV` field
-continues to mean the requested value for v0.4.0 compatibility. post3 also
-emits self-describing `requested_pcav`, `realized_pcav`, `cav_count`, and
+`round(vehicle_count * requested_pcav)` rule. The formal CSV carries
+self-describing `requested_pcav`, `realized_pcav`, `cav_count`, and
 `hv_count` columns.
 
 This is a known defect in the completed v0.4.0 experiment design, not merely a
@@ -323,21 +322,18 @@ penetration treatments for the same scenario, model, and assignment seed.
 The main reported operating points are unaffected because they use
 `vehN=60`, `80`, or `120`, where every 0.05 penetration step is exactly
 realizable. The defect primarily limits interpretation of low-density
-penetration-response curves, especially `vehN=10`. Historical v0.4.0 results
-must retain requested `pCAV` for compatibility and must not be relabelled as
-realized penetration.
+penetration-response curves, especially `vehN=10`.
 
 The release, experiment, pipeline and schema versions intentionally describe
 different compatibility boundaries:
 
 | Version axis | Value | Meaning |
 |---|---|---|
-| Release/package | `v0.4.0.post3` (public); v0.4.1 toolchain = internal milestone, ships with v0.4.2 | Measurement toolchain (subgroup, THW, sensitivity, free-flow) |
-| Experiment config | `v0.4.0` | Published 10,080-run experimental design |
-| Simulation pipeline | `v0.4.0.post1` | Frozen raw simulation provenance |
-| Analysis | `v0.4.0.post3` | Warmup-aligned edgeData and SSM extreme-time reanalysis |
-| Frozen pipeline schema | `1` | Schema recorded by the original simulation/parser pipeline |
-| Post3 output schema | `v0.4.0.post3.1` | Schema 1 metrics plus explicit semantic alias/count columns |
+| Release/package | `v0.4.2` (current head); `v0.4.0.post3` = historical public release (tag checkout, code support removed from head) | Measurement toolchain (subgroup, THW, sensitivity, free-flow) |
+| Experiment config | `v0.4.2` (main 3,888 + safety 84) | Formal grid (jump release) |
+| Simulation/analysis pipeline | `v0.4.1` / `v0.4.2` (schema=2) | Only supported pipelines on head; `v0.4.0~post3` (schema=1) support removed |
+| Frozen pipeline schema | `2` | Schema recorded by the current simulation/parser pipeline |
+| Post3 output schema | `v0.4.0.post3.1` (historical) | Schema 1 metrics of the archived public baseline; readable only via the `v0.4.0.post3` tag
 
 Post3 does not rerun SUMO. Historical metadata correctly retains
 `pipeline_version="v0.4.0.post1"` while the reanalysis manifest records
@@ -553,7 +549,7 @@ python -m compileall -q scripts tests
 Expected result:
 
 ```text
-522 passed
+476 passed
 ```
 
 ### Run one simulation
@@ -628,18 +624,9 @@ python3 -m scripts.results.visualization \
 
 </details>
 
-To reproduce the post3 corrected analysis without rerunning SUMO:
-
-```bash
-python3 -m scripts.results.reanalyze_post3 \
-  --raw-root /path/to/raw \
-  --source-run-level /path/to/post2/run_level_results.csv \
-  --output-dir /path/to/post3-results
-```
-
-This leaves raw XML and post2 outputs untouched. It recomputes the affected
-run-level metrics for the common warmup-adjusted window, aggregates them, and
-writes a SHA-256 reanalysis manifest.
+> 纯净分支说明：`reanalyze_post3.py`（v0.4.0.post3 重分析工具）已随
+> v0.4.0~post3 兼容支持移除。历史 post3 数据的复现/重分析需 checkout
+> `v0.4.0.post3` tag（该 tag 保留完整工具链）。
 
 **Hardware guidance for `--sumo-processes`.** SUMO processes are CPU-bound and memory-hungry—each loads the network independently and writes raw XML output. RAM is the binding constraint; s3 at vehN=120 is the worst case per process. Before launching a full grid, check your machine:
 
@@ -798,10 +785,10 @@ docs/
 - The formal CSV `pCAV` column is the requested penetration. Integer vehicle
   counts cause requested and realized penetration to differ in 2,400 runs; at
   `vehN=10`, 21 requested levels collapse to 11 actual compositions.
-- Legacy result columns remain for compatibility, but post3 adds explicit
-  requested/realized penetration, ordinary-edge exposure and whole-network
-  TTC/ordinary-edge exposure aliases. Prefer the explicit names in new
-  analysis.
+- The formal CSV uses the explicit penetration/identity columns
+  (`requested_pcav`, `realized_pcav`, `cav_count`, `hv_count`) and space-matched
+  event-rate aliases; the historical v0.4.0~post3 legacy columns are no longer
+  produced on head (see the `v0.4.0.post3` tag for the archived schema).
 - The five seeds are vehicle-type assignment realizations rather than
   independent SUMO stochastic replications. Endpoint penetrations do not gain
   distinct arrangements from additional seeds, so endpoint `n_valid=5` does
@@ -831,7 +818,7 @@ docs/
 
 | Version | Focus |
 |---|---|
-| v0.4.0.post3 | Unified observation-window reanalysis of the frozen 10,080-run grid (public baseline) |
+| v0.4.0.post3 | Unified observation-window reanalysis of the frozen 10,080-run grid (historical public release; head no longer ships v0.4.0~post3 code support) |
 | v0.4.1 | Measurement and experimental-design upgrade: HV/CAV subgroup metrics, physical THW, compact FCD/TraCI validation, TTC threshold sensitivity, space-matched exposure, independent SUMO/assignment seeds, model-specific free-flow references, and a bounded pilot (internal milestone, **not released**; engineering outcomes folded into v0.4.2) |
 | v0.4.2 | Formal grid (jump release): main factorial 3,888 runs (efficiency/emissions/FCD, SSM disabled) + independent safety experiment 84 runs |
 | v0.5.0 | Real-trajectory-driven car-following model calibration and simulation validation |

@@ -1,12 +1,12 @@
-"""阶段三：统一结果写入器。
+"""阶段三：统一结果写入器（纯净分支：仅 schema=2 v0.4.1/v0.4.2）。
 
-    读取 10,080 个 summary.json，生成 run_level_results.csv + failed_runs.csv + writer_report.json。
+    读取 raw run 目录的 summary.json，生成 run_level_results.csv +
+    failed_runs.csv + writer_report.json。
 
     python3 -m scripts.results.writer \
-      --input-root /home/lyc/simdata/cav-v0.4.0/raw \
-      --output-dir /home/lyc/simdata/cav-v0.4.0/results \
-      --manifest /home/lyc/simdata/cav-v0.4.0/raw/manifest.json \
-      --pipeline-version v0.4.0-rc1
+      --input-root raw_v0.4.2/main \
+      --output-dir out \
+      --manifest raw_v0.4.2/main/manifest.json
 """
 
 import argparse

@@ -25,9 +25,9 @@ def test_generate_flow_cav_count_is_authoritative(tmp_path):
     assert out.exists()
 
 
-def test_generate_flow_legacy_round_fallback(tmp_path):
-    """cav_count=None 时保持 legacy round 行为（v0.4.0/v0.4.1 兼容）。"""
-    out = tmp_path / "routes_legacy.rou.xml"
+def test_generate_flow_round_fallback(tmp_path):
+    """cav_count=None（旧式构造）时按 round(vehN*pCAV) 推导。"""
+    out = tmp_path / "routes_fallback.rou.xml"
     type_map = generate_flow(
         vehicle_count=10,
         cav_ratio=0.5,
@@ -56,7 +56,7 @@ def test_penetration_column_prefers_realized():
     assert _penetration_column(df) == "realized_pcav"
 
 
-def test_penetration_column_legacy_fallback():
+def test_penetration_column_requested_fallback():
     df = pd.DataFrame({"requested_pcav": [0.5]})
     assert _penetration_column(df) == "requested_pcav"
 

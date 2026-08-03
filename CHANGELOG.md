@@ -43,7 +43,7 @@
 
 ### 测试与门禁
 
-- **494 tests**；Ruff / mypy / compileall / format 全通过
+- **495 tests**；Ruff / mypy / compileall / format 全通过
 - 四 dry-run：legacy 10,080 / pilot 162 / safety 84 / main 3,888
 - v0.4.0 config SHA `178dfcef…` 与 legacy SUMO 命令字节基线不变
 
@@ -100,7 +100,7 @@ failed gate（该门禁已废止，见 v0.4.2 跳号说明）。
 
 ### 测试
 
-- 当时基线 **170 tests**（85 legacy + 19 v0.4.1 + 66 stage2）；现行为 494（v0.4.2 发布前修复后基线）
+- 当时基线 **170 tests**（85 legacy + 19 v0.4.1 + 66 stage2）；现行为 495（v0.4.2 发布前修复后基线）
 - Stage 2 设计基线冻结于 `docs/development/v0.4.1-stage2-design.md`
 - 门禁：Ruff / mypy / compileall / format 全通过
 

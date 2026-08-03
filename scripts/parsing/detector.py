@@ -129,7 +129,12 @@ def parse_detector_multi(
                 continue
             if simulation_end is not None and begin >= simulation_end:
                 continue
-            window_set.add((begin, float(interval.get("end", "0"))))
+            window_key = (begin, float(interval.get("end", "0")))
+            # 审阅 P1-6：同一车道重复 (begin, end) interval → fail-closed
+            # （不得被集合去重后静默累加导致流量高估）
+            if window_key in window_set:
+                raise ValueError(f"detector: duplicate interval {window_key} in lane file {path}")
+            window_set.add(window_key)
             if begin not in lane_data:
                 lane_data[begin] = {"flow": 0.0, "weighted_speed": 0.0}
             lane_data[begin]["flow"] += flow

@@ -19,7 +19,7 @@
 - [ ] `ruff format --check .`
 - [ ] `pytest -q`
 - [ ] `python -m scripts.simulation.batch_run --config configs/smoke.json --dry-run`
-- [ ] The complete pytest count matches the README release baseline (v0.4.2: 494).
+- [ ] The complete pytest count matches the README release baseline (v0.4.2: 495).
 - [ ] `python -m compileall -q scripts tests`
 - [ ] `mypy scripts/run_spec.py scripts/experiment_config.py scripts/provenance.py`
 - [ ] GitHub Actions `python-quality` succeeds.

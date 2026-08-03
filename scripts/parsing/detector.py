@@ -34,6 +34,7 @@ def parse_detector(
     root = ET.parse(xml_path).getroot()
     flow_values, speed_values = [], []
     window_interval_count = 0
+    seen_begins: set[float] = set()
 
     for interval in root.findall("interval"):
         try:
@@ -59,6 +60,10 @@ def parse_detector(
             continue
         if simulation_end is not None and begin >= simulation_end:
             continue
+        # 审阅 P1-8：单车道同样拒绝重复 begin（与多车道共享数据完整性规则）
+        if begin in seen_begins:
+            raise ValueError(f"detector: duplicate interval for begin={begin} in {xml_path}")
+        seen_begins.add(begin)
         # 审阅 P1-3：仅在分析窗口 [warmup, simulation_end) 内的 interval 计数
         window_interval_count += 1
         flow_values.append(flow)

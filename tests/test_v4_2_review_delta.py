@@ -2100,3 +2100,19 @@ def test_detector_multi_same_begin_diff_end_fails_closed(tmp_path):
     )
     with pytest.raises(ValueError, match="duplicate interval for begin"):
         parse_detector_multi([str(lane0), str(lane1)], warmup_period=600, simulation_end=3600)
+
+
+def test_detector_single_lane_duplicate_begin_fails_closed(tmp_path):
+    """审阅 P1-8：单车道 parse_detector 同样拒绝重复 begin（与多车道规则一致）。"""
+    from scripts.parsing.detector import parse_detector_multi
+
+    p = tmp_path / "det.xml"
+    p.write_text(
+        "<detector>"
+        '<interval begin="600" end="660" flow="100.0" speed="10.0"/>'
+        '<interval begin="600" end="720" flow="200.0" speed="10.0"/>'  # 同 begin 不同 end
+        "</detector>",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="duplicate interval for begin"):
+        parse_detector_multi([str(p)], warmup_period=600, simulation_end=3600)

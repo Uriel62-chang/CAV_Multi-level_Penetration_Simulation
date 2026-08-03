@@ -288,15 +288,21 @@ def parse_ssm(
                 matched_reverse.add(best_idx)
                 mirrored += 1
                 # 合并极值到保留记录
+                # P2（本轮审查）：与 parse_ssm_subgroup 的镜像合并契约一致——
+                # 极值替换时同步回填 provenance（min_ttc_time / max_drac_time）。
+                # 旧实现仅回填 min_ttc/max_drac，导致保留记录的极值时间与
+                # subgroup 口径不一致（all 版下游排序/统计取时间字段）。
                 r_rev = parsed[best_idx]
                 if r_rev["min_ttc"] is not None and (
                     r_fwd["min_ttc"] is None or r_rev["min_ttc"] < r_fwd["min_ttc"]
                 ):
                     r_fwd["min_ttc"] = r_rev["min_ttc"]
+                    r_fwd["min_ttc_time"] = r_rev.get("min_ttc_time", 0)
                 if r_rev["max_drac"] is not None and (
                     r_fwd["max_drac"] is None or r_rev["max_drac"] > r_fwd["max_drac"]
                 ):
                     r_fwd["max_drac"] = r_rev["max_drac"]
+                    r_fwd["max_drac_time"] = r_rev.get("max_drac_time", 0)
 
     # ── 第三步：统计保留记录 ──
     ttc_events = 0

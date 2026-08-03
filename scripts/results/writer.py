@@ -202,8 +202,22 @@ def _build_row_v4_1(summary: dict, parse_status: str, pipeline_version: str | No
     if pipeline_version == "v0.4.2":
         parser_flags.append(summary.get("eb_parse_success", True))
     if parse_status == "SUCCESS" and all(flag is True for flag in parser_flags):
-        row["data_quality"] = "ok"
-        row["data_quality_detail"] = ""
+        # P1-2（本轮审查）：all 口径圈数>0 回归保护。vehroute 解析成功时窗内必有完成圈；
+        # completed_lap_count<=0 说明 all-level 圈时统计缺失（如 P0-1 变量遮蔽回归——
+        # 被 CAV 空子群覆盖时恰好 0 + NaN 通过 SUMMARY_NAN_RULES companion 检查）。
+        if (
+            pipeline_version == "v0.4.2"
+            and summary.get("vr_parse_success") is True
+            and not (summary.get("completed_lap_count", 0) > 0)
+        ):
+            row["data_quality"] = "invariant_failed"
+            row["data_quality_detail"] = (
+                "completed_lap_count<=0 while vehroute parse succeeded "
+                "(all-level lap stats missing)"
+            )
+        else:
+            row["data_quality"] = "ok"
+            row["data_quality_detail"] = ""
     elif parse_status == "SUCCESS":
         row["data_quality"] = "parser_warning"
         row["data_quality_detail"] = "one or more parser audit flags are not true"

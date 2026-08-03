@@ -94,8 +94,12 @@ def compute_core_summary(primitives, spec, free_flow_refs):
     vr_hv = primitives.vehroute.get("HV", {})
     vr_cav = primitives.vehroute.get("CAV", {})
     delay_samples: list[float] = []
-    for vr, ref in ((vr_hv, hv_ref), (vr_cav, cav_ref)):
-        laps = vr.get("lap_times_s") or []
+    # P0-1（本轮审查）：循环迭代变量不得复用外层 `vr`（:55 提取的 all-level 子群）。
+    # 旧实现 for vr, ref in ... 在循环结束时把 vr 重绑定为 CAV 子群，导致
+    # completed_lap_count / mean|median|p95_lap_time_s / lap_time_std_s / vr_parse_success
+    # 六个 all-level 列实际报告 CAV 子群值（cav=0 组整体缺失）。独立命名 vr_item。
+    for vr_item, ref in ((vr_hv, hv_ref), (vr_cav, cav_ref)):
+        laps = vr_item.get("lap_times_s") or []
         if not laps or _math.isnan(ref):
             continue
         delay_samples.extend(t - ref for t in laps)

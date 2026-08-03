@@ -2138,3 +2138,319 @@ def test_detector_invalid_end_fails_closed(tmp_path):
     )
     with pytest.raises(ValueError, match="invalid end"):
         parse_detector_multi([str(p2)], warmup_period=600, simulation_end=3600)
+
+
+# ── 本轮审查 P0-1：all-level 圈时统计变量遮蔽（delay 循环重绑定 vr）──
+
+
+def _lap_primitives(cav_empty=False):
+    """vehroute all/HV/CAV 圈时统计刻意不同，用于检测 all 列被 CAV 子群遮蔽。"""
+    all_stats = {
+        "completed_lap_count": 40,
+        "mean_lap_time_s": 120.0,
+        "median_lap_time_s": 119.0,
+        "p95_lap_time_s": 135.0,
+        "lap_time_std_s": 6.0,
+        "parse_success": True,
+        "lap_times_s": [118.0, 120.0, 122.0],
+    }
+    hv = {"completed_lap_count": 30, "mean_lap_time_s": 118.0, "lap_times_s": [110.0, 115.0]}
+    if cav_empty:
+        cav = {
+            "completed_lap_count": 0,
+            "mean_lap_time_s": float("nan"),
+            "median_lap_time_s": float("nan"),
+            "p95_lap_time_s": float("nan"),
+            "lap_time_std_s": float("nan"),
+            "parse_success": True,
+            "lap_times_s": [],
+        }
+    else:
+        cav = {
+            "completed_lap_count": 10,
+            "mean_lap_time_s": 130.0,
+            "median_lap_time_s": 129.0,
+            "p95_lap_time_s": 140.0,
+            "lap_time_std_s": 8.0,
+            "parse_success": True,
+            "lap_times_s": [105.0],
+        }
+    return SubgroupPrimitives(
+        detector={"all": {}},
+        ssm={"all": {}},
+        lanechange={"all": {}},
+        edge_perf={
+            "all": {"total_vehicle_km": 100.0, "non_internal_edge_vehicle_km": 100.0},
+            "HV": {"total_vehicle_km": 60.0},
+            "CAV": {"total_vehicle_km": 40.0},
+        },
+        edge_emis={
+            "all": {
+                "total_CO2_kg": 0.0,
+                "total_NOx_g": 0.0,
+                "total_PMx_g": 0.0,
+                "total_fuel_kg": 0.0,
+                "non_internal_CO2_kg": 0.0,
+                "non_internal_NOx_g": 0.0,
+                "non_internal_PMx_g": 0.0,
+                "non_internal_fuel_kg": 0.0,
+            }
+        },
+        vehroute={"all": all_stats, "HV": hv, "CAV": cav},
+        emerg_brake={"all": {}},
+        fcd=None,
+    )
+
+
+def _lap_spec():
+    from scripts.run_spec import PIPELINE_V4_2, RunSpec
+
+    return RunSpec(
+        scenario="scenario_0",
+        model="IDM",
+        pcav=0.5,
+        vehicle_count=10,
+        seed=1,
+        run_id="s0_IDM_v010_c005_as01_ss101",
+        pipeline_version=PIPELINE_V4_2,
+        schema_version="2",
+        sumo_seed=101,
+        cav_count=5,
+        requested_pcav=None,
+    )
+
+
+def test_core_summary_lap_stats_use_all_level_vehroute():
+    """P0-1：cav=0 等价场景（CAV 子群空）下五个圈时统计 + vr_parse_success
+    必须来自 vehroute["all"]，不得被 delay 循环重绑定为 CAV 子群而整体缺失。"""
+    from scripts.parsing.metrics import compute_core_summary
+
+    prim = _lap_primitives(cav_empty=True)
+    core = compute_core_summary(prim, _lap_spec(), {"HV": 100.0, "IDM": 100.0})
+    assert core["completed_lap_count"] == 40
+    assert core["mean_lap_time_s"] == 120.0
+    assert core["median_lap_time_s"] == 119.0
+    assert core["p95_lap_time_s"] == 135.0
+    assert core["lap_time_std_s"] == 6.0
+    assert core["vr_parse_success"] is True
+
+
+def test_core_summary_lap_stats_not_cav_subgroup():
+    """P0-1：混合组下 all-level 列必须等于 vehroute["all"] 且不等于 CAV 子群值。"""
+    from scripts.parsing.metrics import compute_core_summary
+
+    prim = _lap_primitives(cav_empty=False)
+    core = compute_core_summary(prim, _lap_spec(), {"HV": 100.0, "IDM": 100.0})
+    assert core["completed_lap_count"] == 40  # != CAV 10
+    assert core["mean_lap_time_s"] == 120.0  # != CAV 130
+    assert core["median_lap_time_s"] == 119.0  # != CAV 129
+    assert core["p95_lap_time_s"] == 135.0  # != CAV 140
+    assert core["lap_time_std_s"] == 6.0  # != CAV 8
+
+
+def test_core_summary_delay_pooled_unchanged():
+    """P0-1 防御：mean/p95_lap_delay_s 仍为逐 lap pooled 计算（遮蔽发生在 delay 之后）。"""
+    from scripts.parsing.metrics import compute_core_summary
+
+    prim = _lap_primitives(cav_empty=False)
+    core = compute_core_summary(prim, _lap_spec(), {"HV": 100.0, "IDM": 100.0})
+    # HV laps [110,115]-100 → [10,15]；CAV laps [105]-100 → [5]；pooled [5,10,15]
+    assert core["mean_lap_delay_s"] == 10.0
+    assert core["p95_lap_delay_s"] == 15.0
+
+
+# ── 本轮审查 P1-1：FCD speed 解析失败/非有限 → low_speed_excluded 台账 ──
+
+
+def test_fcd_bad_speed_goes_to_low_speed_excluded(tmp_path):
+    """P1-1：speed 解析失败/非有限 → low_speed_excluded（设计 §6.3 步骤 2），
+    进台账而非 invalid——不得整 run parse_success=False。"""
+    from scripts.parsing.fcd import parse_fcd
+
+    p = tmp_path / "fcd.xml"
+    p.write_text(
+        "<fcd-export>"
+        '<timestep time="700">'
+        '<vehicle id="v0" type="HV" speed="x" lane="0" pos="0" leaderID="v1" leaderGap="5.0"/>'
+        '<vehicle id="v1" type="HV" speed="10.0" lane="0" pos="5" leaderID="v0" leaderGap="5.0"/>'
+        "</timestep>"
+        '<timestep time="701">'
+        '<vehicle id="v2" type="CAV" speed="nan" lane="0" pos="0" leaderID="v3" leaderGap="5.0"/>'
+        '<vehicle id="v3" type="CAV" speed="10.0" lane="0" pos="5" leaderID="v2" leaderGap="5.0"/>'
+        "</timestep>"
+        "</fcd-export>",
+        encoding="utf-8",
+    )
+    type_map = {"v0": "HV", "v1": "HV", "v2": "CAV", "v3": "CAV"}
+    r = parse_fcd(str(p), type_map, warmup_period=600, simulation_end=3600)
+    assert r["all"]["parse_success"] is True
+    assert r["all"]["low_speed_excluded_count"] == 2
+    assert r["HV"]["low_speed_excluded_count"] == 1
+    assert r["CAV"]["low_speed_excluded_count"] == 1
+    assert r["all"]["valid_thw_sample_count"] == 2
+
+
+# ── 本轮审查 P1-2：writer all 圈数>0 回归保护 ──
+
+
+def test_writer_flags_missing_all_lap_stats_v4_2():
+    """P1-2：v0.4.2 + vehroute 解析成功但 all completed_lap_count<=0 →
+    invariant_failed（旧 P0-1 遮蔽恰好 0+NaN 静默通过 SUMMARY_NAN_RULES 的回归保护）。"""
+    from scripts.results.writer import _build_row_v4_1
+
+    base = {
+        "ssm_parse_success": True,
+        "lc_parse_success": True,
+        "ep_parse_success": True,
+        "ee_parse_success": True,
+        "vr_parse_success": True,
+        "fcd_parse_success": True,
+        "eb_parse_success": True,
+    }
+    missing = dict(base, completed_lap_count=0, mean_lap_time_s=float("nan"))
+    row = _build_row_v4_1(missing, "SUCCESS", "v0.4.2")
+    assert row["data_quality"] == "invariant_failed"
+
+    healthy = dict(base, completed_lap_count=40, mean_lap_time_s=120.0)
+    row_ok = _build_row_v4_1(healthy, "SUCCESS", "v0.4.2")
+    assert row_ok["data_quality"] == "ok"
+
+
+# ── 本轮审查 P2：SUMO 命令 extratime 显式化 ──
+
+
+def test_v4_1_command_always_explicit_extratime():
+    """P2：--device.ssm.extratime 无条件显式传参（含默认 5.0），不依赖 SUMO 隐式默认。"""
+    from scripts.run_spec import PIPELINE_V4_1, RunSpec
+    from scripts.simulation.single_run import build_sumo_command_v4_1
+    from tests.test_v4_2_p0_1_ssm_role import _dummy_prepared
+
+    spec = RunSpec(
+        scenario="scenario_0",
+        model="IDM",
+        pcav=0.5,
+        vehicle_count=10,
+        seed=1,
+        run_id="s0_IDM_v010_c005_as01_ss101",
+        pipeline_version=PIPELINE_V4_1,
+        schema_version="2",
+        sumo_seed=101,
+        cav_count=5,
+        requested_pcav=None,
+    )
+    cmd = build_sumo_command_v4_1(_dummy_prepared(), "net/scenario_0/loop.net.xml", spec)
+    idx = cmd.index("--device.ssm.extratime")
+    assert cmd[idx + 1] == str(spec.ssm_extratime_s)
+
+
+# ── 本轮审查 P2：legacy 自由流参考优先 artifact HV ──
+
+
+def test_load_free_flow_hv_ref_artifact_priority(tmp_path, monkeypatch):
+    """P2：legacy 自由流参考优先 artifact 的 HV 值（与阶段二 runner 口径一致），
+    artifact 缺失/损坏时回退历史常量 FREE_FLOW_LAP_TIME_S。"""
+    from scripts.config import FREE_FLOW_LAP_TIME_S
+    from scripts.simulation import single_run
+    from scripts.simulation.single_run import _load_free_flow_hv_ref
+
+    artifact = tmp_path / "ff.json"
+    artifact.write_text(
+        json.dumps(
+            {
+                "results": {
+                    "scenario_0": {
+                        "references": {"HV": {"lap_time_s": 111.8}, "CAV_IDM": {"lap_time_s": 98.8}}
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        _load_free_flow_hv_ref({"free_flow_reference_path": str(artifact)}, "scenario_0") == 111.8
+    )
+    # net_meta 无 free_flow_reference_path → 回退默认 artifact 路径（仓库真实
+    # artifact HV≈111.8，不再使用陈旧常量 98.8——即修复目标）
+    assert _load_free_flow_hv_ref({}, "scenario_0") == pytest.approx(111.8)
+    # artifact 完全缺失 → 回退历史常量
+    monkeypatch.setattr(single_run, "_DEFAULT_FREE_FLOW_ARTIFACT", str(tmp_path / "missing.json"))
+    assert _load_free_flow_hv_ref({}, "scenario_0") == FREE_FLOW_LAP_TIME_S["scenario_0"]
+    # 显式路径损坏 → 回退历史常量
+    broken = tmp_path / "broken.json"
+    broken.write_text("not json", encoding="utf-8")
+    assert (
+        _load_free_flow_hv_ref({"free_flow_reference_path": str(broken)}, "scenario_0")
+        == FREE_FLOW_LAP_TIME_S["scenario_0"]
+    )
+
+
+# ── 本轮审查 P2：experiment_audit 支持 cav_count 模式 ──
+
+
+def test_audit_cav_count_mode_nonzero():
+    """P2：cav_count 模式审计输出有意义的 planned_run_count / by_vehicle_count
+    （旧实现仅支持 requested_pcav，cav_count 模式输出全零误导）。"""
+    from scripts.experiment_audit import audit_experiment_config
+
+    cfg = ExperimentConfig.from_dict(
+        {
+            "config_version": "1",
+            "pipeline_version": "v0.4.2",
+            "schema_version": "2",
+            "scenarios": ["scenario_0"],
+            "models": ["IDM", "CACC"],
+            "seed_scope": "vehicle_type_assignment",
+            "simulation_end": 3600,
+            "warmup": 600,
+            "step_length": 0.1,
+            "detector_frequency": 60,
+            "edge_data_frequency": 300,
+            "loops": 3,
+            "network_files": {"scenario_0": "net/scenario_0/loop.net.xml"},
+            "grid_mode": "cav_count",
+            "treatments": [
+                {"vehicle_count": 120, "cav_counts": [0, 60, 120]},
+                {"vehicle_count": 80, "cav_counts": [40, 80]},
+            ],
+            "sumo_seeds": [101],
+        }
+    )
+    audit = audit_experiment_config(cfg)
+    # 展开：cav=0 → 1 模型 × 1 seed；cav=60 → 2 模型 × 3 默认 seed；
+    # cav=120 → 2 模型 × 1 seed；cav=40 → 2×3；cav=80 → 2×1（scenario=1、sumo_seed=1）
+    assert audit.planned_run_count == (1 + 6 + 2) + (6 + 2)
+    assert audit.requested_realized_mismatch_runs == 0
+    assert audit.by_vehicle_count[0].realized_composition_count == 3
+    assert audit.by_vehicle_count[0].mismatched_level_count == 0
+    assert audit.by_vehicle_count[0].duplicate_treatment_level_count == 0
+    assert audit.endpoint_unique_assignment_treatments == 5  # cav=0(1 模型)+120(2)+80(2)
+    assert audit.endpoint_assignment_redundant_runs == 0
+
+
+# ── 本轮审查 P2：ssm all 版镜像合并契约（极值保留基线）──
+
+
+def test_ssm_all_mirror_merge_keeps_extremes(tmp_path):
+    """P2：parse_ssm（all 版）镜像合并保留更危急极值（min_ttc 来自正向、max_drac
+    来自反向）；时间字段回填为内部契约，与 parse_ssm_subgroup 逐行对齐（代码审查确认）。"""
+    from scripts.parsing.ssm import parse_ssm
+
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        "<SSMLog>"
+        '<conflict begin="100" end="200" ego="veh1" foe="veh2">'
+        '<minTTC time="150" value="1.0"/>'
+        '<maxDRAC time="150" value="4.0"/>'
+        "</conflict>"
+        '<conflict begin="110" end="210" ego="veh2" foe="veh1">'
+        '<minTTC time="160" value="2.0"/>'
+        '<maxDRAC time="160" value="8.0"/>'
+        "</conflict>"
+        "</SSMLog>",
+        encoding="utf-8",
+    )
+    r = parse_ssm(str(p), warmup_period=0, ttc_threshold=3.0, drac_threshold=3.0)
+    assert r["ssm_mirrored_record_count"] == 1
+    assert r["min_ttc_s"] == 1.0
+    assert r["max_drac_mps2"] == 8.0
+    assert r["parse_success"] is True

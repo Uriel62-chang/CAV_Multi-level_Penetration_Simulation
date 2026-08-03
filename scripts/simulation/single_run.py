@@ -463,8 +463,9 @@ def build_sumo_command_v4_1(
             "true" if spec.ssm_trajectories else "false",
         ]
     )
-    if spec.ssm_extratime_s != 5.0:
-        cmd.extend(["--device.ssm.extratime", str(spec.ssm_extratime_s)])
+    # P2（本轮审查）：无条件显式传 --device.ssm.extratime（含默认 5.0），
+    # 不依赖 SUMO 隐式默认（设计 §3.3 显式化要求）
+    cmd.extend(["--device.ssm.extratime", str(spec.ssm_extratime_s)])
     # FCD 选项
     if spec.fcd_profile is not None:
         period = 1 if spec.fcd_profile == "1s" else 0.1
@@ -547,6 +548,33 @@ def _per_1000_veh_km(value, total_veh_km):
     return value / total_veh_km * 1000.0
 
 
+# P2（本轮审查）：自由流参考优先读取 artifact（与 runner._load_free_flow_references
+# 口径一致——HV 参考）；FREE_FLOW_LAP_TIME_S 为 v0.4.0 历史常量（如 scenario_0 的
+# 98.8 实为 CAV_IDM 自由流参考，与 artifact HV 111.8 不符），仅作 artifact 缺失回退。
+_DEFAULT_FREE_FLOW_ARTIFACT = "artifacts/free_flow/v0.4.1-pilot-ff-1/free_flow_references.json"
+
+
+def _load_free_flow_hv_ref(net_meta: dict, net_scenario: str) -> float:
+    """读取 free-flow artifact 的 HV lap_time_s；失败回退历史常量。"""
+    artifact_rel = net_meta.get("free_flow_reference_path")
+    artifact_path = Path(artifact_rel) if artifact_rel else Path(_DEFAULT_FREE_FLOW_ARTIFACT)
+    try:
+        if artifact_path.exists():
+            data = json.loads(artifact_path.read_text(encoding="utf-8"))
+            ref = (
+                data.get("results", {})
+                .get(net_scenario, {})
+                .get("references", {})
+                .get("HV", {})
+                .get("lap_time_s")
+            )
+            if ref is not None and math.isfinite(float(ref)):
+                return float(ref)
+    except (OSError, ValueError, TypeError):
+        pass
+    return FREE_FLOW_LAP_TIME_S.get(net_scenario, float("nan"))
+
+
 def parse_run_outputs(
     run_dir: Path, spec: RunSpec, network_file: str = DEFAULT_NETWORK_FILE
 ) -> dict:
@@ -586,11 +614,11 @@ def parse_run_outputs(
     ]
     if num_lanes > 1:
         mean_flow, max_flow, mean_speed, speed_variance, window_count = parse_detector_multi(
-            detector_paths, warmup_period
+            detector_paths, warmup_period, simulation_end=spec.simulation_end
         )
     else:
         mean_flow, max_flow, mean_speed, speed_variance, window_count = parse_detector(
-            detector_paths[0], warmup_period
+            detector_paths[0], warmup_period, simulation_end=spec.simulation_end
         )
 
     # ── 解析 SSM（审阅 P2-1：legacy/单次路径传入 simulation_end，SSM 观测窗
@@ -641,7 +669,9 @@ def parse_run_outputs(
     tl_per = _safe_div(ep_result["total_time_loss_s"], total_veh_km)
 
     # ── 延误 ──
-    free_flow = FREE_FLOW_LAP_TIME_S.get(net_scenario, float("nan"))
+    # P2（本轮审查）：自由流参考优先 artifact HV（与阶段二 runner 一致），
+    # 历史常量 FREE_FLOW_LAP_TIME_S 仅作回退
+    free_flow = _load_free_flow_hv_ref(net_meta, net_scenario)
     ml = vr_result["mean_lap_time_s"]
     p95 = vr_result["p95_lap_time_s"]
     mean_delay = (

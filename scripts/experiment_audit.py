@@ -7,7 +7,12 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from scripts.experiment_config import ExperimentConfig, load_experiment_config
+from scripts.experiment_config import (
+    GRID_MODE_CAV_COUNT,
+    ExperimentConfig,
+    _coerce_int,
+    load_experiment_config,
+)
 
 
 @dataclass(frozen=True)
@@ -35,7 +40,17 @@ class ExperimentAudit:
 
 
 def audit_experiment_config(config: ExperimentConfig) -> ExperimentAudit:
-    """量化正式网格中的 pCAV 离散化和端点 assignment-seed 冗余。"""
+    """量化正式网格中的 pCAV 离散化和端点 assignment-seed 冗余。
+
+    requested_pcav 模式：按 pcav_levels × vehicle_counts 的离散化误差审计。
+    cav_count 模式：treatments 直接指定精确 cav_counts（无 requested/realized
+    离散化误差，mismatch 恒 0）；planned run 数与端点冗余按
+    batch_run._build_cav_count_specs 的展开口径计算（P2 本轮审查修复：
+    旧实现仅支持 requested_pcav，cav_count 模式输出全零误导）。
+    """
+    if config.grid_mode == GRID_MODE_CAV_COUNT:
+        return _audit_cav_count_grid(config)
+
     scenario_model_seed_multiplier = len(config.scenarios) * len(config.models) * len(config.seeds)
     by_vehicle_count = []
     mismatch_cells = 0
@@ -86,6 +101,72 @@ def audit_experiment_config(config: ExperimentConfig) -> ExperimentAudit:
         planned_run_count=planned_run_count,
         requested_realized_mismatch_runs=mismatch_cells * scenario_model_seed_multiplier,
         duplicate_penetration_treatment_runs=duplicate_cells * scenario_model_seed_multiplier,
+        endpoint_run_count=endpoint_runs,
+        endpoint_unique_assignment_treatments=endpoint_unique,
+        endpoint_assignment_redundant_runs=endpoint_runs - endpoint_unique,
+        by_vehicle_count=tuple(by_vehicle_count),
+    )
+
+
+def _default_assignment_seeds(cav_count: int, vehicle_count: int) -> list[int]:
+    """cav_count 模式下无显式 assignment_seeds 时的默认值（与 batch_run 口径一致）。"""
+    if cav_count == 0 or cav_count == vehicle_count:
+        return [1]  # 不可区分，仅需一个
+    return [1, 2, 3]
+
+
+def _audit_cav_count_grid(config: ExperimentConfig) -> ExperimentAudit:
+    """cav_count 模式审计：treatments 为唯一事实源。"""
+    by_vehicle_count = []
+    duplicate_cells = 0
+    duplicate_runs = 0
+    endpoint_model_cells = 0  # 端点 (cav=0 | cav=vn) 单元格 × 生效模型数
+    planned_run_count = 0
+
+    for t in config.treatments:
+        vn = _coerce_int(t.get("vehicle_count", 0), "vehicle_count")
+        cav_counts = [_coerce_int(c, "cav_counts") for c in t["cav_counts"]]
+        unique_count = len(set(cav_counts))
+        dup = len(cav_counts) - unique_count
+        duplicate_cells += dup
+        by_vehicle_count.append(
+            VehicleCountAudit(
+                vehicle_count=vn,
+                requested_level_count=len(cav_counts),
+                realized_composition_count=unique_count,
+                mismatched_level_count=0,  # cav_count 精确指定，无离散化误差
+                duplicate_treatment_level_count=dup,
+                max_absolute_pcav_error=0.0,
+            )
+        )
+
+        seen: set[int] = set()
+        for cav_count in cav_counts:
+            # 与 batch_run._build_cav_count_specs 展开口径一致：
+            # cav=0 时模型维度失活（1 个）；端点 assignment_seed 截断为 1
+            n_models = 1 if cav_count == 0 else len(config.models)
+            aseeds_raw = t.get("assignment_seeds", [])
+            aseeds = (
+                [_coerce_int(a, "assignment_seeds") for a in aseeds_raw]
+                if aseeds_raw
+                else _default_assignment_seeds(cav_count, vn)
+            )
+            if cav_count == 0 or cav_count == vn:
+                aseeds = aseeds[:1]
+            planned_run_count += n_models * len(aseeds) * len(config.sumo_seeds)
+            if cav_count in seen:
+                duplicate_runs += n_models * len(aseeds) * len(config.sumo_seeds)
+            seen.add(cav_count)
+            if cav_count == 0 or cav_count == vn:
+                endpoint_model_cells += n_models
+
+    endpoint_unique = len(config.scenarios) * endpoint_model_cells
+    endpoint_runs = endpoint_unique * len(config.sumo_seeds)
+
+    return ExperimentAudit(
+        planned_run_count=planned_run_count,
+        requested_realized_mismatch_runs=0,
+        duplicate_penetration_treatment_runs=duplicate_runs * len(config.scenarios),
         endpoint_run_count=endpoint_runs,
         endpoint_unique_assignment_treatments=endpoint_unique,
         endpoint_assignment_redundant_runs=endpoint_runs - endpoint_unique,

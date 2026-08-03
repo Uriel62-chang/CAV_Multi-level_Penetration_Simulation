@@ -43,7 +43,13 @@
 
 ### 测试与门禁
 
-- **498 tests**；Ruff / mypy / compileall / format 全通过
+- **507 tests**；Ruff / mypy / compileall / format 全通过
+- 审查循环（多轮 P0/P1/P2）修复条目：P0-1 all-level 圈时统计变量遮蔽
+  （metrics.py delay 循环重绑定 vr → 5 列错标/缺失，正式 CSV 3,888 行全受影响；
+  修复后需全量重解析以产出正确 all-level 圈时统计）、P1-1 FCD speed 台账对齐设计
+  §6.3（→ low_speed_excluded）、P1-2 writer all 圈数>0 回归保护断言、P2 五项
+  （extratime 显式化 / legacy 自由流参考优先 artifact / experiment_audit cav_count
+  模式 / ssm all 版镜像合并回填时间 / legacy parse_detector 传 simulation_end）
 - 四 dry-run：legacy 10,080 / pilot 162 / safety 84 / main 3,888
 - v0.4.0 config SHA `178dfcef…` 与 legacy SUMO 命令字节基线不变
 

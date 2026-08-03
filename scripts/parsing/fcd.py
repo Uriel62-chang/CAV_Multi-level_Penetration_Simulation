@@ -93,11 +93,15 @@ def parse_fcd(
                     try:
                         speed = float(veh.get("speed", ""))
                     except (ValueError, TypeError):
-                        # 审阅 P2-1：非数值 speed 是语义损坏 → invalid（不得伪装成低速排除）
-                        invalid += 1
+                        # P1-1（本轮审查）：speed 解析失败/非有限 → low_speed_excluded
+                        # 台账（设计 §6.3 步骤 2），与 gap 分支（步骤 3 → no_leader）一致；
+                        # 不再计 invalid（整 run fail-closed），仅剔除该样本。
+                        result["all"]["low_speed_excluded_count"] += 1
+                        result[vt]["low_speed_excluded_count"] += 1
                         continue
                     if not math.isfinite(speed):
-                        invalid += 1
+                        result["all"]["low_speed_excluded_count"] += 1
+                        result[vt]["low_speed_excluded_count"] += 1
                         continue
 
                     gap_str = veh.get("leaderGap", "")

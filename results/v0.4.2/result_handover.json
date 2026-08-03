@@ -15,9 +15,9 @@
   "writer": {
    "core_results_commit": "8f9ef4b",
    "schema_only_rerun_commit": "e99cd89",
-   "rerun_head": "3c286b6",
-   "rerun_tracked_clean": false,
-   "note": "82 列 run-level CSV 由 P0-1 修复后 writer 重生成（DRAC 空间配对率列）；8544f75 全量重解析后 writer/aggregate 重跑，run-level/aggregated CSV 哈希与重解析前一致（数值零变化）。subgroup fail-closed 修订 + 二次重解析待完成后更新本字段（当前工作区含未提交修订）。"
+   "rerun_head": "1602051",
+   "rerun_tracked_clean": true,
+   "note": "82 列 run-level CSV 由 P0-1 修复后 writer 重生成（DRAC 空间配对率列）；8544f75 全量重解析后 writer/aggregate 重跑，run-level/aggregated CSV 哈希与重解析前一致（数值零变化）。subgroup fail-closed 修订已提交（aaf27af/1602051，工作区 clean）；正式结果仍待二次全量重解析生成（1602051 代码），完成后更新本文件。"
   },
   "aggregate": {
    "commit": "91c256f",

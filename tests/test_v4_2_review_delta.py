@@ -1453,3 +1453,26 @@ def test_aggregate_rejects_mixed_experiment_role(tmp_path):
     df.to_csv(p, index=False)
     with pytest.raises(ValueError, match="experiment_role"):
         aggregate(p, tmp_path / "out.csv", "2", manifest={})
+
+
+def test_fcd_missing_time_attr_fails_closed(tmp_path):
+    """审阅 P2-4：<timestep> 缺失 time 属性 → invalid（不得默认 0 被 warmup 过滤）。"""
+    import gzip
+
+    from scripts.parsing.fcd import parse_fcd
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        "<fcd-export>"
+        "<timestep>"
+        '<vehicle id="v1" x="0.0" y="0.0" angle="0.0" speed="5.0" lane="e0_0" '
+        'pos="5.0" type="passenger"/>'
+        "</timestep>"
+        "</fcd-export>"
+    )
+    p = tmp_path / "fcd.xml.gz"
+    with gzip.open(p, "wb") as f:
+        f.write(xml.encode("utf-8"))
+    tm = {"v1": "CAV"}
+    r = parse_fcd(str(p), tm, warmup_period=0)
+    assert r["all"]["parse_success"] is False

@@ -45,8 +45,14 @@ def parse_fcd(
             for _event, elem in ET.iterparse(f, events=("end",)):
                 if elem.tag != "timestep":
                     continue
+                # 审阅 P2-4：缺失 time 属性 → invalid（不得默认 0 被 warmup 静默过滤）
+                time_raw = elem.get("time")
+                if time_raw is None:
+                    invalid += 1
+                    elem.clear()
+                    continue
                 try:
-                    time = float(elem.get("time", "0"))
+                    time = float(time_raw)
                 except (ValueError, TypeError):
                     invalid += 1
                     elem.clear()

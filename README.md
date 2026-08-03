@@ -308,8 +308,7 @@ parameters from the run directory name.
 For small vehicle populations, `realized_pcav` can differ from
 `requested_pcav` because the CAV count follows Python's existing
 `round(vehicle_count * requested_pcav)` rule. The formal CSV carries
-self-describing `requested_pcav`, `realized_pcav`, `cav_count`, and
-`hv_count` columns.
+self-describing `realized_pcav`, `cav_count`, and `hv_count` columns.
 
 This is a known defect in the completed v0.4.0 experiment design, not merely a
 display-rounding issue. At `vehN=10`, the 21 requested penetration levels map
@@ -549,7 +548,7 @@ python -m compileall -q scripts tests
 Expected result:
 
 ```text
-476 passed
+459 passed
 ```
 
 ### Run one simulation
@@ -786,9 +785,11 @@ docs/
   counts cause requested and realized penetration to differ in 2,400 runs; at
   `vehN=10`, 21 requested levels collapse to 11 actual compositions.
 - The formal CSV uses the explicit penetration/identity columns
-  (`requested_pcav`, `realized_pcav`, `cav_count`, `hv_count`) and space-matched
-  event-rate aliases; the historical v0.4.0~post3 legacy columns are no longer
-  produced on head (see the `v0.4.0.post3` tag for the archived schema).
+  (`realized_pcav`, `cav_count`, `hv_count`) and space-matched
+  event-rate aliases; the historical v0.4.0~post3 legacy columns and the
+  `requested_pcav` contract column are no longer produced on head (see the
+  `v0.4.0.post3` tag for the archived schema; `requested_pcav` remains only
+  as an internal `RunSpec` field for re-parsing archived raw runs).
 - The five seeds are vehicle-type assignment realizations rather than
   independent SUMO stochastic replications. Endpoint penetrations do not gain
   distinct arrangements from additional seeds, so endpoint `n_valid=5` does

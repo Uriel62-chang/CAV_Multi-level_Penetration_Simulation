@@ -327,7 +327,6 @@ def test_writer_subgroup_gate_accepts_not_collected_nan():
     spec = {
         "scenario": "scenario_0",
         "model": "IDM",
-        "requested_pcav": None,
         "cav_count": 5,
         "vehicle_count": 10,
         "seed": 1,
@@ -360,7 +359,6 @@ def test_writer_subgroup_gate_accepts_not_collected_nan():
                 "run_id": "run-1",
                 "scenario": "scenario_0",
                 "model": "IDM",
-                "requested_pcav": None,
                 "realized_pcav": 0.5,
                 "cav_count": 5,
                 "hv_count": 5,

@@ -3,7 +3,6 @@
     "run_id",
     "scenario",
     "model",
-    "requested_pcav",
     "realized_pcav",
     "cav_count",
     "hv_count",

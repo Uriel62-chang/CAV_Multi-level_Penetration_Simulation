@@ -12,7 +12,6 @@ def _summary(**overrides):
         "run_id": "writer-test",
         "scenario": "scenario_0",
         "model": "IDM",
-        "requested_pcav": 0.5,
         "realized_pcav": 0.5,
         "cav_count": 5,
         "hv_count": 5,
@@ -36,7 +35,8 @@ def test_writer_marks_all_successful_parsers_as_ok():
     row = _build_row(_summary(), "SUCCESS")
     assert row["data_quality"] == "ok"
     assert row["data_quality_detail"] == ""
-    assert row["requested_pcav"] == 0.5
+    # 纯净分支：requested_pcav 已从契约列集移除（RunSpec 内部字段保留）
+    assert "requested_pcav" not in row
     assert row["realized_pcav"] == 0.5
     assert row["cav_count"] == 5
     assert row["hv_count"] == 5

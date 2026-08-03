@@ -1208,26 +1208,7 @@ def _resolve_cli_overrides(config, args, parser) -> dict:
             "treatments": treatments,
             "sumo_seeds": sumo_seeds,
         }
-
-    # requested_pcav 模式（兼容旧行为）
-    veh_levels = list(config.vehicle_counts)
-    if args.vehN_list is not None:
-        try:
-            veh_levels = [int(x.strip()) for x in args.vehN_list.split(",") if x.strip()]
-        except ValueError:
-            parser.error(f"invalid --vehN-list value: {args.vehN_list}")
-    seeds = list(config.seeds)
-    seeds_arg = args.assignment_seeds
-    if seeds_arg is not None:
-        try:
-            seeds = [int(x.strip()) for x in seeds_arg.split(",") if x.strip()]
-        except ValueError:
-            parser.error(f"invalid assignment seeds value: {seeds_arg}")
-    return {
-        **common_overrides,
-        "veh_levels": veh_levels,
-        "seeds": seeds,
-    }
+    raise AssertionError(f"unreachable: grid_mode={config.grid_mode!r}")
 
 
 def main():

@@ -17,7 +17,6 @@ IDENTIFIER_COLUMNS_V4_1 = [
     "run_id",
     "scenario",
     "model",
-    "requested_pcav",
     "realized_pcav",
     "cav_count",
     "hv_count",
@@ -237,7 +236,6 @@ SUBGROUP_LONG_COLUMNS_V4_1 = [
     "run_id",
     "scenario",
     "model",
-    "requested_pcav",
     "realized_pcav",
     "cav_count",
     "hv_count",
@@ -335,7 +333,6 @@ def validate_summary_contract(
     }
     finite_nonnegative = {
         "pCAV",
-        "requested_pcav",
         "realized_pcav",
         "step_length_s",
         "warmup_period_s",
@@ -375,7 +372,7 @@ def validate_summary_contract(
         "total_vehicle_km",
         "non_internal_edge_vehicle_km",
     }
-    nullable = {"requested_pcav"}
+    nullable: set[str] = set()
     # P0-1（新审阅）：SSM 未采集（ssm_not_collected=True）时，SSM 原始/处理计数、
     # 事件数、极值、受影响车辆数与事件率均为 NaN（"未采集"语义），跳过这些键的
     # 类型与有限性检查；safety 合法零检出仍为数值 0（不走此分支）。
@@ -429,7 +426,7 @@ def validate_summary_contract(
             errors.append(f"summary {key} must be non-negative")
         elif key in strictly_positive and float(value) <= 0:
             errors.append(f"summary {key} must be positive")
-        elif key in {"pCAV", "requested_pcav", "realized_pcav"} and not 0 <= float(value) <= 1:
+        elif key in {"pCAV", "realized_pcav"} and not 0 <= float(value) <= 1:
             errors.append(f"summary {key} must be within [0, 1]")
     if errors:
         return errors

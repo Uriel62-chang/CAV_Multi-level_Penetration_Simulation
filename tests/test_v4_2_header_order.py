@@ -33,11 +33,11 @@ def test_fragment_restored_between_mirrored_and_ttc():
 
 def test_status_columns_follow_identifiers():
     cols = RUN_LEVEL_COLUMNS_V4_2
-    assert cols[:13] == [
+    # 纯净分支：无 requested_pcav 契约列（RunSpec 内部字段保留）
+    assert cols[:12] == [
         "run_id",
         "scenario",
         "model",
-        "requested_pcav",
         "realized_pcav",
         "cav_count",
         "hv_count",
@@ -56,4 +56,4 @@ def test_v4_2_header_matches_frozen_fixture():
     digest = hashlib.sha256(
         json.dumps(RUN_LEVEL_COLUMNS_V4_2, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
-    assert digest == "f2069d136fcfaada28c5809501aaf2c309340284bd662cc55a4fed98daffc4a0"
+    assert digest == "10edd00859d50b07337128a37f189c05b31004515a7e5c2bb9d9b36fb355f460"

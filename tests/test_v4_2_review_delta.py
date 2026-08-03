@@ -516,7 +516,6 @@ def test_subgroup_nonnegative_metrics_cover_v4_2_fields():
     spec = {
         "scenario": "scenario_0",
         "model": "IDM",
-        "requested_pcav": None,
         "cav_count": 5,
         "vehicle_count": 10,
         "seed": 1,
@@ -527,7 +526,6 @@ def test_subgroup_nonnegative_metrics_cover_v4_2_fields():
             "run_id": "run-1",
             "scenario": "scenario_0",
             "model": "IDM",
-            "requested_pcav": None,
             "realized_pcav": 0.5,
             "cav_count": 5,
             "hv_count": 5,

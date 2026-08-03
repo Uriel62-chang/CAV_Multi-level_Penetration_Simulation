@@ -320,7 +320,6 @@ def _valid_subgroup_rows(rows: list[dict], run_id: str, spec: dict) -> bool:
     expected_identity = {
         "scenario": spec.get("scenario"),
         "model": spec.get("model"),
-        "requested_pcav": spec.get("requested_pcav"),
         "realized_pcav": cav_count / vehicle_count,
         "cav_count": cav_count,
         "hv_count": vehicle_count - cav_count,

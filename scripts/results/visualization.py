@@ -231,11 +231,11 @@ def _ensure_dir(path: Path) -> None:
 
 def _penetration_column(df: pd.DataFrame) -> str:
     """v0.4.2 绘图横轴：realized_pcav 优先（count 网格下恒等于设计渗透率且非空）；
-    requested_pcav 仅 legacy requested-grid 使用；pCAV 为最旧兼容。"""
-    for col in ("realized_pcav", "requested_pcav", "pCAV"):
+    pCAV 为最旧兼容。纯净分支无 requested_pcav 契约列（legacy requested-grid 已删）。"""
+    for col in ("realized_pcav", "pCAV"):
         if col in df.columns:
             return col
-    raise ValueError("no penetration column (realized_pcav/requested_pcav/pCAV) in dataframe")
+    raise ValueError("no penetration column (realized_pcav/pCAV) in dataframe")
 
 
 def chart_observed_peak_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:

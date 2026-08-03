@@ -42,9 +42,12 @@ def test_penetration_column_prefers_realized():
     assert _penetration_column(df) == "realized_pcav"
 
 
-def test_penetration_column_requested_fallback():
-    df = pd.DataFrame({"requested_pcav": [0.5]})
-    assert _penetration_column(df) == "requested_pcav"
+def test_penetration_column_requested_alone_raises():
+    """纯净分支：requested_pcav 不再是渗透率列（legacy requested-grid 已删）→ fail-closed。"""
+    import pytest
+
+    with pytest.raises(ValueError):
+        _penetration_column(pd.DataFrame({"requested_pcav": [0.5]}))
 
 
 def test_penetration_column_oldest_fallback():
@@ -58,12 +61,11 @@ def test_penetration_column_missing_raises():
 
 
 def test_aggregate_schema2_uses_realized_pcav(tmp_path):
-    """schema=2 聚合：pCAV = cav_count/vehN，requested_pcav 保持 NaN。"""
+    """schema=2 聚合：pCAV = cav_count/vehN，输出无 requested_pcav 契约列。"""
     df = pd.DataFrame(
         {
             "scenario": ["s0"] * 4,
             "model": ["IDM"] * 4,
-            "requested_pcav": [None] * 4,
             "realized_pcav": [0.5] * 4,
             "cav_count": [5] * 4,
             "hv_count": [5] * 4,
@@ -86,5 +88,5 @@ def test_aggregate_schema2_uses_realized_pcav(tmp_path):
     out = aggregate(in_csv, out_csv, "2", manifest=manifest)
     row = out[out["vehN"] == 10].iloc[0]
     assert row["pCAV"] == pytest.approx(0.5)
-    assert pd.isna(row["requested_pcav"])
+    assert "requested_pcav" not in out.columns
     assert row["realized_pcav"] == pytest.approx(0.5)

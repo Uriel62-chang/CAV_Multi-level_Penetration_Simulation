@@ -252,30 +252,23 @@ def aggregate(
 
     grouped.columns = grouped.columns.map(lambda x: new_columns.get(x, f"{x[0]}_{x[1]}"))
     grouped = grouped.reset_index()
-    if schema_ver == "2":
-        # P0-2：count 网格下 realized_pcav 为权威渗透率；requested_pcav 保持 nullable
-        grouped.insert(2, "pCAV", grouped["cav_count"] / grouped["vehN"])
-        grouped.insert(4, "requested_pcav", float("nan"))
-    else:
-        grouped.insert(2, "pCAV", grouped["requested_pcav"])
-        requested_pcav_col = grouped.pop("requested_pcav")
-        grouped.insert(4, "requested_pcav", requested_pcav_col)
+    # P0-2：count 网格下 realized_pcav 为权威渗透率（纯净分支无 requested_pcav 契约列）
+    grouped.insert(2, "pCAV", grouped["cav_count"] / grouped["vehN"])
     # 审阅 P2-2（本轮）：聚合输出保留 experiment_role——单角色时写入首列；
     # 输出层自描述，且可视化角色门禁依赖此列（防止 main/safety 聚合产物混用）
-    if schema_ver == "2" and "experiment_role" in df_ok.columns:
+    if "experiment_role" in df_ok.columns:
         roles = df_ok["experiment_role"].dropna().unique()
         if len(roles) == 1:
             grouped.insert(0, "experiment_role", str(roles[0]))
 
     grouped.insert(
-        5,
+        4,
         "realized_pcav",
         (grouped["vehN"] * grouped["pCAV"]).round() / grouped["vehN"],
     )
     # P1-1：输出 seed_scope（设计要求的统计单位说明）
-    if schema_ver == "2":
-        grouped.insert(6, "seed_scope", "vehicle_type_assignment")
-    grouped.insert(7, "flow_valid_run_count", grouped["n_valid"])
+    grouped.insert(5, "seed_scope", "vehicle_type_assignment")
+    grouped.insert(6, "flow_valid_run_count", grouped["n_valid"])
     # P0-3：双 seed 统计单位——assignment 水平数、sumo 水平数、组合数、有效 n
     if seed_stats is not None:
         grouped = grouped.merge(
@@ -291,12 +284,12 @@ def aggregate(
                 "_combos": "seed_pair_combination_count",
             }
         )
-        grouped.insert(9, "assignment_seed_run_count", grouped["seed_pair_combination_count"])
-        grouped.insert(10, "sumo_seed_run_count", grouped["sumo_seed_level_count"])
-        grouped.insert(11, "independent_random_replication_count", 0)
+        grouped.insert(8, "assignment_seed_run_count", grouped["seed_pair_combination_count"])
+        grouped.insert(9, "sumo_seed_run_count", grouped["sumo_seed_level_count"])
+        grouped.insert(10, "independent_random_replication_count", 0)
     else:
-        grouped.insert(7, "assignment_seed_run_count", grouped["n_valid"])
-        grouped.insert(8, "independent_random_replication_count", 0)
+        grouped.insert(6, "assignment_seed_run_count", grouped["n_valid"])
+        grouped.insert(7, "independent_random_replication_count", 0)
 
     if not grouped.columns.is_unique:
         duplicates = grouped.columns[grouped.columns.duplicated()].tolist()

@@ -525,11 +525,11 @@ def main():
     )
     parser.add_argument("--ring-length", type=float, default=None)
     parser.add_argument("--net", default=None, help="路网文件路径，自动读取环路总长")
-    # v0.4.0 参数
+    # 聚合 CSV 展示参数（--v4 为历史模式名，保留目录约定 graph/v0.4.0）
     parser.add_argument(
-        "--aggregated", default="results/aggregated_results.csv", help="v0.4.0 模式：多种子聚合 CSV"
+        "--aggregated", default="results/aggregated_results.csv", help="多种子聚合 CSV"
     )
-    parser.add_argument("--v4", action="store_true", help="启用 v0.4.0 四组 trade-off 图表模式")
+    parser.add_argument("--v4", action="store_true", help="启用四组 trade-off 图表模式")
     parser.add_argument(
         "--v4-2",
         action="store_true",

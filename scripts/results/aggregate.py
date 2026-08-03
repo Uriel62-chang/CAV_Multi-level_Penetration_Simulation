@@ -1,7 +1,7 @@
 """Step 14: 多种子聚合 —— run-level → aggregated statistics.
 
     输入：run_level_results.csv（v0.4.2 为 3,888/84 行，每行一个 (assignment_seed, sumo_seed)
-          组合；post3 legacy 为 10,080 行 × 60 列，每行一个 assignment seed）
+          组合）
     输出：aggregated_results.csv（v0.4.2 为 528/84 行，每行一个 scenario×model×vehN×cav_count，
           含双 seed 组合的等权算术 mean/std/median/min/max/count）
 

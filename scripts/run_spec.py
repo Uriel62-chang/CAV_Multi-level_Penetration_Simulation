@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from scripts.experiment_config import _parse_bool  # 审阅 P2-2：严格布尔解析复用
@@ -652,19 +652,39 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
         return False
     if data.get("return_code") != 0:
         return False
-    if data.get("run_spec_sha256") != spec.sha256():
-        return False
-    for field in ("schema_version", "config_sha256", "network_sha256", "experiment_id"):
-        if data.get(field) != getattr(spec, field):
+    if spec.pipeline_version == PIPELINE_V4_2:
+        # P1-1（本轮返工）：真实 --resume 用「当前网络字节 sha」构建 fresh spec
+        # （batch_run.py main:1553-1554）。网络为 netconvert 生成物，再生后字节
+        # 漂移 → fresh 与存档的 network_sha256 必然不同（run_spec_sha256 也随
+        # 之不同）；旧实现在此处（run_spec_sha256 直接比较、network_sha256 字段
+        # 比较、persisted_spec != spec 三处）直接返回 False → scenario0 972 runs
+        # 全量重跑（约 8-24 h 浪费），且与解析侧 input_integrity（语义锚定）矛盾。
+        # 修复：v0.4.2 跳过 run_spec_sha256/network_sha256 的 fresh 直接比较
+        # （存档自洽由 load_run_spec 校验，网络语义一致性由下方 network_xml_sha256
+        # 块的 sources.sha256 锚定保证）；其余配置字段必须与 fresh 一致（config
+        # 变化仍触发重跑，见 persisted_spec 归一化比较）。
+        for field in ("schema_version", "config_sha256", "experiment_id"):
+            if data.get(field) != getattr(spec, field):
+                return False
+    else:
+        if data.get("run_spec_sha256") != spec.sha256():
             return False
-    if spec.pipeline_version == PIPELINE_V4_1 and data.get("sumo_seed") != spec.sumo_seed:
-        return False
+        for field in ("schema_version", "config_sha256", "network_sha256", "experiment_id"):
+            if data.get(field) != getattr(spec, field):
+                return False
+        if spec.pipeline_version == PIPELINE_V4_1 and data.get("sumo_seed") != spec.sumo_seed:
+            return False
 
     try:
         persisted_spec = load_run_spec(run_dir, expected_sha256=data["run_spec_sha256"])
     except (ValueError, KeyError):
         return False
-    if persisted_spec != spec:
+    if spec.pipeline_version == PIPELINE_V4_2:
+        # P1-1（本轮返工）：网络字节漂移时 fresh 与存档仅 network_sha256 字段不同
+        # ——归一化该字段后比较其余字段（model/vehN/cav_count 等变化仍被检出）。
+        if replace(spec, network_sha256="") != replace(persisted_spec, network_sha256=""):
+            return False
+    elif persisted_spec != spec:
         return False
 
     required_files = [

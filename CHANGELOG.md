@@ -43,7 +43,14 @@
 
 ### 测试与门禁
 
-- **521 tests**；Ruff / mypy / compileall / format 全通过
+- **522 tests**；Ruff / mypy / compileall / format 全通过
+- 审查复核（第三轮返工）：P1-1 真实 resume 路径修复——is_simulation_complete 的
+  run_spec_sha256/network_sha256/persisted_spec 三处 fresh 直接比较在网络再生
+  （字节漂移）时误拒（此前仅放宽下游 network_xml_sha256 块，未触及更早比较）。
+  修复：v0.4.2 分支跳过前两处 fresh 直接比较（存档自洽由 load_run_spec 校验、
+  网络语义由 sources.sha256 锚定保证），persisted_spec 比较归一化 network_sha256
+  字段（config 变化仍检出）。实证：真实 raw 数据 scenario_0 972 runs
+  fresh-spec（网络字节漂移）972/972 可跳过、config 变化 972/972 重跑。
 - 审查复核（第三轮）修复：P1-1 resume 闭包与解析闭包网络口径统一（字节比对 →
   sources.sha256 语义锚定，网络再生不再误拒全量重跑）、P1-2 SSM 损坏 XML 台账
   不"伪零通过"（parse_success=False 时跳过台账检查）、P2-1 v0.4.2 不再导出 legacy

@@ -104,15 +104,30 @@ def test_v4_2_complete_run_passes(tmp_path):
 
 
 def test_v4_2_network_regen_semantics_unchanged_passes(tmp_path):
-    """P1-1（本轮审查）：网络文件字节变化（netconvert 再生、语义不变）不得误拒
-    resume——与 input_integrity 对同一网络文件的口径一致（源文件 + sources.sha256
-    锚定为语义门禁）。旧字节比对在网络再生后误判 is_simulation_complete=False →
-    --resume 全量重跑 scenario0（约 8-24 h 浪费）。"""
+    """P1-1（本轮返工，真实 resume 路径）：fresh spec 用「当前网络字节 sha」构建
+    （batch_run.py main 实际流程），网络再生后 is_simulation_complete 仍判 True
+    （语义一致）——不再全量重跑 scenario0（旧实现 972 runs 全重跑，8-24 h 浪费）。"""
+    import dataclasses
+    import json as _json
+
     rd, spec, net_file = _make_v4_2_run(tmp_path)
     assert is_simulation_complete(spec, rd, PIPELINE_V4_2)
-    # 模拟 netconvert 再生：loop.net.xml 字节变化，node/edge 源与锚定不变
+    # 模拟网络再生：loop.net.xml 字节变化，node/edge 源与锚定不变
     net_file.write_text("<net regenerated/>")
-    assert is_simulation_complete(spec, rd, PIPELINE_V4_2)
+    fresh = dataclasses.replace(spec, network_sha256=sha256_file(str(net_file)))
+    assert fresh.network_sha256 != spec.network_sha256  # 字节漂移已发生
+    archived_sha = _json.loads((rd / "simulation_status.json").read_text())["run_spec_sha256"]
+    assert fresh.sha256() != archived_sha  # 存档 run_spec_sha256 与 fresh 哈希不同
+    assert is_simulation_complete(fresh, rd, PIPELINE_V4_2)
+
+
+def test_v4_2_resume_detects_config_change(tmp_path):
+    """P1-1（本轮返工）：非网络配置变化（model）在 fresh-spec 路径仍触发重跑。"""
+    import dataclasses
+
+    rd, spec, _ = _make_v4_2_run(tmp_path)
+    changed = dataclasses.replace(spec, model="CACC")
+    assert not is_simulation_complete(changed, rd, PIPELINE_V4_2)
 
 
 def test_v4_2_rejects_changed_network_source(tmp_path):

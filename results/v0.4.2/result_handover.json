@@ -8,16 +8,16 @@
    "note": "raw SUMO 输出与 simulation_status.json 未重跑、未修改（红线维持）"
   },
   "parsing": {
-   "artifact_generation_commit": "8544f75",
-   "post_generation_validation_commit": "8544f75",
-   "note": "2026-08 审阅 P1-1（结果-源码版本闭包）：8544f75 全量重解析 3,972 runs（main 3888 + safety 84，全部 SUCCESS），summary/subgroup_summary 字节级零变化，parse_status 仅运行元数据变化。当前 tracked 派生物（run-level/aggregated CSV、final_status）即由 8544f75 生成。HEAD 已推进至 d3cb187（含 vehroute 断点语义、FCD 缺失 time、lanechange gap 等后续解析器修复）——最新代码的二次全量重解析待决策者拍板执行，完成后更新本文件全部哈希。"
+   "artifact_generation_commit": "031e4b7",
+   "post_generation_validation_commit": "031e4b7",
+   "note": "二次全量重解析完成（031e4b7 代码，用户拍板执行）：main 3888 + safety 84 全部 SUCCESS；run-level/subgroup CSV 哈希与 8544f75 时代一致（多轮扫描证明的所有解析器修复对正式数据零数值影响得到最终确认）；parse_status 仅运行元数据变化。"
   },
   "writer": {
    "core_results_commit": "8f9ef4b",
    "schema_only_rerun_commit": "e99cd89",
-   "rerun_head": "1602051",
+   "rerun_head": "031e4b7",
    "rerun_tracked_clean": true,
-   "note": "82 列 run-level CSV 由 P0-1 修复后 writer 重生成（DRAC 空间配对率列）；8544f75 全量重解析后 writer/aggregate 重跑，run-level/aggregated CSV 哈希与重解析前一致（数值零变化）。subgroup fail-closed 修订已提交（aaf27af/1602051，工作区 clean）；正式结果仍待二次全量重解析生成（1602051 代码），完成后更新本文件。"
+   "note": "二次重解析后 writer/aggregate 重跑：run-level CSV 82 列哈希不变（零变化）；aggregated CSV 新增 experiment_role 列（审查 P2-1）；当前 HEAD 031e4b7 工作区干净，正式派生物由当前代码生成——版本闭包完成。"
   },
   "aggregate": {
    "commit": "91c256f",
@@ -50,17 +50,17 @@
  "hashes": {
   "raw_v0.4.2/main/manifest.json": "3e2c1e7e64569931016f27eef7c56fadc7dccaaa2bae2d7e00e072893d43146b",
   "raw_v0.4.2/safety/manifest.json": "a9f97692d1f7e1bc0578e3a01d15e04c2752ba1fa8459fb05d1da70da1037151",
-  "raw_v0.4.2/main/parse_manifest.json": "290371c29f31c2b66c1ef27ecae6d6ceeb9df1b85b86d35c3b439022801de0b8",
-  "raw_v0.4.2/safety/parse_manifest.json": "dd19d030f9f3e3b8c20cf302f100bece10b7be843871c53196f0af853f41f45c",
+  "raw_v0.4.2/main/parse_manifest.json": "bb2b2261584c6aa66acc859f9d100b3dc878470ead8c5e8fce500b46d3528b1c",
+  "raw_v0.4.2/safety/parse_manifest.json": "1406cda1e18a13b699ebb17aae7032bb95936ab419f0c7d0c8fc154422ce087f",
   "results/v0.4.2/main/run_level_results.csv": "f8869b73e52b5b8f0369d10b24e8b9274d5c4a00245fd01a66059e0a5f0d06c0",
   "results/v0.4.2/main/run_level_subgroup_results.csv": "954e4b9696c395c39c22e7125237872e90be97c7f67e8848fb68bd0893037a6b",
-  "results/v0.4.2/main/aggregated_results.csv": "ad6bbdd8d473ad22108b2d26214cb6151311ca66e1a37c5e027c74c779f48787",
+  "results/v0.4.2/main/aggregated_results.csv": "22c107fc9508c2a6043c1e37a23e3fdf991ce4fe8d224788d3439682002bb2ed",
   "results/v0.4.2/main/writer_report.json": "26483fac1524f26c94865bab43cfc45f9fcc2b335a382e343f925c5c294ba073",
   "results/v0.4.2/safety/run_level_results.csv": "bbbed86f1b9246644c001a418f9c954e67a9203ec407cd43e1d2909848c6660a",
   "results/v0.4.2/safety/run_level_subgroup_results.csv": "f7da72084ccc73aed08c04ea0e6102fc6c437830b58bc9b00d18394cbb90e556",
-  "results/v0.4.2/safety/aggregated_results.csv": "a9a5d1ec4f9c54f79788916fe3dbf0a1de4d7f772f73ab9d34d418fe2c70e673",
+  "results/v0.4.2/safety/aggregated_results.csv": "d7b29a53ea80951cd52913fe259fd94723b1ff94cd2e940058c4394d26126690",
   "results/v0.4.2/safety/writer_report.json": "00c31b99cf81413daaf7b45dab0c29007c8c6ee587e0592be9bd01c8d740b539",
-  "results/v0.4.2/raw_status_inventory.jsonl": "8e11e3a582547fe6b0f64fd35baa60a0e07b2036046e702563899a43086aecff",
+  "results/v0.4.2/raw_status_inventory.jsonl": "b2339a04dad582020a5cc545b71641c559eef8ec275839c194a2c128eeb9bdfa",
   "results/v0.4.2/result_analysis.md": "3c9eceeaf89918bcb22f63bc12a07023f0a3d424bdeb907b72f4649d63e92c9d",
   "results/v0.4.2/pairing_report.json": "52b8c4a6dde1cbcec1988fe8bcce46356756a1c986449430dc5d75b0eeecbc2e"
  },
@@ -85,6 +85,13 @@
   "net_anchor_rollback": {
    "previous_inventory_net_anchor_sha256": "cf358bcf726360e5c59e901e9ecc600d93fdef30cea02a3820c4c68ee715f1f1",
    "note": "P1-1 修复中 net.json 加锚定字段破坏 simulation_status 锚定（3,972 runs 失配）——已回滚 net.json（恢复原字节，证据链恢复），锚定移入独立文件 sources.sha256（build_network/input_integrity 读取）；正式 3,972 runs input_integrity 全量 0 失败。"
+  },
+  "final_reparse_031e4b7": {
+   "raw_v0.4.2/main/parse_manifest.json": "290371c29f31c2b66c1ef27ecae6d6ceeb9df1b85b86d35c3b439022801de0b8",
+   "raw_v0.4.2/safety/parse_manifest.json": "dd19d030f9f3e3b8c20cf302f100bece10b7be843871c53196f0af853f41f45c",
+   "results/v0.4.2/raw_status_inventory.jsonl": "8e11e3a582547fe6b0f64fd35baa60a0e07b2036046e702563899a43086aecff",
+   "results/v0.4.2/main/aggregated_results.csv": "ad6bbdd8d473ad22108b2d26214cb6151311ca66e1a37c5e027c74c779f48787",
+   "results/v0.4.2/safety/aggregated_results.csv": "a9a5d1ec4f9c54f79788916fe3dbf0a1de4d7f772f73ab9d34d418fe2c70e673"
   }
  },
  "runtime_clean_commit_warning": "本轮 parsing/writer/aggregate 运行于已提交的修复代码（8f9ef4b/91c256f/d963502），工作区仅含未跟踪的 results/.regen 临时目录；raw 证据目录与 simulation_status.json 未动。",

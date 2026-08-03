@@ -158,6 +158,9 @@ class ExperimentConfig:
                 _coerce_int(x, "assignment_seeds")
                 for x in data.get("assignment_seeds", data.get("seeds", ()))
             )
+            # 审阅 P2-3：assignment seed 非负（与 sumo_seed 语义一致）
+            if any(s < 0 for s in seeds):
+                raise ValueError("assignment_seeds must be non-negative")
 
         config = cls(
             config_version=str(data["config_version"]),
@@ -465,9 +468,12 @@ class ExperimentConfig:
                 if c in seen_c:
                     raise ValueError(f"duplicate cav_count {c} for vehicle_count={vn}")
                 seen_c.add(c)
-            # 校验 treatment 级 assignment_seeds：严格整数 + 无重复（审阅 P1-3 / delta review）
+            # 校验 treatment 级 assignment_seeds：严格整数 + 非负 + 无重复
+            # （审阅 P1-3 / P2-3：与 sumo_seed 非负语义一致）
             aseeds = t.get("assignment_seeds", [])
             aseeds = tuple(_coerce_int(a, "assignment_seeds") for a in aseeds)
+            if any(a < 0 for a in aseeds):
+                raise ValueError(f"assignment_seeds must be non-negative in treatment vehN={vn}")
             if aseeds and len(aseeds) != len(set(aseeds)):
                 raise ValueError(f"duplicate assignment_seeds in treatment vehN={vn}")
 

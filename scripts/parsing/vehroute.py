@@ -86,6 +86,10 @@ def parse_lap_times(
         for i in range(1, len(lap_ends)):
             lap_start = lap_ends[i - 1]
             lap_end = lap_ends[i]
+            # 审阅 P1-1：非单调 exitTimes（lap_end < lap_start）→ invalid（不得生成负圈时）
+            if lap_end < lap_start:
+                invalid += 1
+                continue
             # 圈必须在预热期后开始、仿真结束前完成
             if lap_start < warmup_period:
                 continue
@@ -180,6 +184,10 @@ def parse_lap_times_subgroup(
         for i in range(1, len(lap_ends)):
             lap_start = lap_ends[i - 1]
             lap_end = lap_ends[i]
+            # 审阅 P1-1：非单调 exitTimes（lap_end < lap_start）→ invalid（不得生成负圈时）
+            if lap_end < lap_start:
+                invalid += 1
+                continue
             if lap_start < warmup_period:
                 continue
             if lap_end > sim_end_time:

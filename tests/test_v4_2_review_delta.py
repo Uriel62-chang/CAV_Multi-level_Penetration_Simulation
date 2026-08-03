@@ -1245,3 +1245,128 @@ def test_vehroute_subgroup_empty_result_branch_fails_closed(tmp_path):
     )
     r = parse_lap_times_subgroup(str(p), {"v0": "CAV"}, 4, warmup_period=0, sim_end_time=3600.0)
     assert r["all"]["parse_success"] is False
+
+
+# ── 审查 P1-1：vehroute 非单调时间 → invalid ──
+
+
+def test_vehroute_non_monotonic_times_fails_closed(tmp_path):
+    """非单调 exitTimes（lap_end < lap_start）→ invalid，不得生成负圈时。"""
+    from scripts.parsing.vehroute import parse_lap_times
+
+    p = tmp_path / "vehroute.xml"
+    p.write_text(
+        '<routes><vehicle id="v0" depart="0.00">'
+        '<route edges="e0 e1 e2 e3" exitTimes="10 20 30 50 10 20 30 40"/>'
+        "</vehicle></routes>",
+        encoding="utf-8",
+    )
+    r = parse_lap_times(str(p), 4, warmup_period=0, sim_end_time=3600.0)
+    assert r["parse_success"] is False
+    assert r["completed_lap_count"] == 0  # 负圈时不得计入
+
+
+def test_vehroute_subgroup_non_monotonic_times_fails_closed(tmp_path):
+    from scripts.parsing.vehroute import parse_lap_times_subgroup
+
+    p = tmp_path / "vehroute.xml"
+    p.write_text(
+        '<routes><vehicle id="v0" depart="0.00">'
+        '<route edges="e0 e1 e2 e3" exitTimes="10 20 30 50 10 20 30 40"/>'
+        "</vehicle></routes>",
+        encoding="utf-8",
+    )
+    r = parse_lap_times_subgroup(str(p), {"v0": "CAV"}, 4, warmup_period=0, sim_end_time=3600.0)
+    assert r["all"]["parse_success"] is False
+
+
+# ── 审查 P2-2：可视化模式互斥 ──
+
+
+def test_visualization_modes_are_mutually_exclusive(tmp_path, monkeypatch):
+    import sys
+
+    import scripts.results.visualization as viz
+
+    monkeypatch.setattr(
+        sys, "argv", ["viz", "--safety", "--v4-2", "--aggregated", str(tmp_path / "none.csv")]
+    )
+    with pytest.raises(SystemExit):
+        viz.main()
+    # --v4 与 --v4-2 同样互斥
+    monkeypatch.setattr(
+        sys, "argv", ["viz", "--v4", "--v4-2", "--aggregated", str(tmp_path / "none.csv")]
+    )
+    with pytest.raises(SystemExit):
+        viz.main()
+
+
+# ── 审查 P2-3：assignment seed 非负 ──
+
+
+def test_config_rejects_negative_assignment_seed(tmp_path):
+    data = json.loads(Path("configs/v0.4.2/main.json").read_text(encoding="utf-8"))
+    data["treatments"] = [
+        {"vehicle_count": 10, "cav_counts": [0, 10], "assignment_seeds": [-1, 2, 3]}
+    ]
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="non-negative"):
+        load_experiment_config(path)
+
+
+# ── 审查 P2-1（复核）：build_network 源 SHA 锚定三态测试 ──
+
+
+def _net_meta_with_anchor(sources_sha256):
+    return json.dumps({"scenario": "scenario_0", "network_sources_sha256": sources_sha256})
+
+
+def test_build_network_anchored_match_passes(tmp_path, monkeypatch):
+    """锚定且匹配 → 编译通过，无警告。"""
+    import scripts.simulation.network_generator as ng
+
+    d = tmp_path / "scenario_0"
+    d.mkdir()
+    (d / "nodes.nod.xml").write_text("<nodes/>", encoding="utf-8")
+    (d / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
+    import hashlib
+
+    digest = hashlib.sha256()
+    for name in ("nodes.nod.xml", "edges.edg.xml"):
+        digest.update((d / name).read_bytes())
+    (d / "net.json").write_text(_net_meta_with_anchor(digest.hexdigest()), encoding="utf-8")
+    monkeypatch.setattr(ng.subprocess, "run", lambda *a, **k: None)
+    out = ng.build_network(str(d), netconvert_command="netconvert")
+    assert out == d / "loop.net.xml"
+
+
+def test_build_network_anchored_mismatch_raises(tmp_path, monkeypatch):
+    """锚定但不匹配（源文件已改）→ RuntimeError。"""
+    import scripts.simulation.network_generator as ng
+
+    d = tmp_path / "scenario_0"
+    d.mkdir()
+    (d / "nodes.nod.xml").write_text("<nodes/>", encoding="utf-8")
+    (d / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
+    (d / "net.json").write_text(
+        _net_meta_with_anchor("0" * 64),
+        encoding="utf-8",  # 锚定值与实际源不符
+    )
+    monkeypatch.setattr(ng.subprocess, "run", lambda *a, **k: None)
+    with pytest.raises(RuntimeError, match="不一致"):
+        ng.build_network(str(d), netconvert_command="netconvert")
+
+
+def test_build_network_unanchored_warns(tmp_path, monkeypatch, capsys):
+    """未锚定 → 显式警告（不修改 net.json）。"""
+    import scripts.simulation.network_generator as ng
+
+    d = tmp_path / "scenario_0"
+    d.mkdir()
+    (d / "nodes.nod.xml").write_text("<nodes/>", encoding="utf-8")
+    (d / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
+    (d / "net.json").write_text('{"scenario": "scenario_0"}', encoding="utf-8")
+    monkeypatch.setattr(ng.subprocess, "run", lambda *a, **k: None)
+    ng.build_network(str(d), netconvert_command="netconvert")
+    assert "未锚定" in capsys.readouterr().out

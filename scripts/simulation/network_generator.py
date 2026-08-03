@@ -109,6 +109,30 @@ def build_network(scenario_dir: str | Path, netconvert_command: str = "netconver
         ],
         check=True,
     )
+    # 审阅 P2-1：源文件变更检测——net.json 若锚定 network_sources_sha256 则强校验；
+    # 未锚定则警告（消除"源文件修改后元数据静默过期"）。不自动重建 net.json
+    # （其包含 bottleneck/detector 等场景专属元数据，需人工核对）。
+    import hashlib
+    import json as _json
+
+    digest = hashlib.sha256()
+    for path in (node_path, edge_path):
+        digest.update(path.read_bytes())
+    sources_sha256 = digest.hexdigest()
+    net_json_path = directory / "net.json"
+    if net_json_path.exists():
+        meta = _json.loads(net_json_path.read_text(encoding="utf-8"))
+        anchored = meta.get("network_sources_sha256")
+        if anchored is None:
+            print(
+                f"[WARN] {net_json_path} 未锚定 network_sources_sha256；"
+                f"源文件若已修改请核对元数据（当前源 SHA {sources_sha256[:12]}...）"
+            )
+        elif anchored != sources_sha256:
+            raise RuntimeError(
+                f"{net_json_path} 锚定的源 SHA {anchored[:12]}... 与当前源 "
+                f"{sources_sha256[:12]}... 不一致——路网元数据可能过期，请核对/更新 net.json"
+            )
     print(f"SUMO 路网已编译: {output_path}")
     return output_path
 

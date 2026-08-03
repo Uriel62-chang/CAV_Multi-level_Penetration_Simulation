@@ -536,6 +536,15 @@ def main():
     )
     args = parser.parse_args()
 
+    # 审阅 P2-2：--safety / --v4-2 / --v4 互斥——不得静默按固定优先级执行
+    modes = [
+        name
+        for name, flag in (("--safety", args.safety), ("--v4-2", args.v4_2), ("--v4", args.v4))
+        if flag
+    ]
+    if len(modes) > 1:
+        parser.error(f"互斥选项：{'、'.join(modes)} 只能同时指定一个（当前传入 {len(modes)} 个）")
+
     if args.outDir is None:
         if args.safety:
             args.outDir = "graph/v0.4.2/safety"  # 审阅 P2-2：safety 归档层级

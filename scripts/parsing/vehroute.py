@@ -104,10 +104,11 @@ def parse_lap_times(
             if lap_end < lap_start:
                 invalid += 1
                 continue
-            # 圈必须在预热期后开始、仿真结束前完成
+            # 圈必须在预热期后开始、仿真结束前完成（审阅 P1-1：恰在 simulation_end
+            # 完成的圈也排除——[warmup, simulation_end) 半开区间）
             if lap_start < warmup_period:
                 continue
-            if lap_end > sim_end_time:
+            if lap_end >= sim_end_time:
                 continue
             all_lap_times.append(lap_end - lap_start)
 
@@ -220,7 +221,8 @@ def parse_lap_times_subgroup(
                 continue
             if lap_start < warmup_period:
                 continue
-            if lap_end > sim_end_time:
+            # 审阅 P1-1：lap_end >= simulation_end 的圈排除（[warmup, end) 半开）
+            if lap_end >= sim_end_time:
                 continue
             lap_time = lap_end - lap_start
             grouped["all"].append(lap_time)

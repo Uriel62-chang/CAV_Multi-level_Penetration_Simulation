@@ -542,7 +542,9 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
     det_all = [str(run_dir / f"detector_lane{lane_idx}.xml") for lane_idx in range(num_lanes)]
     det_HV = [str(run_dir / f"detector_lane{lane_idx}_HV.xml") for lane_idx in range(num_lanes)]
     det_CAV = [str(run_dir / f"detector_lane{lane_idx}_CAV.xml") for lane_idx in range(num_lanes)]
-    detector = parse_detector_subgroup(det_all, det_HV, det_CAV, warmup)
+    detector = parse_detector_subgroup(
+        det_all, det_HV, det_CAV, warmup, simulation_end=spec.simulation_end
+    )
 
     # Edge performance / emissions
     edge_perf = {}
@@ -619,7 +621,9 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
     # Lanechange
     lc_path = run_dir / "lanechange.xml"
     lc = (
-        parse_lanechange_subgroup(str(lc_path), type_map, warmup)
+        parse_lanechange_subgroup(
+            str(lc_path), type_map, warmup, simulation_end=spec.simulation_end
+        )
         if lc_path.exists()
         else {
             "all": {
@@ -654,7 +658,9 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
     stderr_text = (
         stderr_path.read_text(encoding="utf-8", errors="replace") if stderr_path.exists() else ""
     )
-    eb = parse_emergency_braking_subgroup(stderr_text, type_map, warmup)
+    eb = parse_emergency_braking_subgroup(
+        stderr_text, type_map, warmup, simulation_end=spec.simulation_end
+    )
 
     # FCD
     if spec.fcd_profile is not None:

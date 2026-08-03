@@ -1794,3 +1794,91 @@ def test_reanalyze_edge_excludes_late_intervals(tmp_path, monkeypatch):
     corrected = pd.read_csv(out_dir / "run_level_results.csv")
     assert corrected.iloc[0]["total_vehicle_km"] == 1.0  # 仅窗内 interval（3600 区间排除）
     assert corrected.iloc[0]["total_time_loss_s"] == 5.0
+
+
+# ── 审查 P1-1（本轮）：detector/lanechange/stderr/vehroute 时间窗统一 ──
+
+
+def test_detector_simulation_end_filters_late_intervals(tmp_path):
+    from scripts.parsing.detector import parse_detector
+
+    p = tmp_path / "det.xml"
+    p.write_text(
+        '<detector><interval begin="3000" end="3600" id="i1" flow="100.0" speed="10.0"/>'
+        '<interval begin="3600" end="3700" id="i2" flow="100.0" speed="10.0"/>'
+        "</detector>",
+        encoding="utf-8",
+    )
+    r = parse_detector(str(p), warmup_period=600, simulation_end=3600)
+    assert r[4] == 1  # window_count 仅 1（i2 begin>=3600 排除）
+
+
+def test_detector_negative_begin_fails_closed(tmp_path):
+    from scripts.parsing.detector import parse_detector
+
+    p = tmp_path / "det.xml"
+    p.write_text(
+        '<detector><interval begin="-5.0" end="60" id="i1" flow="100.0" speed="10.0"/></detector>',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="negative begin"):
+        parse_detector(str(p), warmup_period=0)
+
+
+def test_lanechange_simulation_end_and_negative_time(tmp_path):
+    from scripts.parsing.lanechange import parse_lanechange
+
+    # time == simulation_end → 排除
+    p = tmp_path / "lc.xml"
+    p.write_text(
+        '<laneChanges><change id="v0" time="3600" type="LC" lane="0" '
+        'leaderGap="10.0" leaderSecureGap="5.0" followerGap="10.0" followerSecureGap="5.0"/>'
+        "</laneChanges>",
+        encoding="utf-8",
+    )
+    r = parse_lanechange(str(p), warmup_period=0, simulation_end=3600)
+    assert r["lane_change_count"] == 0  # 恰在 end 的换道排除
+    # 负 time → invalid
+    p2 = tmp_path / "lc2.xml"
+    p2.write_text(
+        '<laneChanges><change id="v0" time="-5.0" type="LC" lane="0" '
+        'leaderGap="10.0" leaderSecureGap="5.0" followerGap="10.0" followerSecureGap="5.0"/>'
+        "</laneChanges>",
+        encoding="utf-8",
+    )
+    r2 = parse_lanechange(str(p2), warmup_period=0)
+    assert r2["parse_success"] is False
+
+
+def test_emergency_braking_simulation_end_and_flag(tmp_path):
+    from scripts.parsing.stderr import parse_emergency_braking
+
+    text = (
+        "Warning: Vehicle 'veh1' performs emergency braking on lane 'e0_0' "
+        "with decel=9.00, wished=4.50, severity=1.00, time=3599.00.\n"
+        "Warning: Vehicle 'veh2' performs emergency braking on lane 'e0_0' "
+        "with decel=9.00, wished=4.50, severity=1.00, time=3600.00.\n"
+    )
+    r = parse_emergency_braking(text, warmup_period=0, simulation_end=3600)
+    assert r["emergency_braking_count"] == 1  # 仅 3599（3600 排除）
+    assert r["parse_success"] is True
+    assert r["invalid_record_count"] == 0
+    # stderr 缺失 → parse_success=False
+    r_none = parse_emergency_braking(None, warmup_period=0)
+    assert r_none["parse_success"] is False
+    assert r_none["emergency_braking_count"] != r_none["emergency_braking_count"]  # NaN
+
+
+def test_vehroute_lap_end_at_simulation_end_excluded(tmp_path):
+    """lap_end == simulation_end 的圈排除（[warmup, end) 半开）。"""
+    from scripts.parsing.vehroute import parse_lap_times
+
+    p = tmp_path / "vehroute.xml"
+    p.write_text(
+        '<routes><vehicle id="v0" depart="0.00">'
+        '<route edges="e0 e1 e2 e3 e0 e1 e2 e3" exitTimes="100 200 300 400 3600 3600 3600 3600"/>'
+        "</vehicle></routes>",
+        encoding="utf-8",
+    )
+    r = parse_lap_times(str(p), 4, warmup_period=0, sim_end_time=3600)
+    assert r["completed_lap_count"] == 0  # 第 2 圈终点恰为 3600 → 排除

@@ -4,7 +4,9 @@ import math
 import xml.etree.ElementTree as ET
 
 
-def parse_lanechange(xml_path: str, warmup_period: float = 600.0):
+def parse_lanechange(
+    xml_path: str, warmup_period: float = 600.0, simulation_end: float | None = None
+):
     """解析 SUMO lanechange-output XML。
 
     Args:
@@ -47,8 +49,12 @@ def parse_lanechange(xml_path: str, warmup_period: float = 600.0):
         if not math.isfinite(time_val):
             invalid += 1
             continue
-
+        if time_val < 0:
+            invalid += 1
+            continue
         if time_val < warmup_period:
+            continue
+        if simulation_end is not None and time_val >= simulation_end:
             continue
 
         total += 1
@@ -86,6 +92,7 @@ def parse_lanechange_subgroup(
     xml_path: str,
     type_map: dict[str, str],
     warmup_period: float = 600.0,
+    simulation_end: float | None = None,
 ) -> dict:
     counts: dict[str, dict[str, int]] = {
         "all": {"total": 0, "unsafe": 0},
@@ -125,8 +132,12 @@ def parse_lanechange_subgroup(
         if not math.isfinite(time_val):
             invalid += 1
             continue
-
+        if time_val < 0:
+            invalid += 1
+            continue
         if time_val < warmup_period:
+            continue
+        if simulation_end is not None and time_val >= simulation_end:
             continue
 
         counts["all"]["total"] += 1

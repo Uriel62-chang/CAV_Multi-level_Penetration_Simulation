@@ -576,7 +576,9 @@ def parse_run_outputs(
         stderr_text = stderr_path.read_text(encoding="utf-8", errors="replace")
 
     # ── 解析 emergency braking (stderr) ──
-    eb_result = parse_emergency_braking(stderr_text, warmup_period)
+    eb_result = parse_emergency_braking(
+        stderr_text, warmup_period, simulation_end=spec.simulation_end
+    )
 
     # ── 解析检测器 ──
     detector_paths = [
@@ -604,7 +606,7 @@ def parse_run_outputs(
     # ── 解析换道 ──
     lc_path = run_dir / "lanechange.xml"
     lc_result = (
-        parse_lanechange(str(lc_path), warmup_period)
+        parse_lanechange(str(lc_path), warmup_period, simulation_end=spec.simulation_end)
         if lc_path.exists()
         else {
             "lane_change_count": 0,

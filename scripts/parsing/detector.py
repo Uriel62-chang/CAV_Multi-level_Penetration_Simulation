@@ -19,11 +19,15 @@ def _compute_speed_variance(speed_values: list) -> float:
     return variance
 
 
-def parse_detector(xml_path: str, warmup_period: float = 600.0):
+def parse_detector(
+    xml_path: str, warmup_period: float = 600.0, simulation_end: float | None = None
+):
     """解析单个 e1 检测器 XML，返回 (mean_flow, max_flow, mean_speed, speed_variance, window_count)
 
     审阅 P1-2：interval 属性（begin/flow/speed）非数值或非有限 → 抛 ValueError
     （fail-closed，与 SSM/EdgeData 语义一致），不再把 nan 流量当作有效数据。
+    审阅 P1-1（本轮）：观测窗 [warmup, simulation_end)——begin >= simulation_end 的
+    interval 不计入；负 begin 拒绝（损坏记录）。
     """
     import math
 
@@ -48,7 +52,11 @@ def parse_detector(xml_path: str, warmup_period: float = 600.0):
             raise ValueError(f"detector: negative flow in {xml_path} (flow={flow!r})")
         if speed < 0 and not (flow == 0 and speed == -1):
             raise ValueError(f"detector: invalid negative speed in {xml_path} (speed={speed!r})")
+        if begin < 0:
+            raise ValueError(f"detector: negative begin in {xml_path} (begin={begin!r})")
         if begin < warmup_period:
+            continue
+        if simulation_end is not None and begin >= simulation_end:
             continue
         flow_values.append(flow)
         if flow > 0:
@@ -64,11 +72,14 @@ def parse_detector(xml_path: str, warmup_period: float = 600.0):
     return mean_flow, max_flow, mean_speed, speed_variance, len(speed_values)
 
 
-def parse_detector_multi(xml_paths: list, warmup_period: float = 600.0):
+def parse_detector_multi(
+    xml_paths: list, warmup_period: float = 600.0, simulation_end: float | None = None
+):
     """解析多个车道 e1 检测器 XML，按时间窗口聚合流量与速度
 
     同 interval 的 flow 跨车道求和、speed 取加权平均（以 flow 为权重）。
     返回 (mean_flow, max_flow, mean_speed, speed_variance, window_count)。
+    审阅 P1-1：观测窗 [warmup, simulation_end)。
     """
     if len(xml_paths) == 1:
         return parse_detector(xml_paths[0], warmup_period)
@@ -96,7 +107,11 @@ def parse_detector_multi(xml_paths: list, warmup_period: float = 600.0):
                 raise ValueError(f"detector: negative flow in {path} (flow={flow!r})")
             if speed < 0 and not (flow == 0 and speed == -1):
                 raise ValueError(f"detector: invalid negative speed in {path} (speed={speed!r})")
+            if begin < 0:
+                raise ValueError(f"detector: negative begin in {path} (begin={begin!r})")
             if begin < warmup_period:
+                continue
+            if simulation_end is not None and begin >= simulation_end:
                 continue
             if begin not in lane_data:
                 lane_data[begin] = {"flow": 0.0, "weighted_speed": 0.0}
@@ -125,6 +140,7 @@ def parse_detector_subgroup(
     xml_paths_HV,
     xml_paths_CAV,
     warmup_period=600.0,
+    simulation_end: float | None = None,
 ):
     result = {}
     for label, paths in [
@@ -134,9 +150,13 @@ def parse_detector_subgroup(
     ]:
         try:
             if len(paths) > 1:
-                mf, xf, ms, sv, wc = parse_detector_multi(list(paths), warmup_period)
+                mf, xf, ms, sv, wc = parse_detector_multi(
+                    list(paths), warmup_period, simulation_end=simulation_end
+                )
             else:
-                mf, xf, ms, sv, wc = parse_detector(list(paths)[0], warmup_period)
+                mf, xf, ms, sv, wc = parse_detector(
+                    list(paths)[0], warmup_period, simulation_end=simulation_end
+                )
             result[label] = {
                 "mean_flow_veh_h": mf,
                 "max_flow_veh_h": xf,

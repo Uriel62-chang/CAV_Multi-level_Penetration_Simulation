@@ -1742,3 +1742,55 @@ def test_sensitivity_missing_time_defaults_to_begin(tmp_path):
     )
     assert ttc_cnt == 1  # 缺失 time 按 begin=100（warmup 内）保留
     assert min_ttc == 1.0
+
+
+def test_reanalyze_edge_excludes_late_intervals(tmp_path, monkeypatch):
+    """审阅 P1-1（复核补充）：reanalyze 的 edge performance 排除 begin >= simulation_end
+    区间（实际 parser 行为，非仅源码锚定）。"""
+    import pandas as pd
+
+    import scripts.results.reanalyze_post3 as rp
+    from scripts.schema import RUN_LEVEL_COLUMNS
+
+    raw = tmp_path / "raw"
+    rd = raw / "r1"
+    rd.mkdir(parents=True)
+    # performance：interval 3000-3600（窗内）+ 3600-3700（窗外，必须被排除）
+    (rd / "performance.xml").write_text(
+        '<meandata><interval begin="3000" end="3600" id="i1">'
+        '<edge id="e1" speed="10.0" sampledSeconds="100.0" timeLoss="5.0"/>'
+        "</interval>"
+        '<interval begin="3600" end="3700" id="i2">'
+        '<edge id="e1" speed="10.0" sampledSeconds="100.0" timeLoss="5.0"/>'
+        "</interval></meandata>",
+        encoding="utf-8",
+    )
+    (rd / "emissions.xml").write_text(
+        '<meandata><interval begin="3000" end="3600" id="i1">'
+        '<edge id="e1" sampledSeconds="100.0" CO2_abs="1000" NOx_abs="2.0" PMx_abs="0.1" fuel_abs="500.0"/>'
+        "</interval></meandata>",
+        encoding="utf-8",
+    )
+    (rd / "ssm.xml").write_text("<SSMLog/>", encoding="utf-8")
+    row = {
+        "run_id": "r1",
+        "scenario": "scenario_0",
+        "model": "IDM",
+        "warmup_period_s": 600.0,
+        "simulation_end_s": 3600.0,
+        "pCAV": 0.5,
+        "vehN": 10,
+        "seed": 1,
+    }
+    for col in RUN_LEVEL_COLUMNS:
+        row.setdefault(col, 0.0)
+    src_csv = tmp_path / "legacy.csv"
+    pd.DataFrame([row]).to_csv(src_csv, index=False)
+    monkeypatch.setattr(rp, "aggregate", lambda *a, **k: None)  # 跳过聚合
+    monkeypatch.setattr(rp, "_write_raw_inventory", lambda *a, **k: {"paths": 0})
+    monkeypatch.setattr(rp, "_sha256", lambda *a, **k: "0" * 64)  # 跳过产物哈希读取
+    out_dir = tmp_path / "out"
+    rp.reanalyze(raw, src_csv, out_dir)
+    corrected = pd.read_csv(out_dir / "run_level_results.csv")
+    assert corrected.iloc[0]["total_vehicle_km"] == 1.0  # 仅窗内 interval（3600 区间排除）
+    assert corrected.iloc[0]["total_time_loss_s"] == 5.0

@@ -41,7 +41,7 @@ def build_run_id(
 ) -> str:
     """确定性 run_id 生成。
 
-    cav_count 为 None → 旧格式（v0.4.0 兼容）：
+    cav_count 为 None（旧式构造，从 pcav 推导）→ 旧格式：
       ``s2_CACC_p050_v120_seed1``
 
     cav_count 不为 None → 新格式（v0.4.1）：
@@ -52,7 +52,7 @@ def build_run_id(
 
     if cav_count is None:
         if model is None or pcav is None or vehicle_count is None or seed is None:
-            raise ValueError("legacy build_run_id requires model, pcav, vehicle_count, seed")
+            raise ValueError("cav_count=None 的 build_run_id 需要 model, pcav, vehicle_count, seed")
         pcav_code = encode_pcav(pcav)
         return f"{short_scenario}_{model}_p{pcav_code:03d}_v{vehicle_count:03d}_seed{seed}"
 
@@ -79,8 +79,8 @@ def _optional_float(data: dict, key: str) -> float | None:
     return float(value) if value is not None else None
 
 
-# v0.4.0.post1 to_dict 字段集合（保持稳定以保证哈希兼容）
-_LEGACY_TO_DICT_KEYS = {
+# run_spec to_dict 基础字段集合（v0.4.1/v0.4.2 共用，from_dict 必填键基）
+_BASE_TO_DICT_KEYS = {
     "run_id",
     "scenario",
     "model",
@@ -404,7 +404,7 @@ class RunSpec:
 
     @classmethod
     def _from_dict_v4_1(cls, data: dict) -> RunSpec:
-        required = _LEGACY_TO_DICT_KEYS | _V4_1_EXTRA_KEYS
+        required = _BASE_TO_DICT_KEYS | _V4_1_EXTRA_KEYS
         missing = sorted(required - data.keys())
         if missing:
             raise ValueError(f"v0.4.1 run_spec.json missing fields: {', '.join(missing)}")
@@ -454,7 +454,7 @@ class RunSpec:
         P2（reviewer 复核）：v0.4.2 专属键（experiment_role/ssm_enabled/
         analysis_*）纳入必填——缺失报错而非静默默认 main_factorial。
         """
-        required = _LEGACY_TO_DICT_KEYS | _V4_1_EXTRA_KEYS | _V4_2_EXTRA_KEYS
+        required = _BASE_TO_DICT_KEYS | _V4_1_EXTRA_KEYS | _V4_2_EXTRA_KEYS
         missing = sorted(required - data.keys())
         if missing:
             raise ValueError(f"v0.4.2 run_spec.json missing fields: {', '.join(missing)}")

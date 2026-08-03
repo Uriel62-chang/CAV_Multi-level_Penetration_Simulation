@@ -234,7 +234,7 @@ def test_ttc_metric_column_prefers_paired(tmp_path):
     assert _ttc_metric_column(df) == "ttc_per_k_mean"
 
 
-def test_ttc_metric_column_rejects_legacy_mismatched(tmp_path):
+def test_ttc_metric_column_rejects_mismatched(tmp_path):
     """纯净分支：仅 legacy 错配列（post3 口径）时 fail-closed——head 一律用
     空间配对列，不回退错误口径（历史 post3 CSV 展示走 v0.4.0.post3 tag）。"""
     import pytest

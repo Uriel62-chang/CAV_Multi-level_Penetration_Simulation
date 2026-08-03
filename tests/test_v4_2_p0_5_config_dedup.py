@@ -139,7 +139,7 @@ def test_sorted_greedy_matches_sensitivity_impl(tmp_path):
     assert sens[1] == s["drac_conflict_event_count"]  # drac events
 
 
-def test_greedy_still_matches_legacy_behavior(tmp_path):
+def test_greedy_matches_baseline_behavior(tmp_path):
     """greedy_one_to_one_80pct 主路径行为不因 P0-5 改动而改变（回归）。"""
     path = tmp_path / "ssm.xml"
     _write_ssm(

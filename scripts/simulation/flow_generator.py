@@ -190,7 +190,7 @@ def generate_flow(
     多车道场景（scenario_2）自动注入 LC2013 换道参数和 departLane 属性。
 
     CAV 数量（P0-2）：`cav_count` 为唯一权威来源；为 None 时由
-    `round(vehicle_count * cav_ratio)` 推导（legacy 兼容，供 v0.4.0/v0.4.1 路径）。
+    `round(vehicle_count * cav_ratio)` 推导（旧式构造，供 v0.4.1 路径）。
 
     Returns:
         dict[str, str]: ``{vehicle_id: vehicle_type}`` 映射，键如 ``"veh0"``，值 ``"CAV"`` 或 ``"HV"``。

@@ -61,7 +61,7 @@ def test_v4_2_header_matches_frozen_fixture():
     assert digest == "f2069d136fcfaada28c5809501aaf2c309340284bd662cc55a4fed98daffc4a0"
 
 
-def test_status_columns_do_not_leak_to_legacy_sets():
+def test_status_columns_do_not_leak_to_other_sets():
     for col in STATUS_COLUMNS_V4_2:
         assert col not in RUN_LEVEL_COLUMNS_V4_1
         assert col not in SAFETY_SSM_COLUMNS_V4_1

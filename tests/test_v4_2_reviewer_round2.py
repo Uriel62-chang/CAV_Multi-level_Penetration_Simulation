@@ -137,7 +137,7 @@ def test_aggregate_includes_v4_2_emission_columns(tmp_path):
 # ── P1-3：Safety 入口对 legacy 错配列 fail-closed ──
 
 
-def test_safety_metric_column_rejects_legacy_mismatched():
+def test_safety_metric_column_rejects_mismatched():
     df = pd.DataFrame({"whole_network_ttc_events_per_1000_non_internal_edge_veh_km_mean": [1.0]})
     with pytest.raises(ValueError, match="space-matched"):
         _paired_ttc_metric_column(df)

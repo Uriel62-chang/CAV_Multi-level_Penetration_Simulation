@@ -2563,7 +2563,7 @@ def test_invariants_skip_ssm_ledger_when_parse_failed():
 # ── 本轮审查 P2-1：legacy 空间错配列不再导出 v0.4.2 ──
 
 
-def test_v4_2_core_summary_excludes_legacy_mismatched_ttc_column():
+def test_v4_2_core_summary_excludes_mismatched_ttc_column():
     """P2-1：v0.4.2 core summary 不含 legacy 空间错配列
     whole_network_ttc_events_per_1000_non_internal_edge_veh_km（全路网 TTC /
     non-internal veh-km），避免正式工件残留错误口径列。"""
@@ -2591,7 +2591,7 @@ def test_v4_2_core_summary_excludes_legacy_mismatched_ttc_column():
     assert legacy_col in core_legacy
 
 
-def test_v4_2_column_set_excludes_legacy_mismatched_ttc():
+def test_v4_2_column_set_excludes_mismatched_ttc():
     """P2-1：RUN_LEVEL_COLUMNS_V4_2 不含 legacy 空间错配列（aggregate 不再
     输出其 _mean）；v0.4.1 列集保持（v0.4.0~post3 schema=1 已移除）。"""
     from scripts.schema import RUN_LEVEL_COLUMNS_V4_1, RUN_LEVEL_COLUMNS_V4_2

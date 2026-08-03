@@ -54,14 +54,5 @@ SSM_DRAC_THRESHOLD_MPS2 = 3.0  # DRAC 冲突阈值 (m/s²)
 # emissionClass 使用 SUMO 默认值 "HBEFA3/PC_G_EU4"（vType 未显式设置时），
 # HV 与 CAV 使用同一排放等级，仅比较跟驰控制逻辑造成的排放差异。
 
-# ── v0.4.0 自由流基准 ──
-# 各场景 vehN=1 speedDev=0 稳定圈时间中位数
-FREE_FLOW_LAP_TIME_S = {
-    "scenario_0": 98.8,
-    "scenario_1": 60.3,
-    "scenario_2": 60.6,
-    "scenario_3": 60.6,
-}
-
-# ── v0.4.0 edgeData 配置 ──
+# ── edgeData 配置 ──
 DEFAULT_EDGEDATA_FREQ = 300  # edgeData 聚合周期 (s)；仅影响文件大小，不改变总量

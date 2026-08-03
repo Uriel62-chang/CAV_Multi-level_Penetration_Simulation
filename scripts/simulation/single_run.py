@@ -13,7 +13,6 @@ from scripts.config import (
     DEFAULT_SIM_END,
     DEFAULT_STEP_LENGTH,
     DEFAULT_WARMUP,
-    FREE_FLOW_LAP_TIME_S,
     SSM_DRAC_THRESHOLD_MPS2,
     SSM_TTC_THRESHOLD_S,
 )
@@ -548,31 +547,34 @@ def _per_1000_veh_km(value, total_veh_km):
     return value / total_veh_km * 1000.0
 
 
-# P2（本轮审查）：自由流参考优先读取 artifact（与 runner._load_free_flow_references
-# 口径一致——HV 参考）；FREE_FLOW_LAP_TIME_S 为 v0.4.0 历史常量（如 scenario_0 的
-# 98.8 实为 CAV_IDM 自由流参考，与 artifact HV 111.8 不符），仅作 artifact 缺失回退。
+# 自由流参考读取 artifact（与 runner._load_free_flow_references 口径一致——HV 参考）。
+# v0.4.0 历史常量 FREE_FLOW_LAP_TIME_S 已移除（其 scenario_0 值 98.8 实为 CAV_IDM
+# 参考、与 artifact HV 111.8 不符——纯净分支不再保留错误口径回退）。
 _DEFAULT_FREE_FLOW_ARTIFACT = "artifacts/free_flow/v0.4.1-pilot-ff-1/free_flow_references.json"
 
 
 def _load_free_flow_hv_ref(net_meta: dict, net_scenario: str) -> float:
-    """读取 free-flow artifact 的 HV lap_time_s；失败回退历史常量。"""
+    """读取 free-flow artifact 的 HV lap_time_s；缺失/损坏 fail-closed（抛 ValueError）。"""
     artifact_rel = net_meta.get("free_flow_reference_path")
     artifact_path = Path(artifact_rel) if artifact_rel else Path(_DEFAULT_FREE_FLOW_ARTIFACT)
     try:
-        if artifact_path.exists():
-            data = json.loads(artifact_path.read_text(encoding="utf-8"))
-            ref = (
-                data.get("results", {})
-                .get(net_scenario, {})
-                .get("references", {})
-                .get("HV", {})
-                .get("lap_time_s")
+        if not artifact_path.exists():
+            raise ValueError(f"free-flow artifact not found: {artifact_path}")
+        data = json.loads(artifact_path.read_text(encoding="utf-8"))
+        ref = (
+            data.get("results", {})
+            .get(net_scenario, {})
+            .get("references", {})
+            .get("HV", {})
+            .get("lap_time_s")
+        )
+        if ref is None or not math.isfinite(float(ref)):
+            raise ValueError(
+                f"free-flow artifact missing finite HV reference for {net_scenario}: {artifact_path}"
             )
-            if ref is not None and math.isfinite(float(ref)):
-                return float(ref)
-    except (OSError, ValueError, TypeError):
-        pass
-    return FREE_FLOW_LAP_TIME_S.get(net_scenario, float("nan"))
+        return float(ref)
+    except (OSError, ValueError, TypeError) as exc:
+        raise ValueError(f"free-flow artifact unreadable: {artifact_path}: {exc}") from exc
 
 
 def parse_run_outputs(
@@ -669,8 +671,7 @@ def parse_run_outputs(
     tl_per = _safe_div(ep_result["total_time_loss_s"], total_veh_km)
 
     # ── 延误 ──
-    # P2（本轮审查）：自由流参考优先 artifact HV（与阶段二 runner 一致），
-    # 历史常量 FREE_FLOW_LAP_TIME_S 仅作回退
+    # 自由流参考读取 artifact HV（与阶段二 runner 一致）；缺失/损坏 fail-closed
     free_flow = _load_free_flow_hv_ref(net_meta, net_scenario)
     ml = vr_result["mean_lap_time_s"]
     p95 = vr_result["p95_lap_time_s"]

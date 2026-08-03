@@ -939,20 +939,6 @@ def test_run_spec_strict_bool_from_dict():
         RunSpec.from_dict(data)
 
 
-# ── 审查 P1-2：legacy post3 重分析传 simulation_end ──
-
-
-def test_reanalyze_passes_simulation_end_to_parse_ssm():
-    """审阅 P1-2：reanalyze_post3 的 parse_ssm 调用必须携带 simulation_end
-    （SSM 观测窗 [warmup, simulation_end)，防止 3600s 后极值混入）。"""
-    import inspect
-
-    from scripts.results import reanalyze_post3
-
-    src = inspect.getsource(reanalyze_post3.reanalyze)
-    assert 'simulation_end=float(row["simulation_end_s"])' in src
-
-
 # ── 审查 P1/P2 复审残留：敏感性完整性 + _dedup_none canonical 对齐 ──
 
 
@@ -1709,20 +1695,6 @@ def test_generate_polygon_loop_writes_sources_anchor(tmp_path):
     assert len(content) == 64
 
 
-# ── 审查 P1-1（本轮）：post3 重分析 edgeData 传 simulation_end ──
-
-
-def test_reanalyze_edge_parsers_pass_simulation_end():
-    """post3 重分析 edge performance/emissions 调用必须携带 simulation_end。"""
-    import inspect
-
-    from scripts.results import reanalyze_post3
-
-    src = inspect.getsource(reanalyze_post3.reanalyze)
-    assert 'simulation_end=float(row["simulation_end_s"])' in src
-    assert src.count('simulation_end=float(row["simulation_end_s"])') >= 3  # ssm + perf + emis
-
-
 # ── 审查 P1-2（本轮）：sensitivity 缺失 time 默认 begin（与主解析一致）──
 
 
@@ -1742,58 +1714,6 @@ def test_sensitivity_missing_time_defaults_to_begin(tmp_path):
     )
     assert ttc_cnt == 1  # 缺失 time 按 begin=100（warmup 内）保留
     assert min_ttc == 1.0
-
-
-def test_reanalyze_edge_excludes_late_intervals(tmp_path, monkeypatch):
-    """审阅 P1-1（复核补充）：reanalyze 的 edge performance 排除 begin >= simulation_end
-    区间（实际 parser 行为，非仅源码锚定）。"""
-    import pandas as pd
-
-    import scripts.results.reanalyze_post3 as rp
-    from scripts.schema import RUN_LEVEL_COLUMNS
-
-    raw = tmp_path / "raw"
-    rd = raw / "r1"
-    rd.mkdir(parents=True)
-    # performance：interval 3000-3600（窗内）+ 3600-3700（窗外，必须被排除）
-    (rd / "performance.xml").write_text(
-        '<meandata><interval begin="3000" end="3600" id="i1">'
-        '<edge id="e1" speed="10.0" sampledSeconds="100.0" timeLoss="5.0"/>'
-        "</interval>"
-        '<interval begin="3600" end="3700" id="i2">'
-        '<edge id="e1" speed="10.0" sampledSeconds="100.0" timeLoss="5.0"/>'
-        "</interval></meandata>",
-        encoding="utf-8",
-    )
-    (rd / "emissions.xml").write_text(
-        '<meandata><interval begin="3000" end="3600" id="i1">'
-        '<edge id="e1" sampledSeconds="100.0" CO2_abs="1000" NOx_abs="2.0" PMx_abs="0.1" fuel_abs="500.0"/>'
-        "</interval></meandata>",
-        encoding="utf-8",
-    )
-    (rd / "ssm.xml").write_text("<SSMLog/>", encoding="utf-8")
-    row = {
-        "run_id": "r1",
-        "scenario": "scenario_0",
-        "model": "IDM",
-        "warmup_period_s": 600.0,
-        "simulation_end_s": 3600.0,
-        "pCAV": 0.5,
-        "vehN": 10,
-        "seed": 1,
-    }
-    for col in RUN_LEVEL_COLUMNS:
-        row.setdefault(col, 0.0)
-    src_csv = tmp_path / "legacy.csv"
-    pd.DataFrame([row]).to_csv(src_csv, index=False)
-    monkeypatch.setattr(rp, "aggregate", lambda *a, **k: None)  # 跳过聚合
-    monkeypatch.setattr(rp, "_write_raw_inventory", lambda *a, **k: {"paths": 0})
-    monkeypatch.setattr(rp, "_sha256", lambda *a, **k: "0" * 64)  # 跳过产物哈希读取
-    out_dir = tmp_path / "out"
-    rp.reanalyze(raw, src_csv, out_dir)
-    corrected = pd.read_csv(out_dir / "run_level_results.csv")
-    assert corrected.iloc[0]["total_vehicle_km"] == 1.0  # 仅窗内 interval（3600 区间排除）
-    assert corrected.iloc[0]["total_time_loss_s"] == 5.0
 
 
 # ── 审查 P1-1（本轮）：detector/lanechange/stderr/vehroute 时间窗统一 ──
@@ -2347,9 +2267,8 @@ def test_v4_1_command_always_explicit_extratime():
 
 
 def test_load_free_flow_hv_ref_artifact_priority(tmp_path, monkeypatch):
-    """P2：legacy 自由流参考优先 artifact 的 HV 值（与阶段二 runner 口径一致），
-    artifact 缺失/损坏时回退历史常量 FREE_FLOW_LAP_TIME_S。"""
-    from scripts.config import FREE_FLOW_LAP_TIME_S
+    """P2：legacy 自由流参考读取 artifact 的 HV 值（与阶段二 runner 口径一致）；
+    artifact 缺失/损坏 fail-closed（抛 ValueError）——不再回退已移除的历史常量。"""
     from scripts.simulation import single_run
     from scripts.simulation.single_run import _load_free_flow_hv_ref
 
@@ -2370,18 +2289,17 @@ def test_load_free_flow_hv_ref_artifact_priority(tmp_path, monkeypatch):
         _load_free_flow_hv_ref({"free_flow_reference_path": str(artifact)}, "scenario_0") == 111.8
     )
     # net_meta 无 free_flow_reference_path → 回退默认 artifact 路径（仓库真实
-    # artifact HV≈111.8，不再使用陈旧常量 98.8——即修复目标）
+    # artifact HV≈111.8）
     assert _load_free_flow_hv_ref({}, "scenario_0") == pytest.approx(111.8)
-    # artifact 完全缺失 → 回退历史常量
+    # artifact 完全缺失 → fail-closed（抛 ValueError）
     monkeypatch.setattr(single_run, "_DEFAULT_FREE_FLOW_ARTIFACT", str(tmp_path / "missing.json"))
-    assert _load_free_flow_hv_ref({}, "scenario_0") == FREE_FLOW_LAP_TIME_S["scenario_0"]
-    # 显式路径损坏 → 回退历史常量
+    with pytest.raises(ValueError, match="not found"):
+        _load_free_flow_hv_ref({}, "scenario_0")
+    # 显式路径损坏 → fail-closed
     broken = tmp_path / "broken.json"
     broken.write_text("not json", encoding="utf-8")
-    assert (
+    with pytest.raises(ValueError, match="unreadable"):
         _load_free_flow_hv_ref({"free_flow_reference_path": str(broken)}, "scenario_0")
-        == FREE_FLOW_LAP_TIME_S["scenario_0"]
-    )
 
 
 # ── 本轮审查 P2：experiment_audit 支持 cav_count 模式 ──

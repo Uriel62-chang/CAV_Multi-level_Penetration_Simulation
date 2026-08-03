@@ -33,10 +33,9 @@ def parse_detector(
 
     root = ET.parse(xml_path).getroot()
     flow_values, speed_values = [], []
-    interval_count = 0
+    window_interval_count = 0
 
     for interval in root.findall("interval"):
-        interval_count += 1
         try:
             begin = float(interval.get("begin", "0"))
             flow = float(interval.get("flow", "0"))
@@ -60,13 +59,18 @@ def parse_detector(
             continue
         if simulation_end is not None and begin >= simulation_end:
             continue
+        # 审阅 P1-3：仅在分析窗口 [warmup, simulation_end) 内的 interval 计数
+        window_interval_count += 1
         flow_values.append(flow)
         if flow > 0:
             speed_values.append(speed)
 
-    # 审阅 P1-1：空/截断 XML（无观测 interval）→ 抛错（fail-closed，不得制造零流量结果）
-    if interval_count == 0:
-        raise ValueError(f"detector: no observation interval in {xml_path}")
+    # 审阅 P1-1/P1-3：分析窗口内无观测 interval（空/截断/仅窗外 interval）→ 抛错
+    # （fail-closed，不得把"无窗内观测数据"的损坏 run 混入容量统计）
+    if window_interval_count == 0:
+        raise ValueError(
+            f"detector: no interval in window [{warmup_period}, {simulation_end}) in {xml_path}"
+        )
 
     if len(flow_values) == 0:
         return 0.0, 0.0, 0.0, float("nan"), 0
@@ -95,11 +99,10 @@ def parse_detector_multi(
     import math
 
     lane_data = {}
-    total_intervals = 0
+    window_intervals = 0
     for path in xml_paths:
         root = ET.parse(path).getroot()
         for interval in root.findall("interval"):
-            total_intervals += 1
             # 审阅 P1-2（multi）：非数值/非有限 → 抛 ValueError（fail-closed，与单车道一致）
             try:
                 begin = float(interval.get("begin", "0"))
@@ -122,14 +125,17 @@ def parse_detector_multi(
                 continue
             if simulation_end is not None and begin >= simulation_end:
                 continue
+            window_intervals += 1
             if begin not in lane_data:
                 lane_data[begin] = {"flow": 0.0, "weighted_speed": 0.0}
             lane_data[begin]["flow"] += flow
             lane_data[begin]["weighted_speed"] += flow * speed
 
-    # 审阅 P1-1：空/截断 XML（无观测 interval）→ 抛错
-    if total_intervals == 0:
-        raise ValueError(f"detector: no observation interval in {xml_paths}")
+    # 审阅 P1-1/P1-3：窗口内无观测 interval → 抛错
+    if window_intervals == 0:
+        raise ValueError(
+            f"detector: no interval in window [{warmup_period}, {simulation_end}) in {xml_paths}"
+        )
 
     if not lane_data:
         return 0.0, 0.0, 0.0, float("nan"), 0

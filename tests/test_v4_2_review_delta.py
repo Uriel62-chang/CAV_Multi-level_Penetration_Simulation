@@ -1888,7 +1888,7 @@ def test_vehroute_lap_end_at_simulation_end_excluded(tmp_path):
 
 
 def test_detector_multi_single_file_passes_simulation_end(tmp_path):
-    """单文件分支同样应用 simulation_end（公共 API 契约完整）。"""
+    """单文件分支同样应用 simulation_end：仅窗外 interval → fail-closed（P1-3 语义）。"""
     from scripts.parsing.detector import parse_detector_multi
 
     p = tmp_path / "det.xml"
@@ -1897,8 +1897,8 @@ def test_detector_multi_single_file_passes_simulation_end(tmp_path):
         "</detector>",
         encoding="utf-8",
     )
-    r = parse_detector_multi([str(p)], warmup_period=0, simulation_end=3600)
-    assert r[4] == 0  # window_count=0（begin>=3600 排除）
+    with pytest.raises(ValueError, match="no interval in window"):
+        parse_detector_multi([str(p)], warmup_period=0, simulation_end=3600)
 
 
 def test_writer_eb_parse_success_gate():
@@ -2000,4 +2000,17 @@ def test_ssm_negative_drac_fails_closed(tmp_path):
         encoding="utf-8",
     )
     r = parse_ssm_subgroup(str(p), {"v1": "CAV", "v2": "HV"}, warmup_period=0)
+    assert r["all"]["parse_success"] is False
+
+
+def test_detector_only_outside_window_intervals_fails_closed(tmp_path):
+    """审阅 P1-3：仅窗外 interval（begin < warmup）→ parse_success=False。"""
+    from scripts.parsing.detector import parse_detector_subgroup
+
+    p = tmp_path / "det.xml"
+    p.write_text(
+        '<detector><interval begin="0" end="60" flow="0" speed="-1"/></detector>',
+        encoding="utf-8",
+    )
+    r = parse_detector_subgroup([str(p)], [str(p)], [str(p)], warmup_period=600)
     assert r["all"]["parse_success"] is False

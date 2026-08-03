@@ -1358,8 +1358,8 @@ def test_build_network_anchored_mismatch_raises(tmp_path, monkeypatch):
         ng.build_network(str(d), netconvert_command="netconvert")
 
 
-def test_build_network_unanchored_warns(tmp_path, monkeypatch, capsys):
-    """未锚定 → 显式警告（不修改 net.json）。"""
+def test_build_network_unanchored_fails(tmp_path, monkeypatch):
+    """审阅 P1-1：未锚定 network_sources_sha256 → 强制失败（不得警告后继续编译）。"""
     import scripts.simulation.network_generator as ng
 
     d = tmp_path / "scenario_0"
@@ -1368,8 +1368,8 @@ def test_build_network_unanchored_warns(tmp_path, monkeypatch, capsys):
     (d / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
     (d / "net.json").write_text('{"scenario": "scenario_0"}', encoding="utf-8")
     monkeypatch.setattr(ng.subprocess, "run", lambda *a, **k: None)
-    ng.build_network(str(d), netconvert_command="netconvert")
-    assert "未锚定" in capsys.readouterr().out
+    with pytest.raises(RuntimeError, match="未锚定"):
+        ng.build_network(str(d), netconvert_command="netconvert")
 
 
 # ── 审查 P1-1：FCD 非法时间戳 fail-closed ──

@@ -124,11 +124,12 @@ def build_network(scenario_dir: str | Path, netconvert_command: str = "netconver
         meta = _json.loads(net_json_path.read_text(encoding="utf-8"))
         anchored = meta.get("network_sources_sha256")
         if anchored is None:
-            print(
-                f"[WARN] {net_json_path} 未锚定 network_sources_sha256；"
-                f"源文件若已修改请核对元数据（当前源 SHA {sources_sha256[:12]}...）"
+            # 审阅 P1-1：缺少源文件哈希为强制门禁——直接失败，不得"新路网 XML + 旧元数据"
+            raise RuntimeError(
+                f"{net_json_path} 未锚定 network_sources_sha256——路网元数据一致性无法验证；"
+                f"请将当前源 SHA {sources_sha256[:12]}... 写入 net.json 后重试"
             )
-        elif anchored != sources_sha256:
+        if anchored != sources_sha256:
             raise RuntimeError(
                 f"{net_json_path} 锚定的源 SHA {anchored[:12]}... 与当前源 "
                 f"{sources_sha256[:12]}... 不一致——路网元数据可能过期，请核对/更新 net.json"

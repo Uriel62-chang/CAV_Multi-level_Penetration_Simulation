@@ -615,8 +615,12 @@ def parse_run_outputs(
     )
 
     # ── 解析 edge performance / emissions ──
-    ep_result = parse_edge_performance(str(run_dir / "performance.xml"), warmup_period)
-    ee_result = parse_edge_emissions(str(run_dir / "emissions.xml"), warmup_period)
+    ep_result = parse_edge_performance(
+        str(run_dir / "performance.xml"), warmup_period, simulation_end=spec.simulation_end
+    )
+    ee_result = parse_edge_emissions(
+        str(run_dir / "emissions.xml"), warmup_period, simulation_end=spec.simulation_end
+    )
 
     # ── 解析 vehroute ──
     vr_result = parse_lap_times(

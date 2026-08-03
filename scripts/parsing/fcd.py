@@ -14,6 +14,7 @@ def parse_fcd(
     fcd_path: str,
     type_map: dict[str, str],
     warmup_period: float = 600.0,
+    simulation_end: float | None = None,
     thw_min_speed_mps: float = 0.1,
 ) -> dict:
 
@@ -64,6 +65,9 @@ def parse_fcd(
                 if time < warmup_period:
                     elem.clear()
                     continue
+                if simulation_end is not None and time >= simulation_end:
+                    elem.clear()
+                    continue
 
                 for veh in elem.findall("vehicle"):
                     vid = veh.get("id", "")
@@ -84,12 +88,11 @@ def parse_fcd(
                     try:
                         speed = float(veh.get("speed", ""))
                     except (ValueError, TypeError):
-                        result["all"]["low_speed_excluded_count"] += 1
-                        result[vt]["low_speed_excluded_count"] += 1
+                        # 审阅 P2-1：非数值 speed 是语义损坏 → invalid（不得伪装成低速排除）
+                        invalid += 1
                         continue
                     if not math.isfinite(speed):
-                        result["all"]["low_speed_excluded_count"] += 1
-                        result[vt]["low_speed_excluded_count"] += 1
+                        invalid += 1
                         continue
 
                     gap_str = veh.get("leaderGap", "")

@@ -42,6 +42,12 @@ def parse_detector(xml_path: str, warmup_period: float = 600.0):
                 f"detector: non-finite interval attribute in {xml_path} "
                 f"(begin={begin!r}, flow={flow!r}, speed={speed!r})"
             )
+        # 审阅 P2-2：数值域校验——负流量/负均速拒绝；仅允许 SUMO 空窗口
+        # "flow=0 且 speed=-1" 的占位形态
+        if flow < 0:
+            raise ValueError(f"detector: negative flow in {xml_path} (flow={flow!r})")
+        if speed < 0 and not (flow == 0 and speed == -1):
+            raise ValueError(f"detector: invalid negative speed in {xml_path} (speed={speed!r})")
         if begin < warmup_period:
             continue
         flow_values.append(flow)
@@ -86,6 +92,10 @@ def parse_detector_multi(xml_paths: list, warmup_period: float = 600.0):
                     f"detector: non-finite interval attribute in {path} "
                     f"(begin={begin!r}, flow={flow!r}, speed={speed!r})"
                 )
+            if flow < 0:
+                raise ValueError(f"detector: negative flow in {path} (flow={flow!r})")
+            if speed < 0 and not (flow == 0 and speed == -1):
+                raise ValueError(f"detector: invalid negative speed in {path} (speed={speed!r})")
             if begin < warmup_period:
                 continue
             if begin not in lane_data:

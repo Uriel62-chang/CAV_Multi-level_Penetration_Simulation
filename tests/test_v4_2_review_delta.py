@@ -1553,3 +1553,106 @@ def test_build_network_unanchored_fails(tmp_path, monkeypatch):
     monkeypatch.setattr(ng.subprocess, "run", lambda *a, **k: None)
     with pytest.raises(RuntimeError, match="缺失"):
         ng.build_network(str(d), netconvert_command="netconvert")
+
+
+# ── 审查 P1-1（本轮）：解析器 [warmup, simulation_end) 时间窗 ──
+
+
+def test_edge_perf_simulation_end_filters_late_intervals(tmp_path):
+    from scripts.parsing.edge_performance import parse_edge_performance
+
+    p = tmp_path / "perf.xml"
+    p.write_text(
+        '<meandata><interval begin="3000" end="3600" id="i1">'
+        '<edge id="e1" speed="10.0" sampledSeconds="100.0" timeLoss="5.0"/>'
+        "</interval>"
+        '<interval begin="3600" end="3700" id="i2">'
+        '<edge id="e1" speed="10.0" sampledSeconds="100.0" timeLoss="5.0"/>'
+        "</interval></meandata>",
+        encoding="utf-8",
+    )
+    r = parse_edge_performance(str(p), warmup_period=600, simulation_end=3600)
+    assert r["total_vehicle_km"] == 1.0  # 仅 i1（i2 begin>=3600 被排除）
+    r2 = parse_edge_performance(str(p), warmup_period=600)  # 无上界：两条都计入
+    assert r2["total_vehicle_km"] == 2.0
+
+
+def test_edge_emis_simulation_end_filters_late_intervals(tmp_path):
+    from scripts.parsing.edge_emissions import parse_edge_emissions
+
+    p = tmp_path / "emis.xml"
+    p.write_text(
+        '<meandata><interval begin="3000" end="3600" id="i1">'
+        '<edge id="e1" sampledSeconds="100.0" CO2_abs="1000" NOx_abs="2.0" PMx_abs="0.1" fuel_abs="500.0"/>'
+        "</interval>"
+        '<interval begin="3600" end="3700" id="i2">'
+        '<edge id="e1" sampledSeconds="100.0" CO2_abs="2000" NOx_abs="2.0" PMx_abs="0.1" fuel_abs="500.0"/>'
+        "</interval></meandata>",
+        encoding="utf-8",
+    )
+    r = parse_edge_emissions(str(p), warmup_period=600, simulation_end=3600)
+    assert r["total_CO2_kg"] == 1000.0 / 1e6  # 仅 i1
+
+
+def test_fcd_simulation_end_filters_late_timesteps(tmp_path):
+    import gzip
+
+    from scripts.parsing.fcd import parse_fcd
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        "<fcd-export>"
+        '<timestep time="3500">'
+        '<vehicle id="v1" x="0.0" y="0.0" angle="0.0" speed="5.0" lane="e0_0" '
+        'pos="5.0" type="passenger"/>'
+        "</timestep>"
+        '<timestep time="3600">'
+        '<vehicle id="v1" x="0.0" y="0.0" angle="0.0" speed="5.0" lane="e0_0" '
+        'pos="5.0" type="passenger"/>'
+        "</timestep>"
+        "</fcd-export>"
+    )
+    p = tmp_path / "fcd.xml.gz"
+    with gzip.open(p, "wb") as f:
+        f.write(xml.encode("utf-8"))
+    tm = {"v1": "CAV"}
+    r = parse_fcd(str(p), tm, warmup_period=0, simulation_end=3600)
+    assert r["all"]["valid_thw_sample_count"] == 0  # 3600 处 timestep 被排除
+
+
+def test_fcd_bad_speed_fails_closed(tmp_path):
+    """审阅 P2-1：非数值 speed 是语义损坏 → invalid（不得伪装成低速排除）。"""
+    import gzip
+
+    from scripts.parsing.fcd import parse_fcd
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        "<fcd-export>"
+        '<timestep time="100">'
+        '<vehicle id="v1" x="0.0" y="0.0" angle="0.0" speed="BAD" lane="e0_0" '
+        'pos="5.0" type="passenger"/>'
+        "</timestep>"
+        "</fcd-export>"
+    )
+    p = tmp_path / "fcd.xml.gz"
+    with gzip.open(p, "wb") as f:
+        f.write(xml.encode("utf-8"))
+    tm = {"v1": "CAV"}
+    r = parse_fcd(str(p), tm, warmup_period=0)
+    assert r["all"]["parse_success"] is False
+    assert r["all"]["low_speed_excluded_count"] == 0  # 非低速排除
+
+
+def test_detector_negative_flow_fails_closed(tmp_path):
+    """审阅 P2-2：负流量 → ValueError（数值域门禁）。"""
+    from scripts.parsing.detector import parse_detector
+
+    p = tmp_path / "det.xml"
+    p.write_text(
+        '<detector><interval begin="0.00" end="60.00" id="det0" flow="-5.0" speed="10.0"/>'
+        "</detector>",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="negative flow"):
+        parse_detector(str(p), warmup_period=0)

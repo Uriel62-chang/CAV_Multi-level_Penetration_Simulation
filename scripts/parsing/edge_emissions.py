@@ -4,12 +4,15 @@ import math
 import xml.etree.ElementTree as ET
 
 
-def parse_edge_emissions(xml_path: str, warmup_period: float = 0.0):
+def parse_edge_emissions(
+    xml_path: str, warmup_period: float = 0.0, simulation_end: float | None = None
+):
     """解析 SUMO edgeData type='emissions' XML。
 
     Args:
         xml_path: edgeData XML 文件路径。
         warmup_period: 仅累计 begin >= 此时刻的完整 interval。
+        simulation_end: 观测窗上界（审阅 P1-1）；begin >= simulation_end 的 interval 不计入。
 
     Returns:
         dict: {
@@ -99,6 +102,8 @@ def parse_edge_emissions(xml_path: str, warmup_period: float = 0.0):
             invalid_record_count += invalid_edges
             continue
         if begin < warmup_period:
+            continue
+        if simulation_end is not None and begin >= simulation_end:
             continue
         for edge in interval.findall("edge"):
             edge_id = edge.get("id")

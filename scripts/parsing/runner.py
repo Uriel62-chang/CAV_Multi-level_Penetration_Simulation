@@ -188,9 +188,8 @@ def _validate_invariants(summary: dict) -> list[str]:
 
         if raw != inv + warm + valid:
             errors.append(f"SSM ledger: raw({raw}) != inv({inv}) + warm({warm}) + valid({valid})")
-        if valid - mirrored >= 0 and valid - mirrored != valid - mirrored:
-            pass  # NaN guard
-        elif valid < mirrored:
+        # 审阅 P2-3：删除恒 False 的 NaN guard 死分支（valid/mirrored 为 int，不可能 NaN）
+        if valid < mirrored:
             errors.append(f"SSM: valid({valid}) < mirrored({mirrored})")
         if ttc > valid:
             errors.append(f"TTC events({ttc}) > valid({valid})")
@@ -551,8 +550,12 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
     for suffix, label in [("", "all"), ("_HV", "HV"), ("_CAV", "CAV")]:
         perf_path = run_dir / f"performance{suffix}.xml"
         emis_path = run_dir / f"emissions{suffix}.xml"
-        edge_perf[label] = parse_edge_performance(str(perf_path), warmup)
-        edge_emis[label] = parse_edge_emissions(str(emis_path), warmup)
+        edge_perf[label] = parse_edge_performance(
+            str(perf_path), warmup, simulation_end=spec.simulation_end
+        )
+        edge_emis[label] = parse_edge_emissions(
+            str(emis_path), warmup, simulation_end=spec.simulation_end
+        )
 
     # SSM：v0.4.2 主 factorial 为意图性缺失（ssm_enabled=False），不解析。
     # P0-1（新审阅）：未采集 ≠ 零事件 —— 全部 SSM 计数/极值置 NaN（"未采集"语义），
@@ -659,7 +662,7 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
 
         fcd_path = run_dir / "fcd.xml.gz"
         if fcd_path.exists():
-            fcd = parse_fcd(str(fcd_path), type_map, warmup)
+            fcd = parse_fcd(str(fcd_path), type_map, warmup, simulation_end=spec.simulation_end)
         else:
             fcd = {
                 "all": {"parse_success": False},

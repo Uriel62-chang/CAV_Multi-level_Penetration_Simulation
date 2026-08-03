@@ -109,9 +109,9 @@ def build_network(scenario_dir: str | Path, netconvert_command: str = "netconver
         ],
         check=True,
     )
-    # 审阅 P2-1：源文件变更检测——net.json 若锚定 network_sources_sha256 则强校验；
-    # 未锚定则警告（消除"源文件修改后元数据静默过期"）。不自动重建 net.json
-    # （其包含 bottleneck/detector 等场景专属元数据，需人工核对）。
+    # 审阅 P2-1 / P1-1：源文件变更检测——net.json 必须锚定 network_sources_sha256：
+    # 未锚定或锚定不匹配均直接抛 RuntimeError（强制门禁，杜绝"新路网 XML + 旧元数据"）。
+    # 不自动重建 net.json（其包含 bottleneck/detector 等场景专属元数据，需人工核对）。
     import hashlib
     import json as _json
 

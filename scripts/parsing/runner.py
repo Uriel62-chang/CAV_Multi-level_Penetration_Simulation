@@ -312,7 +312,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
 
         # ── 解析（纯净分支：仅 schema=2 v0.4.1/v0.4.2 路径；schema=1 legacy 已移除）──
         net_file = network_file or spec.network_file
-        core, subgroup, errors = _parse_one_run_v4_1(run_dir, spec, net_file)
+        core, subgroup, errors = _parse_one_run(run_dir, spec, net_file)
         summary = core
         import json as _json
 
@@ -511,7 +511,7 @@ def _load_free_flow_references(spec, run_dir=None):
     return result
 
 
-def _parse_one_run_v4_1(run_dir, spec, network_file):
+def _parse_one_run(run_dir, spec, network_file):
     from scripts.parsing.detector import parse_detector_subgroup
     from scripts.parsing.edge_emissions import parse_edge_emissions
     from scripts.parsing.edge_performance import parse_edge_performance
@@ -590,19 +590,12 @@ def _parse_one_run_v4_1(run_dir, spec, network_file):
         ssm_file = run_dir / "ssm_compact.xml"
         if not ssm_file.exists():
             ssm_file = run_dir / "ssm.xml"
-        # P0-5：v0.4.2 从 spec 读取 analysis 配置（单源）；v0.4.1 保留旧 merge_gap 推导
-        if getattr(spec, "pipeline_version", "") == "v0.4.2":
-            merge_gap = spec.ssm_fragment_merge_gap_s
-            ttc_th = spec.analysis_ttc_threshold_s
-            drac_th = spec.analysis_drac_threshold_mps2
-            overlap = spec.ssm_mirror_overlap_ratio
-            dedup = spec.ssm_dedup_method
-        else:
-            merge_gap = 5.0 if spec.ssm_extratime_s < 5.0 else 0.0
-            ttc_th = 3.0
-            drac_th = 3.0
-            overlap = 0.8
-            dedup = "greedy_one_to_one_80pct"
+        # P0-5：v0.4.2 从 spec 读取 analysis 配置（单源；v0.4.1 旧 merge_gap 推导已移除）
+        merge_gap = spec.ssm_fragment_merge_gap_s
+        ttc_th = spec.analysis_ttc_threshold_s
+        drac_th = spec.analysis_drac_threshold_mps2
+        overlap = spec.ssm_mirror_overlap_ratio
+        dedup = spec.ssm_dedup_method
         ssm = parse_ssm_subgroup(
             str(ssm_file),
             type_map,

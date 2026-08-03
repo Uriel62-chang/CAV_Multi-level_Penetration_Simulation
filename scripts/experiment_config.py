@@ -16,7 +16,6 @@ from scripts.config import (
     SSM_TTC_THRESHOLD_S,
 )
 
-PIPELINE_V4_1 = "v0.4.1"
 PIPELINE_V4_2 = "v0.4.2"
 SEED_SCOPE = "vehicle_type_assignment"
 GRID_MODE_CAV_COUNT = "cav_count"
@@ -243,58 +242,46 @@ class ExperimentConfig:
         return {"IDM", "CACC"}
 
     def validate(self) -> None:
-        # pipeline/schema 版本配对
-        if self.pipeline_version == PIPELINE_V4_1:
-            if self.schema_version != "2":
-                raise ValueError(
-                    f"v0.4.1 pipeline requires schema_version=2, got {self.schema_version}"
-                )
-            if self.ssm_measures != "TTC DRAC":
-                raise ValueError(
-                    f"stage 1 only supports ssm_measures='TTC DRAC', got {self.ssm_measures!r}"
-                )
-        if self.pipeline_version == PIPELINE_V4_2 and self.schema_version != "2":
+        # pipeline/schema 版本配对（纯净分支：仅 v0.4.2）
+        if self.schema_version != "2":
             raise ValueError(
                 f"v0.4.2 pipeline requires schema_version=2, got {self.schema_version}"
             )
         # P0-5：v0.4.2 双实验 role×ssm_enabled 一致性 + capture/analysis 阈值包络
-        if self.pipeline_version == PIPELINE_V4_2:
-            # 审阅 P2-1：ssm_measures/ssm_range 可配置但不生效——SUMO 命令硬编码
-            # "TTC DRAC" 与 ssm_range_m（single_run.py）；非默认值直接拒绝，防配置与实现不一致
-            if self.ssm_measures != "TTC DRAC":
-                raise ValueError(
-                    f"ssm_measures={self.ssm_measures!r} 不生效——SUMO 命令硬编码 "
-                    "'TTC DRAC'；请移除该字段或保持默认值"
-                )
-            if self.ssm_range != "50.0":
-                raise ValueError(
-                    f"ssm_range={self.ssm_range!r} 为废弃字段（不生效）；"
-                    "请使用 ssm_range_m（当前有效字段）"
-                )
-            if self.experiment_role not in ("main_factorial", "safety"):
-                raise ValueError(
-                    f"experiment_role must be 'main_factorial' or 'safety', "
-                    f"got {self.experiment_role!r}"
-                )
-            if self.experiment_role == "main_factorial" and self.ssm_enabled:
-                raise ValueError(
-                    "main_factorial experiment must set ssm_enabled=false (SSM disabled)"
-                )
-            if self.experiment_role == "safety" and not self.ssm_enabled:
-                raise ValueError("safety experiment must set ssm_enabled=true")
-            if self.analysis_ttc_threshold_s > self.ssm_capture_ttc_threshold_s:
-                raise ValueError(
-                    f"analysis_ttc_threshold_s ({self.analysis_ttc_threshold_s}) exceeds "
-                    f"ssm_capture_ttc_threshold_s ({self.ssm_capture_ttc_threshold_s}); "
-                    "analysis cannot request events the raw capture did not record"
-                )
-            if self.analysis_drac_threshold_mps2 < self.ssm_capture_drac_threshold_mps2:
-                raise ValueError(
-                    f"analysis_drac_threshold_mps2 ({self.analysis_drac_threshold_mps2}) "
-                    f"below ssm_capture_drac_threshold_mps2 "
-                    f"({self.ssm_capture_drac_threshold_mps2}); "
-                    "analysis cannot request events the raw capture did not record"
-                )
+        # 审阅 P2-1：ssm_measures/ssm_range 可配置但不生效——SUMO 命令硬编码
+        # "TTC DRAC" 与 ssm_range_m（single_run.py）；非默认值直接拒绝，防配置与实现不一致
+        if self.ssm_measures != "TTC DRAC":
+            raise ValueError(
+                f"ssm_measures={self.ssm_measures!r} 不生效——SUMO 命令硬编码 "
+                "'TTC DRAC'；请移除该字段或保持默认值"
+            )
+        if self.ssm_range != "50.0":
+            raise ValueError(
+                f"ssm_range={self.ssm_range!r} 为废弃字段（不生效）；"
+                "请使用 ssm_range_m（当前有效字段）"
+            )
+        if self.experiment_role not in ("main_factorial", "safety"):
+            raise ValueError(
+                f"experiment_role must be 'main_factorial' or 'safety', "
+                f"got {self.experiment_role!r}"
+            )
+        if self.experiment_role == "main_factorial" and self.ssm_enabled:
+            raise ValueError("main_factorial experiment must set ssm_enabled=false (SSM disabled)")
+        if self.experiment_role == "safety" and not self.ssm_enabled:
+            raise ValueError("safety experiment must set ssm_enabled=true")
+        if self.analysis_ttc_threshold_s > self.ssm_capture_ttc_threshold_s:
+            raise ValueError(
+                f"analysis_ttc_threshold_s ({self.analysis_ttc_threshold_s}) exceeds "
+                f"ssm_capture_ttc_threshold_s ({self.ssm_capture_ttc_threshold_s}); "
+                "analysis cannot request events the raw capture did not record"
+            )
+        if self.analysis_drac_threshold_mps2 < self.ssm_capture_drac_threshold_mps2:
+            raise ValueError(
+                f"analysis_drac_threshold_mps2 ({self.analysis_drac_threshold_mps2}) "
+                f"below ssm_capture_drac_threshold_mps2 "
+                f"({self.ssm_capture_drac_threshold_mps2}); "
+                "analysis cannot request events the raw capture did not record"
+            )
         _require_nonempty_unique("scenarios", self.scenarios)
         _require_nonempty_unique("models", self.models)
         if self.warmup < 0 or self.warmup >= self.simulation_end:

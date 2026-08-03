@@ -16,8 +16,7 @@ from pathlib import Path
 from scripts.experiment_config import _parse_bool  # 审阅 P2-2：严格布尔解析复用
 from scripts.provenance import sha256_file
 
-# pipeline 版本常量（纯净分支：v0.4.0~post3 已移除）
-PIPELINE_V4_1 = "v0.4.1"
+# pipeline 版本常量（纯净分支：仅 v0.4.2）
 PIPELINE_V4_2 = "v0.4.2"
 
 # ── run_id 生成 ──
@@ -142,7 +141,7 @@ class RunSpec:
     loops: int = 300
     network_file: str = "net/scenario_0/loop.net.xml"
     seed_scope: str = "vehicle_type_assignment"
-    pipeline_version: str = PIPELINE_V4_1
+    pipeline_version: str = PIPELINE_V4_2
     schema_version: str = "2"
     config_sha256: str = ""
     network_sha256: str = ""
@@ -192,89 +191,84 @@ class RunSpec:
                 raise ValueError(
                     f"cav_count={self.cav_count} out of range [0, {self.vehicle_count}]"
                 )
-        # v0.4.1 / v0.4.2 模式下校验 pcav 与 cav_count 一致性
-        if self.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2):
-            expected = (self.cav_count or 0) / self.vehicle_count
-            if abs(self.pcav - expected) > 1e-9:
-                raise ValueError(
-                    f"pcav={self.pcav} inconsistent with cav_count={self.cav_count} "
-                    f"(vehicle_count={self.vehicle_count}, expected pcav={expected})"
-                )
+        # 校验 pcav 与 cav_count 一致性
+        expected = (self.cav_count or 0) / self.vehicle_count
+        if abs(self.pcav - expected) > 1e-9:
+            raise ValueError(
+                f"pcav={self.pcav} inconsistent with cav_count={self.cav_count} "
+                f"(vehicle_count={self.vehicle_count}, expected pcav={expected})"
+            )
         # 旧式构造（cav_count 未显式）时 requested_pcav 回退到 pcav；cav_count
         # 网格模式（cav_count 显式、requested_pcav=None）保持 None（v0.4.1 语义）
         if self.requested_pcav is None and self.cav_count is None:
             object.__setattr__(self, "requested_pcav", self.pcav)
-        if self.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2) and self.sumo_seed < 0:
+        if self.sumo_seed < 0:
             raise ValueError(f"sumo_seed must be non-negative, got {self.sumo_seed}")
-        # 阶段 1 新增字段校验（v0.4.1 / v0.4.2）
-        if self.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2):
-            if self.ssm_capture_ttc_threshold_s <= 0 or not self._finite(
-                self.ssm_capture_ttc_threshold_s
+        # 阶段 1 新增字段校验
+        if self.ssm_capture_ttc_threshold_s <= 0 or not self._finite(
+            self.ssm_capture_ttc_threshold_s
+        ):
+            raise ValueError("ssm_capture_ttc_threshold_s must be positive and finite")
+        if self.ssm_capture_drac_threshold_mps2 <= 0 or not self._finite(
+            self.ssm_capture_drac_threshold_mps2
+        ):
+            raise ValueError("ssm_capture_drac_threshold_mps2 must be positive and finite")
+        if self.ssm_range_m <= 0 or not self._finite(self.ssm_range_m):
+            raise ValueError("ssm_range_m must be positive and finite")
+        if self.ssm_extratime_s <= 0 or not self._finite(self.ssm_extratime_s):
+            raise ValueError("ssm_extratime_s must be positive and finite")
+        if self.fcd_profile is not None and self.fcd_profile not in ("1s", "0.1s"):
+            raise ValueError(f"fcd_profile must be '1s' or '0.1s', got {self.fcd_profile!r}")
+        if self.fcd_profile is not None:
+            if self.fcd_max_leader_distance_m is None:
+                raise ValueError("fcd_max_leader_distance_m required when fcd_profile is set")
+            if self.fcd_max_leader_distance_m <= 0 or not self._finite(
+                self.fcd_max_leader_distance_m
             ):
-                raise ValueError("ssm_capture_ttc_threshold_s must be positive and finite")
-            if self.ssm_capture_drac_threshold_mps2 <= 0 or not self._finite(
-                self.ssm_capture_drac_threshold_mps2
-            ):
-                raise ValueError("ssm_capture_drac_threshold_mps2 must be positive and finite")
-            if self.ssm_range_m <= 0 or not self._finite(self.ssm_range_m):
-                raise ValueError("ssm_range_m must be positive and finite")
-            if self.ssm_extratime_s <= 0 or not self._finite(self.ssm_extratime_s):
-                raise ValueError("ssm_extratime_s must be positive and finite")
-            if self.fcd_profile is not None and self.fcd_profile not in ("1s", "0.1s"):
-                raise ValueError(f"fcd_profile must be '1s' or '0.1s', got {self.fcd_profile!r}")
-            if self.fcd_profile is not None:
-                if self.fcd_max_leader_distance_m is None:
-                    raise ValueError("fcd_max_leader_distance_m required when fcd_profile is set")
-                if self.fcd_max_leader_distance_m <= 0 or not self._finite(
-                    self.fcd_max_leader_distance_m
-                ):
-                    raise ValueError("fcd_max_leader_distance_m must be positive and finite")
+                raise ValueError("fcd_max_leader_distance_m must be positive and finite")
         # v0.4.2 新增：experiment_role / analysis 配置校验
-        if self.pipeline_version == PIPELINE_V4_2:
-            if self.experiment_role not in ("main_factorial", "safety"):
-                raise ValueError(
-                    f"experiment_role must be 'main_factorial' or 'safety', "
-                    f"got {self.experiment_role!r}"
-                )
-            if self.analysis_ttc_threshold_s <= 0 or not self._finite(
-                self.analysis_ttc_threshold_s
-            ):
-                raise ValueError("analysis_ttc_threshold_s must be positive and finite")
-            if self.analysis_drac_threshold_mps2 <= 0 or not self._finite(
-                self.analysis_drac_threshold_mps2
-            ):
-                raise ValueError("analysis_drac_threshold_mps2 must be positive and finite")
-            if self.ssm_dedup_method not in (
-                "none",
-                "greedy_one_to_one_80pct",
-                "sorted_greedy_80pct",
-            ):
-                raise ValueError(f"invalid ssm_dedup_method: {self.ssm_dedup_method!r}")
-            if (
-                not self._finite(self.ssm_mirror_overlap_ratio)
-                or self.ssm_mirror_overlap_ratio <= 0
-                or self.ssm_mirror_overlap_ratio > 1
-            ):
-                raise ValueError("ssm_mirror_overlap_ratio must be finite in (0, 1]")
-            if self.ssm_fragment_merge_gap_s < 0 or not self._finite(self.ssm_fragment_merge_gap_s):
-                raise ValueError("ssm_fragment_merge_gap_s must be non-negative and finite")
-            # P1-4：与 ExperimentConfig.validate() 一致的 role×ssm_enabled 与阈值包络约束，
-            # 使配置"单源"贯穿至实际运行单元（RunSpec 直构/from_dict 路径同样拒绝）
-            if self.experiment_role == "main_factorial" and self.ssm_enabled:
-                raise ValueError("main_factorial experiment must set ssm_enabled=false")
-            if self.experiment_role == "safety" and not self.ssm_enabled:
-                raise ValueError("safety experiment must set ssm_enabled=true")
-            if self.analysis_ttc_threshold_s > self.ssm_capture_ttc_threshold_s:
-                raise ValueError(
-                    f"analysis_ttc_threshold_s ({self.analysis_ttc_threshold_s}) exceeds "
-                    f"ssm_capture_ttc_threshold_s ({self.ssm_capture_ttc_threshold_s})"
-                )
-            if self.analysis_drac_threshold_mps2 < self.ssm_capture_drac_threshold_mps2:
-                raise ValueError(
-                    f"analysis_drac_threshold_mps2 ({self.analysis_drac_threshold_mps2}) below "
-                    f"ssm_capture_drac_threshold_mps2 "
-                    f"({self.ssm_capture_drac_threshold_mps2})"
-                )
+        if self.experiment_role not in ("main_factorial", "safety"):
+            raise ValueError(
+                f"experiment_role must be 'main_factorial' or 'safety', "
+                f"got {self.experiment_role!r}"
+            )
+        if self.analysis_ttc_threshold_s <= 0 or not self._finite(self.analysis_ttc_threshold_s):
+            raise ValueError("analysis_ttc_threshold_s must be positive and finite")
+        if self.analysis_drac_threshold_mps2 <= 0 or not self._finite(
+            self.analysis_drac_threshold_mps2
+        ):
+            raise ValueError("analysis_drac_threshold_mps2 must be positive and finite")
+        if self.ssm_dedup_method not in (
+            "none",
+            "greedy_one_to_one_80pct",
+            "sorted_greedy_80pct",
+        ):
+            raise ValueError(f"invalid ssm_dedup_method: {self.ssm_dedup_method!r}")
+        if (
+            not self._finite(self.ssm_mirror_overlap_ratio)
+            or self.ssm_mirror_overlap_ratio <= 0
+            or self.ssm_mirror_overlap_ratio > 1
+        ):
+            raise ValueError("ssm_mirror_overlap_ratio must be finite in (0, 1]")
+        if self.ssm_fragment_merge_gap_s < 0 or not self._finite(self.ssm_fragment_merge_gap_s):
+            raise ValueError("ssm_fragment_merge_gap_s must be non-negative and finite")
+        # P1-4：与 ExperimentConfig.validate() 一致的 role×ssm_enabled 与阈值包络约束，
+        # 使配置"单源"贯穿至实际运行单元（RunSpec 直构/from_dict 路径同样拒绝）
+        if self.experiment_role == "main_factorial" and self.ssm_enabled:
+            raise ValueError("main_factorial experiment must set ssm_enabled=false")
+        if self.experiment_role == "safety" and not self.ssm_enabled:
+            raise ValueError("safety experiment must set ssm_enabled=true")
+        if self.analysis_ttc_threshold_s > self.ssm_capture_ttc_threshold_s:
+            raise ValueError(
+                f"analysis_ttc_threshold_s ({self.analysis_ttc_threshold_s}) exceeds "
+                f"ssm_capture_ttc_threshold_s ({self.ssm_capture_ttc_threshold_s})"
+            )
+        if self.analysis_drac_threshold_mps2 < self.ssm_capture_drac_threshold_mps2:
+            raise ValueError(
+                f"analysis_drac_threshold_mps2 ({self.analysis_drac_threshold_mps2}) below "
+                f"ssm_capture_drac_threshold_mps2 "
+                f"({self.ssm_capture_drac_threshold_mps2})"
+            )
 
     @staticmethod
     def _finite(val: float) -> bool:
@@ -318,33 +312,22 @@ class RunSpec:
             "realized_pcav": self.realized_pcav,
             "requested_pcav": self.requested_pcav,
         }
-        if self.pipeline_version == PIPELINE_V4_1:
-            result["sumo_seed"] = self.sumo_seed
-            result["ssm_capture_ttc_threshold_s"] = self.ssm_capture_ttc_threshold_s
-            result["ssm_capture_drac_threshold_mps2"] = self.ssm_capture_drac_threshold_mps2
-            result["ssm_range_m"] = self.ssm_range_m
-            result["ssm_trajectories"] = self.ssm_trajectories
-            result["ssm_extratime_s"] = self.ssm_extratime_s
-            result["with_internal"] = self.with_internal
-            result["fcd_profile"] = self.fcd_profile
-            result["fcd_max_leader_distance_m"] = self.fcd_max_leader_distance_m
-        if self.pipeline_version == PIPELINE_V4_2:
-            result["sumo_seed"] = self.sumo_seed
-            result["ssm_capture_ttc_threshold_s"] = self.ssm_capture_ttc_threshold_s
-            result["ssm_capture_drac_threshold_mps2"] = self.ssm_capture_drac_threshold_mps2
-            result["ssm_range_m"] = self.ssm_range_m
-            result["ssm_trajectories"] = self.ssm_trajectories
-            result["ssm_extratime_s"] = self.ssm_extratime_s
-            result["with_internal"] = self.with_internal
-            result["fcd_profile"] = self.fcd_profile
-            result["fcd_max_leader_distance_m"] = self.fcd_max_leader_distance_m
-            result["experiment_role"] = self.experiment_role
-            result["ssm_enabled"] = self.ssm_enabled
-            result["analysis_ttc_threshold_s"] = self.analysis_ttc_threshold_s
-            result["analysis_drac_threshold_mps2"] = self.analysis_drac_threshold_mps2
-            result["ssm_dedup_method"] = self.ssm_dedup_method
-            result["ssm_mirror_overlap_ratio"] = self.ssm_mirror_overlap_ratio
-            result["ssm_fragment_merge_gap_s"] = self.ssm_fragment_merge_gap_s
+        result["sumo_seed"] = self.sumo_seed
+        result["ssm_capture_ttc_threshold_s"] = self.ssm_capture_ttc_threshold_s
+        result["ssm_capture_drac_threshold_mps2"] = self.ssm_capture_drac_threshold_mps2
+        result["ssm_range_m"] = self.ssm_range_m
+        result["ssm_trajectories"] = self.ssm_trajectories
+        result["ssm_extratime_s"] = self.ssm_extratime_s
+        result["with_internal"] = self.with_internal
+        result["fcd_profile"] = self.fcd_profile
+        result["fcd_max_leader_distance_m"] = self.fcd_max_leader_distance_m
+        result["experiment_role"] = self.experiment_role
+        result["ssm_enabled"] = self.ssm_enabled
+        result["analysis_ttc_threshold_s"] = self.analysis_ttc_threshold_s
+        result["analysis_drac_threshold_mps2"] = self.analysis_drac_threshold_mps2
+        result["ssm_dedup_method"] = self.ssm_dedup_method
+        result["ssm_mirror_overlap_ratio"] = self.ssm_mirror_overlap_ratio
+        result["ssm_fragment_merge_gap_s"] = self.ssm_fragment_merge_gap_s
         return result
 
     @classmethod
@@ -353,15 +336,13 @@ class RunSpec:
 
         纯净分支：仅支持 v0.4.1/v0.4.2（schema=2）；v0.4.0~post3 已移除。
         """
-        pv = data.get("pipeline_version", PIPELINE_V4_1)
-        if pv == PIPELINE_V4_1:
-            return cls._from_dict_v4_1(data)
+        pv = data.get("pipeline_version", PIPELINE_V4_2)
         if pv == PIPELINE_V4_2:
             return cls._from_dict_v4_2(data)
         raise ValueError(f"unsupported pipeline_version: {pv}")
 
     @classmethod
-    def _identity_from_v4_1_dict(cls, data: dict) -> tuple[int, float, int, float | None]:
+    def _identity_from_dict(cls, data: dict) -> tuple[int, float, int, float | None]:
         """v0.4.1/v0.4.2 共享的身份字段解析与不变量校验（from_dict 共用）。
 
         返回 (vn, pcav, cav_count, requested_pcav)。
@@ -389,48 +370,6 @@ class RunSpec:
         return vn, pcav, cav_count, requested_pcav
 
     @classmethod
-    def _from_dict_v4_1(cls, data: dict) -> RunSpec:
-        required = _BASE_TO_DICT_KEYS | _V4_1_EXTRA_KEYS
-        missing = sorted(required - data.keys())
-        if missing:
-            raise ValueError(f"v0.4.1 run_spec.json missing fields: {', '.join(missing)}")
-
-        vn, pcav, cav_count, requested_pcav = cls._identity_from_v4_1_dict(data)
-
-        return cls(
-            scenario=str(data["scenario"]),
-            model=str(data["model"]),
-            pcav=pcav,
-            vehicle_count=vn,
-            seed=int(data["seed"]),
-            run_id=str(data["run_id"]),
-            simulation_end=float(data["simulation_end"]),
-            warmup=float(data["warmup"]),
-            step_length=float(data["step_length"]),
-            detector_frequency=int(data["detector_frequency"]),
-            edge_data_frequency=int(data["edge_data_frequency"]),
-            loops=int(data["loops"]),
-            network_file=str(data["network_file"]),
-            seed_scope=str(data["seed_scope"]),
-            pipeline_version=str(data["pipeline_version"]),
-            schema_version=str(data["schema_version"]),
-            config_sha256=str(data.get("config_sha256", "")),
-            network_sha256=str(data.get("network_sha256", "")),
-            experiment_id=str(data.get("experiment_id", "")),
-            sumo_seed=int(data["sumo_seed"]),
-            cav_count=cav_count,
-            requested_pcav=requested_pcav,
-            ssm_capture_ttc_threshold_s=float(data["ssm_capture_ttc_threshold_s"]),
-            ssm_capture_drac_threshold_mps2=float(data["ssm_capture_drac_threshold_mps2"]),
-            ssm_range_m=float(data["ssm_range_m"]),
-            ssm_trajectories=_parse_bool(data, "ssm_trajectories", False),
-            ssm_extratime_s=float(data.get("ssm_extratime_s", 5.0)),
-            with_internal=_parse_bool(data, "with_internal", False),
-            fcd_profile=_optional_str(data, "fcd_profile"),
-            fcd_max_leader_distance_m=_optional_float(data, "fcd_max_leader_distance_m"),
-        )
-
-    @classmethod
     def _from_dict_v4_2(cls, data: dict) -> RunSpec:
         """v0.4.2 run_spec：一次性完整字段构造，__post_init__ 自动执行。
 
@@ -445,7 +384,7 @@ class RunSpec:
         if missing:
             raise ValueError(f"v0.4.2 run_spec.json missing fields: {', '.join(missing)}")
 
-        vn, pcav, cav_count, requested_pcav = cls._identity_from_v4_1_dict(data)
+        vn, pcav, cav_count, requested_pcav = cls._identity_from_dict(data)
 
         # 审阅 P2-2：统一复用配置层严格布尔解析（接受 JSON bool 与白名单字符串，
         # 拒绝数字型/非标准字符串——不再 bool("false")=True 或任意字符串→False）
@@ -619,8 +558,6 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
         for field in ("schema_version", "config_sha256", "network_sha256", "experiment_id"):
             if data.get(field) != getattr(spec, field):
                 return False
-        if spec.pipeline_version == PIPELINE_V4_1 and data.get("sumo_seed") != spec.sumo_seed:
-            return False
 
     try:
         persisted_spec = load_run_spec(run_dir, expected_sha256=data["run_spec_sha256"])
@@ -649,45 +586,44 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
             return False
     else:
         required_files.append(run_dir / "ssm.xml")
-    if spec.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2):
-        required_files.append(run_dir / "vehicle_type_map.json")
-        if spec.fcd_profile is not None:
-            required_files.append(run_dir / "fcd.xml.gz")
-        if getattr(spec, "schema_version", "1") == "2":
-            required_files.extend(
-                [
-                    run_dir / "performance_HV.xml",
-                    run_dir / "performance_CAV.xml",
-                    run_dir / "emissions_HV.xml",
-                    run_dir / "emissions_CAV.xml",
-                ]
-            )
-            network_file = Path(spec.network_file)
-            net_meta_path = network_file.with_name("net.json")
-            import json as _json
+    required_files.append(run_dir / "vehicle_type_map.json")
+    if spec.fcd_profile is not None:
+        required_files.append(run_dir / "fcd.xml.gz")
+    if getattr(spec, "schema_version", "1") == "2":
+        required_files.extend(
+            [
+                run_dir / "performance_HV.xml",
+                run_dir / "performance_CAV.xml",
+                run_dir / "emissions_HV.xml",
+                run_dir / "emissions_CAV.xml",
+            ]
+        )
+        network_file = Path(spec.network_file)
+        net_meta_path = network_file.with_name("net.json")
+        import json as _json
 
-            if not net_meta_path.exists():
+        if not net_meta_path.exists():
+            return False
+        try:
+            net_meta = _json.loads(net_meta_path.read_text(encoding="utf-8"))
+            if not isinstance(net_meta, dict):
                 return False
-            try:
-                net_meta = _json.loads(net_meta_path.read_text(encoding="utf-8"))
-                if not isinstance(net_meta, dict):
-                    return False
-                raw = net_meta.get("num_lanes")
-                if type(raw) is not int or raw < 1:
-                    return False
-            except Exception:
+            raw = net_meta.get("num_lanes")
+            if type(raw) is not int or raw < 1:
                 return False
-            num_lanes = raw
-            for lane_idx in range(num_lanes):
-                lane_all = run_dir / f"detector_lane{lane_idx}.xml"
-                if not lane_all.exists() or lane_all.stat().st_size == 0:
-                    return False
-                p_hv = lane_all.with_name(lane_all.name.replace(".xml", "_HV.xml"))
-                p_cav = lane_all.with_name(lane_all.name.replace(".xml", "_CAV.xml"))
-                if not p_hv.exists() or p_hv.stat().st_size == 0:
-                    return False
-                if not p_cav.exists() or p_cav.stat().st_size == 0:
-                    return False
+        except Exception:
+            return False
+        num_lanes = raw
+        for lane_idx in range(num_lanes):
+            lane_all = run_dir / f"detector_lane{lane_idx}.xml"
+            if not lane_all.exists() or lane_all.stat().st_size == 0:
+                return False
+            p_hv = lane_all.with_name(lane_all.name.replace(".xml", "_HV.xml"))
+            p_cav = lane_all.with_name(lane_all.name.replace(".xml", "_CAV.xml"))
+            if not p_hv.exists() or p_hv.stat().st_size == 0:
+                return False
+            if not p_cav.exists() or p_cav.stat().st_size == 0:
+                return False
     for path in required_files:
         if not path.exists() or path.stat().st_size == 0:
             return False
@@ -701,7 +637,7 @@ def is_simulation_complete(spec: RunSpec, run_dir: Path, pipeline_version: str) 
         if stored_hash:
             if sha256_file(run_dir / file_name) != stored_hash:
                 return False
-        elif spec.pipeline_version in (PIPELINE_V4_1, PIPELINE_V4_2):
+        else:
             return False
 
     # P0-10：v0.4.2 校验 additional 与 network XML（resume 闭包）

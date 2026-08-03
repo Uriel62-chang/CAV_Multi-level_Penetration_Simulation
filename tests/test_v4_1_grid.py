@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from scripts.run_spec import PIPELINE_V4_1, RunSpec, build_run_id
+from scripts.run_spec import PIPELINE_V4_2, RunSpec, build_run_id
 from scripts.simulation.batch_run import build_run_specs, validate_specs
 
 
@@ -13,14 +13,14 @@ def test_cav_zero_canonical_model():
     specs1 = build_run_specs(
         ["scenario_0"],
         ["IDM", "CACC"],
-        PIPELINE_V4_1,
+        PIPELINE_V4_2,
         treatments=[{"vehicle_count": 10, "cav_counts": [0]}],
         sumo_seeds=[101],
     )
     specs2 = build_run_specs(
         ["scenario_0"],
         ["CACC", "IDM"],
-        PIPELINE_V4_1,
+        PIPELINE_V4_2,
         treatments=[{"vehicle_count": 10, "cav_counts": [0]}],
         sumo_seeds=[101],
     )
@@ -38,10 +38,10 @@ def test_cav_zero_canonical_route_idempotent():
 
     with tempfile.TemporaryDirectory() as d:
         p = os.path.join(d, "r.rou.xml")
-        _ = generate_flow(10, 0.0, 5, 1, p, "IDM")
+        _ = generate_flow(10, 0.0, 5, 1, p, "IDM", cav_count=0)
         with open(p) as f:
             route1 = f.read()
-        _ = generate_flow(10, 0.0, 5, 1, p + ".2", "CACC")
+        _ = generate_flow(10, 0.0, 5, 1, p + ".2", "CACC", cav_count=0)
         with open(p + ".2") as f:
             route2 = f.read()
 
@@ -66,7 +66,7 @@ def test_endpoint_seed_must_be_zero():
             assignment_seed=None,
             sumo_seed=101,
         ),
-        pipeline_version=PIPELINE_V4_1,
+        pipeline_version=PIPELINE_V4_2,
         sumo_seed=101,
         cav_count=0,
         requested_pcav=None,
@@ -97,7 +97,7 @@ def test_endpoint_seed_full_cav_must_be_zero():
             assignment_seed=None,
             sumo_seed=101,
         ),
-        pipeline_version=PIPELINE_V4_1,
+        pipeline_version=PIPELINE_V4_2,
         sumo_seed=101,
         cav_count=10,
         requested_pcav=None,
@@ -116,7 +116,7 @@ def test_endpoint_seed_full_cav_must_be_zero():
             assignment_seed=None,
             sumo_seed=101,
         ),
-        pipeline_version=PIPELINE_V4_1,
+        pipeline_version=PIPELINE_V4_2,
         sumo_seed=101,
         cav_count=0,
         requested_pcav=None,

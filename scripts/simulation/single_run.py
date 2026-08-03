@@ -16,7 +16,7 @@ from scripts.config import (
 from scripts.experiment_config import canonical_json, validate_analysis_windows
 from scripts.provenance import collect_provenance, sha256_file
 from scripts.run_spec import (
-    PIPELINE_V4_1,
+    PIPELINE_V4_2,
     PreparedRun,
     RunSpec,
     atomic_write_json,
@@ -149,10 +149,8 @@ def prepare_run(
                 raise ValueError(f"frozen {src_name} SHA mismatch after copy")
         vehicle_type_map = json.loads(type_map_path.read_text(encoding="utf-8"))
     else:
-        # P0-2：v0.4.2 时 cav_count 为权威来源，直接传入，避免 round 二义性
-        effective_cav_count = (
-            spec.cav_count if getattr(spec, "pipeline_version", "") == "v0.4.2" else None
-        )
+        # P0-2：cav_count 为权威来源，直接传入，避免 round 二义性
+        effective_cav_count = spec.cav_count
         vehicle_type_map = generate_flow(
             spec.vehicle_count,
             spec.pcav,
@@ -167,8 +165,7 @@ def prepare_run(
             edge_ids=edge_ids,
             bottleneck_edge_ids=net_meta.get("bottleneck_edge_ids"),
             cav_count=effective_cav_count,
-            # P0-9：v0.4.2 显式固定 emissionClass（legacy 保持字节不变）
-            explicit_emission_class=getattr(spec, "pipeline_version", "") == "v0.4.2",
+            # P0-9：v0.4.2 显式固定 emissionClass（纯净分支恒显式）
         )
         type_map_path = run_dir / "vehicle_type_map.json"
         atomic_write_json(type_map_path, vehicle_type_map)
@@ -377,12 +374,15 @@ def _write_additional_v4_1_subgroup(
 def build_sumo_command(
     prepared: PreparedRun,
     network_file: str,
+    spec,
     sumo_command: str = "sumo",
-    sim_end_time: float = DEFAULT_SIM_END,
-    step_length: float = DEFAULT_STEP_LENGTH,
 ) -> list:
-    """构造 SUMO 命令行参数列表（相对路径，依赖项目根为 CWD）"""
-    return [
+    """SUMO 命令行（纯净分支 v0.4.2 唯一；v0.4.0 基与 v0.4.1 变体已合并）。
+
+    - 主 factorial（ssm_enabled=False）：不注入任何 --device.ssm.*，ssm.xml 意图性缺失；
+    - safety（ssm_enabled=True）：注入 SSM capture（measures/thresholds/range/trajectories/extratime）。
+    """
+    cmd = [
         sumo_command,
         "-n",
         network_file,
@@ -393,17 +393,15 @@ def build_sumo_command(
         "-b",
         "0",
         "-e",
-        str(int(sim_end_time)),
+        str(int(spec.simulation_end)),
         "--step-length",
-        str(step_length),
+        str(spec.step_length),
         "--no-step-log",
         "true",
         "--device.ssm.probability",
         "1.0",
         "--device.ssm.file",
         str(prepared.ssm_path),
-        "--device.ssm.trajectories",
-        "false",
         "--lanechange-output",
         str(prepared.lanechange_path),
         "--vehroute-output",
@@ -413,32 +411,6 @@ def build_sumo_command(
         "--vehroute-output.write-unfinished",
         "true",
     ]
-
-
-def build_sumo_command_v4_1(
-    prepared: PreparedRun,
-    network_file: str,
-    spec,
-    sumo_command: str = "sumo",
-) -> list:
-    """v0.4.1 SUMO 命令行：继承旧基命令，追加 seed/SSM capture/FCD。"""
-
-    cmd = build_sumo_command(
-        prepared,
-        network_file,
-        sumo_command,
-        spec.simulation_end,
-        spec.step_length,
-    )
-    # 移除旧 --device.ssm.trajectories false（在末尾重建单值）
-    ssm_traj_idx = None
-    for i, a in enumerate(cmd):
-        if a == "--device.ssm.trajectories":
-            ssm_traj_idx = i
-            break
-    if ssm_traj_idx is not None:
-        del cmd[ssm_traj_idx : ssm_traj_idx + 2]
-    # v0.4.1 追加参数
     cmd.extend(
         [
             "--seed",
@@ -451,11 +423,11 @@ def build_sumo_command_v4_1(
             str(spec.ssm_range_m),
             "--device.ssm.trajectories",
             "true" if spec.ssm_trajectories else "false",
+            # 无条件显式传 extratime（含默认 5.0），不依赖 SUMO 隐式默认
+            "--device.ssm.extratime",
+            str(spec.ssm_extratime_s),
         ]
     )
-    # P2（本轮审查）：无条件显式传 --device.ssm.extratime（含默认 5.0），
-    # 不依赖 SUMO 隐式默认（设计 §3.3 显式化要求）
-    cmd.extend(["--device.ssm.extratime", str(spec.ssm_extratime_s)])
     # FCD 选项
     if spec.fcd_profile is not None:
         period = 1 if spec.fcd_profile == "1s" else 0.1
@@ -474,6 +446,8 @@ def build_sumo_command_v4_1(
                 str(period),
             ]
         )
+    if not spec.ssm_enabled:
+        cmd = _without_ssm_device_options(cmd)
     return cmd
 
 
@@ -492,23 +466,6 @@ def _without_ssm_device_options(cmd: list) -> list:
         out.append(arg)
         i += 1
     return out
-
-
-def build_sumo_command_v4_2(
-    prepared: PreparedRun,
-    network_file: str,
-    spec,
-    sumo_command: str = "sumo",
-) -> list:
-    """v0.4.2 SUMO 命令行：v4_1 基础 + experiment_role/ssm_enabled 控制。
-
-    - 主 factorial（ssm_enabled=False）：不注入任何 --device.ssm.*，ssm.xml 意图性缺失；
-    - safety（ssm_enabled=True）：与 v4_1 相同，注入 SSM capture。
-    """
-    cmd = build_sumo_command_v4_1(prepared, network_file, spec, sumo_command=sumo_command)
-    if not spec.ssm_enabled:
-        cmd = _without_ssm_device_options(cmd)
-    return cmd
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -597,7 +554,7 @@ def run_simulation(
         config_sha256=config_sha256,
         network_sha256=network_sha256,
         experiment_id=experiment_id,
-        pipeline_version=PIPELINE_V4_1,
+        pipeline_version=PIPELINE_V4_2,
         schema_version="2",
         cav_count=cav_count,
         requested_pcav=cav_ratio,

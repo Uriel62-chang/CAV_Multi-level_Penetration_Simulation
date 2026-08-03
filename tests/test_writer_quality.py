@@ -41,7 +41,6 @@ def test_writer_marks_all_successful_parsers_as_ok():
     assert row["cav_count"] == 5
     assert row["hv_count"] == 5
     assert row["non_internal_edge_vehicle_km"] == 2.0
-    assert row["whole_network_ttc_events_per_1000_non_internal_edge_veh_km"] == 500.0
 
 
 def test_writer_does_not_hide_failed_parser_audit():

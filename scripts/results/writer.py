@@ -21,7 +21,6 @@ from pathlib import Path
 from scripts.provenance import sha256_file
 from scripts.run_spec import atomic_write_json
 from scripts.schema import (
-    RUN_LEVEL_COLUMNS_V4_1,
     RUN_LEVEL_COLUMNS_V4_2,
     SUBGROUP_LONG_COLUMNS_V4_1,
     validate_summary_contract,
@@ -141,7 +140,7 @@ def _all_lap_stats_missing(summary: dict, pipeline_version: str | None) -> bool:
 
 
 def _build_row_v4_1(summary: dict, parse_status: str, pipeline_version: str | None = None) -> dict:
-    columns = RUN_LEVEL_COLUMNS_V4_2 if pipeline_version == "v0.4.2" else RUN_LEVEL_COLUMNS_V4_1
+    columns = RUN_LEVEL_COLUMNS_V4_2
     row = {col: summary.get(col, float("nan")) for col in columns}
 
     errors = summary.get("_invariant_errors", [])
@@ -651,7 +650,7 @@ def build_run_level_results(
 
     # ── 写入 run_level_results.csv ──
     csv_path = output_dir / results_filename
-    columns = RUN_LEVEL_COLUMNS_V4_2 if pipeline_version == "v0.4.2" else RUN_LEVEL_COLUMNS_V4_1
+    columns = RUN_LEVEL_COLUMNS_V4_2
     _atomic_write_csv(csv_path, success_rows, columns)
     print(f"[WRITE] {len(success_rows)} rows → {csv_path}")
 

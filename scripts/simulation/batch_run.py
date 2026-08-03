@@ -13,7 +13,6 @@
 import argparse
 import asyncio
 import hashlib
-import json
 import os
 import shutil
 import signal
@@ -37,9 +36,8 @@ from scripts.experiment_config import (
     load_experiment_config,
     validate_analysis_windows,
 )
-from scripts.provenance import collect_provenance, freeze_input_pair, sha256_file
+from scripts.provenance import collect_provenance, sha256_file
 from scripts.run_spec import (
-    PIPELINE_V4_1,
     PIPELINE_V4_2,
     RunSpec,
     SimulationResult,
@@ -49,8 +47,6 @@ from scripts.run_spec import (
 )
 from scripts.simulation.single_run import (
     build_sumo_command,
-    build_sumo_command_v4_1,
-    build_sumo_command_v4_2,
     prepare_run,
 )
 
@@ -469,9 +465,9 @@ def _validate_cav_count_specs(
             raise RuntimeError(f"Invalid sumo_seed: {s.sumo_seed}")
         if s.seed_scope != "vehicle_type_assignment":
             raise RuntimeError(f"Invalid seed_scope: {s.seed_scope}")
-        if s.pipeline_version not in (PIPELINE_V4_1, PIPELINE_V4_2):
+        if s.pipeline_version != PIPELINE_V4_2:
             raise RuntimeError(
-                f"Expected pipeline_version={PIPELINE_V4_1} or {PIPELINE_V4_2}, got {s.pipeline_version}"
+                f"Expected pipeline_version={PIPELINE_V4_2}, got {s.pipeline_version}"
             )
 
         s_vn = s.vehicle_count
@@ -518,39 +514,6 @@ def _validate_cav_count_specs(
         )
         if s.run_id != expected_rid:
             raise RuntimeError(f"run_id mismatch: stored={s.run_id}, rederived={expected_rid}")
-
-
-def prepare_post1_frozen_inputs(
-    output_root: Path,
-    pipeline_version: str,
-    resolved_config: dict,
-    acceptance_path: str | Path | None,
-    resume: bool,
-) -> dict[str, str] | None:
-    """Freeze post1 inputs and reject unsafe manifest reuse before a batch starts."""
-    if pipeline_version != PIPELINE_V4_1:
-        return None
-    if acceptance_path is None:
-        raise ValueError("--acceptance is required for v0.4.1.post1 execution")
-
-    manifest_path = output_root / "manifest.json"
-    if manifest_path.exists() and not resume:
-        raise ValueError(
-            "output manifest already exists; use --resume after verifying frozen inputs"
-        )
-
-    hashes = freeze_input_pair(output_root / "frozen_inputs", resolved_config, acceptance_path)
-    if not resume:
-        return hashes
-    if not manifest_path.exists():
-        raise ValueError("--resume requires an existing manifest.json")
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"resume manifest unreadable: {manifest_path}") from exc
-    if manifest.get("frozen_inputs") != hashes:
-        raise ValueError("resume manifest frozen_inputs mismatch")
-    return hashes
 
 
 def validate_path_safety(output_root: Path, specs: list[RunSpec]) -> None:
@@ -698,7 +661,6 @@ async def run_sumo_process(
     pipeline_version: str,
     timeout_s: float | None,
     resume: bool,
-    frozen_inputs_root: Path | None = None,
 ) -> SimulationResult:
     """执行单次 SUMO 仿真，返回 SimulationResult"""
     global _active_processes, _shutting_down
@@ -763,17 +725,9 @@ async def run_sumo_process(
             spec,
             run_dir,
             network_file,
-            frozen_routes_dir=frozen_inputs_root / spec.run_id if frozen_inputs_root else None,
         )
         run_spec_sha256 = spec.sha256()
-        if spec.pipeline_version == "v0.4.1":
-            cmd = build_sumo_command_v4_1(prepared, network_file, spec, sumo_command)
-        elif spec.pipeline_version == "v0.4.2":
-            cmd = build_sumo_command_v4_2(prepared, network_file, spec, sumo_command)
-        else:
-            cmd = build_sumo_command(
-                prepared, network_file, sumo_command, spec.simulation_end, spec.step_length
-            )
+        cmd = build_sumo_command(prepared, network_file, spec, sumo_command)
 
         # 启动 SUMO 子进程
         _max_rss_kb = 0
@@ -1046,7 +1000,6 @@ async def sumo_worker(
     results: list,
     progress: dict,
     total: int,
-    frozen_inputs_root: Path | None = None,
 ) -> None:
     """Worker 协程：循环从队列取 RunSpec → 执行 SUMO → 直到收到 None"""
     global _shutting_down
@@ -1068,7 +1021,6 @@ async def sumo_worker(
             pipeline_version=pipeline_version,
             timeout_s=timeout_s,
             resume=resume,
-            frozen_inputs_root=frozen_inputs_root,
         )
         results.append(result)
 
@@ -1122,7 +1074,6 @@ async def run_batch(
     pipeline_version: str,
     timeout_s: float | None,
     resume: bool,
-    frozen_inputs_root: Path | None = None,
 ) -> list[SimulationResult]:
     """asyncio Queue + N worker 调度器"""
     global _shutting_down
@@ -1158,7 +1109,6 @@ async def run_batch(
                 results=results,
                 progress=progress,
                 total=total,
-                frozen_inputs_root=frozen_inputs_root,
             )
         )
         for i in range(sumo_processes)
@@ -1291,14 +1241,6 @@ def main():
         "--sumo-processes", type=int, default=4, help="同时运行的 SUMO 进程数 (默认: 4)"
     )
     parser.add_argument("--output-root", default="raw", help="独立 run 目录根路径 (默认: raw/)")
-    parser.add_argument(
-        "--frozen-inputs", default=None, help="冻结输入源目录 (复制 routes+type_map)"
-    )
-    parser.add_argument(
-        "--acceptance",
-        default=None,
-        help="v0.4.1.post1 pilot acceptance JSON（非 dry-run 必填）",
-    )
     parser.add_argument(
         "--timeout", type=float, default=None, help="单次 SUMO 最大允许时间 (s)，默认 7200"
     )
@@ -1435,19 +1377,6 @@ def main():
         print(f"[ERROR] {e}")
         sys.exit(1)
 
-    frozen_input_hashes = None
-    if not args.dry_run:
-        try:
-            frozen_input_hashes = prepare_post1_frozen_inputs(
-                output_root,
-                resolved_config.pipeline_version,
-                resolved_config.to_dict(),
-                args.acceptance,
-                args.resume,
-            )
-        except (OSError, ValueError) as exc:
-            parser.error(str(exc))
-
     # ── dry-run ──
     if args.dry_run:
         ordered = sort_specs(specs)
@@ -1491,8 +1420,6 @@ def main():
             for spec in specs
         ],
     }
-    if frozen_input_hashes is not None:
-        manifest["frozen_inputs"] = frozen_input_hashes
     atomic_write_json(manifest_path, manifest)
 
     # ── 执行 ──
@@ -1513,7 +1440,6 @@ def main():
                 pipeline_version=resolved_config.pipeline_version,
                 timeout_s=args.timeout,
                 resume=args.resume,
-                frozen_inputs_root=Path(args.frozen_inputs) if args.frozen_inputs else None,
             )
         )
     except KeyboardInterrupt:

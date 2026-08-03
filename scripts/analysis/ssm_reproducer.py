@@ -17,8 +17,8 @@ from scripts.provenance import (
     collect_provenance,
     sha256_file,
 )
-from scripts.run_spec import PIPELINE_V4_1, RunSpec, build_run_id, write_run_spec
-from scripts.simulation.single_run import build_sumo_command_v4_1, prepare_run
+from scripts.run_spec import PIPELINE_V4_2, RunSpec, build_run_id, write_run_spec
+from scripts.simulation.single_run import build_sumo_command, prepare_run
 
 _REQUIRED_CASE_KEYS = {
     "case_id",
@@ -144,7 +144,7 @@ def build_diagnostic_command(
     prepared, network_file: str, spec, sumo_command: str, ssm_enabled: bool
 ) -> list:
     """Build an A/B diagnostic command; the B arm never configures an SSM device."""
-    command = build_sumo_command_v4_1(prepared, network_file, spec, sumo_command)
+    command = build_sumo_command(prepared, network_file, spec, sumo_command)
     return command if ssm_enabled else _without_ssm_device_options(command)
 
 
@@ -314,7 +314,7 @@ def run_case(
             edge_data_frequency=int(case["edge_data_frequency"]),
             loops=int(case["loops"]),
             network_file=network_file,
-            pipeline_version=PIPELINE_V4_1,
+            pipeline_version=PIPELINE_V4_2,
             schema_version="2",
             config_sha256=case_sha,
             network_sha256=network_sha,

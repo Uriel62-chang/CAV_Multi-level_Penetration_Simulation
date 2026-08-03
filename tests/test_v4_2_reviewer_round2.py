@@ -5,23 +5,15 @@ import pytest
 
 from scripts.results.aggregate import aggregate
 from scripts.results.visualization import _paired_ttc_metric_column
-from scripts.run_spec import PIPELINE_V4_1, PIPELINE_V4_2, RunSpec
+from scripts.run_spec import PIPELINE_V4_2, RunSpec
 from scripts.schema import (
     EMISSIONS_COLUMNS_V4_2,
-    RUN_LEVEL_COLUMNS_V4_1,
     RUN_LEVEL_COLUMNS_V4_2,
-    SUMMARY_REQUIRED_KEYS_V4_1,
     SUMMARY_REQUIRED_KEYS_V4_2,
     validate_summary_contract,
 )
 
 # ── P1-1：schema 分流，v0.4.2 扩展不污染 v0.4.1 schema=2 ──
-
-
-def test_v4_1_columns_exclude_v4_2_emission_fields():
-    for col in EMISSIONS_COLUMNS_V4_2:
-        assert col not in RUN_LEVEL_COLUMNS_V4_1
-        assert col not in SUMMARY_REQUIRED_KEYS_V4_1
 
 
 def test_v4_2_columns_include_v4_2_emission_fields():
@@ -30,7 +22,7 @@ def test_v4_2_columns_include_v4_2_emission_fields():
         assert col in SUMMARY_REQUIRED_KEYS_V4_2
 
 
-def test_v4_1_summary_without_v4_2_fields_passes_contract():
+def test_summary_missing_v4_2_fields_rejected():
     """v0.4.1 schema=2 summary（不含 v0.4.2 排放字段）必须通过契约校验（P1-1）。"""
     integer_keys = {
         "vehN",
@@ -68,7 +60,7 @@ def test_v4_1_summary_without_v4_2_fields_passes_contract():
         "with_internal",
     }
     summary = {}
-    for key in SUMMARY_REQUIRED_KEYS_V4_1:
+    for key in SUMMARY_REQUIRED_KEYS_V4_2:
         if key in ("run_id", "scenario", "model", "det_xml"):
             summary[key] = "x"
         elif key in bool_keys:
@@ -77,8 +69,8 @@ def test_v4_1_summary_without_v4_2_fields_passes_contract():
             summary[key] = 1
         else:
             summary[key] = 1.0
-    assert validate_summary_contract(summary, "2", pipeline_version=PIPELINE_V4_1) == []
-    # v0.4.2 契约则要求 V4_2 扩展字段
+    # v0.4.2 唯一契约：V4_2 扩展字段必填——缺 non_internal_CO2_kg → fail-closed
+    del summary["non_internal_CO2_kg"]
     errors = validate_summary_contract(summary, "2", pipeline_version=PIPELINE_V4_2)
     assert any("non_internal_CO2_kg" in e for e in errors)
 

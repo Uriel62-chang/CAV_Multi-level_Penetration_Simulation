@@ -3,7 +3,7 @@
 覆盖：
 - RunSpec v0.4.2 round-trip（experiment_role / ssm_enabled 持久化）；
 - legacy/v0.4.1 hash 不受新字段影响；
-- build_sumo_command_v4_2 主 factorial 剥离 SSM 参数；
+- build_sumo_command 主 factorial 剥离 SSM 参数；
 - is_simulation_complete 对主 factorial 的意图性缺失判定。
 """
 
@@ -12,14 +12,13 @@ from pathlib import Path
 
 from scripts.provenance import sha256_file
 from scripts.run_spec import (
-    PIPELINE_V4_1,
     PIPELINE_V4_2,
     RunSpec,
     build_run_id,
     is_simulation_complete,
 )
 from scripts.simulation.single_run import (
-    build_sumo_command_v4_2,
+    build_sumo_command,
 )
 
 NET = "net/scenario_0/loop.net.xml"
@@ -57,34 +56,15 @@ def test_v4_2_round_trip_role_and_ssm_enabled():
     assert spec == spec2
 
 
-def test_v4_1_hash_unaffected_by_v4_2_fields():
-    spec41 = RunSpec(
-        scenario="scenario_0",
-        model="IDM",
-        pcav=0.5,
-        vehicle_count=10,
-        seed=1,
-        run_id="s0_IDM_v010_c005_as01_ss101",
-        pipeline_version=PIPELINE_V4_1,
-        schema_version="2",
-        sumo_seed=101,
-        cav_count=5,
-        requested_pcav=None,
-    )
-    d41 = spec41.to_dict()
-    assert "experiment_role" not in d41
-    assert "ssm_enabled" not in d41
-
-
 def test_v4_2_main_factorial_strips_ssm_options():
     spec = _spec_v4_2(experiment_role="main_factorial", ssm_enabled=False)
-    cmd = build_sumo_command_v4_2(_dummy_prepared(), NET, spec)
+    cmd = build_sumo_command(_dummy_prepared(), NET, spec)
     assert not any(a.startswith("--device.ssm") for a in cmd), cmd
 
 
 def test_v4_2_safety_keeps_ssm_options():
     spec = _spec_v4_2(experiment_role="safety", ssm_enabled=True)
-    cmd = build_sumo_command_v4_2(_dummy_prepared(), NET, spec)
+    cmd = build_sumo_command(_dummy_prepared(), NET, spec)
     assert "--device.ssm.measures" in cmd
     assert "--device.ssm.thresholds" in cmd
 

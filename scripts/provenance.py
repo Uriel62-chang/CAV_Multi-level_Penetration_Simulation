@@ -45,39 +45,6 @@ def _load_json_object(path: str | Path, label: str) -> dict:
     return data
 
 
-def freeze_input_pair(
-    frozen_inputs_dir: str | Path,
-    resolved_config: dict,
-    acceptance_path: str | Path,
-) -> dict[str, str]:
-    """Freeze or verify canonical config and acceptance inputs as an inseparable pair."""
-    frozen_dir = Path(frozen_inputs_dir)
-    config_path = frozen_dir / "resolved_config.json"
-    frozen_acceptance_path = frozen_dir / "pilot_acceptance.json"
-    config_bytes = canonical_json_bytes(resolved_config)
-    acceptance_bytes = canonical_json_bytes(_load_json_object(acceptance_path, "acceptance"))
-
-    present = (config_path.exists(), frozen_acceptance_path.exists())
-    if present == (False, False):
-        frozen_dir.mkdir(parents=True, exist_ok=True)
-        atomic_write_bytes(config_path, config_bytes)
-        atomic_write_bytes(frozen_acceptance_path, acceptance_bytes)
-    elif present != (True, True):
-        raise ValueError(
-            "partial frozen inputs: resolved_config.json and pilot_acceptance.json required"
-        )
-    else:
-        if config_path.read_bytes() != config_bytes:
-            raise ValueError("frozen resolved config differs from current resolved config")
-        if frozen_acceptance_path.read_bytes() != acceptance_bytes:
-            raise ValueError("frozen acceptance differs from --acceptance")
-
-    return {
-        "resolved_config_sha256": hashlib.sha256(config_bytes).hexdigest(),
-        "acceptance_sha256": hashlib.sha256(acceptance_bytes).hexdigest(),
-    }
-
-
 def sha256_file(path: str | Path) -> str:
     digest = hashlib.sha256()
     with Path(path).open("rb") as stream:

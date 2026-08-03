@@ -49,14 +49,14 @@ def _build_route(edges: list, start_edge_index: int, loops: int) -> str:
     return " ".join(one_lap * loops)
 
 
-def _build_cav_vtype(model: str, lc2013: str = "", explicit_emission_class: bool = False) -> str:
+def _build_cav_vtype(model: str, lc2013: str = "") -> str:
     """根据跟驰模型生成 CAV vType XML 行"""
     if model not in CAV_TAU:
         raise ValueError(f"不支持的 CAV 跟驰模型: {model}，可选: {CAV_MODELS}")
     tau = CAV_TAU[model]
     # P0-9：显式固定影响结论的 SUMO 默认（emissionClass 与 v0.4.0 一致，避免版本漂移）；
     # 仅 v0.4.2 开启，legacy 路径保持字节不变（红线）
-    emission = ' emissionClass="HBEFA3/PC_G_EU4"' if explicit_emission_class else ""
+    emission = ' emissionClass="HBEFA3/PC_G_EU4"'
     return (
         f'  <vType id="CAV" accel="{CAV_ACCEL}" decel="{CAV_DECEL}" '
         f'length="{CAV_LENGTH:.0f}" minGap="{CAV_MIN_GAP}" maxSpeed="{CAV_MAX_SPEED}" '
@@ -182,7 +182,6 @@ def generate_flow(
     edge_ids: list[str] | None = None,
     bottleneck_edge_ids: list[str] | None = None,
     cav_count: int | None = None,
-    explicit_emission_class: bool = False,
 ) -> dict[str, str]:
     """生成混合车流 SUMO route 文件 (.rou.xml)，并返回 vehicle_id → vehicle_type 映射。
 
@@ -223,9 +222,9 @@ def generate_flow(
 
     lc2013 = f" {_lc2013_attrs()}" if multi_lane else ""
 
-    # CAV数量：cav_count 为权威来源（P0-2）；None 时 legacy round 推导
+    # CAV数量：cav_count 为权威来源（P0-2，纯净分支必填——None 拒绝而非 round 推导）
     if cav_count is None:
-        cav_count = round(vehicle_count * cav_ratio)
+        raise ValueError("cav_count is required (pure pipeline: no round fallback)")
     if cav_count < 0 or cav_count > vehicle_count:
         raise ValueError(f"cav_count={cav_count} out of range [0, {vehicle_count}]")
     vehicle_types = ["CAV"] * cav_count + ["HV"] * (vehicle_count - cav_count)
@@ -237,7 +236,7 @@ def generate_flow(
     lines.append("<routes>")
 
     # HV：Krauss（人类驾驶参数）
-    emission = ' emissionClass="HBEFA3/PC_G_EU4"' if explicit_emission_class else ""
+    emission = ' emissionClass="HBEFA3/PC_G_EU4"'
     lines.append(
         f'  <vType id="HV" accel="{HV_ACCEL}" decel="{HV_DECEL}" '
         f'length="{HV_LENGTH:.0f}" minGap="{HV_MIN_GAP}" maxSpeed="{HV_MAX_SPEED}" '
@@ -246,7 +245,7 @@ def generate_flow(
     )
     # CAV：有 CAV 时才写 vType（cav_count=0 时跳过，避免依赖模型选择）
     if cav_count > 0:
-        lines.append(_build_cav_vtype(model, lc2013, explicit_emission_class))
+        lines.append(_build_cav_vtype(model, lc2013))
 
     # 写入每辆车
     for i in range(vehicle_count):

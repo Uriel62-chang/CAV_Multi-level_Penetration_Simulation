@@ -217,13 +217,11 @@ def test_summary_contract_rejects_negative_whole_network_fields():
 
 
 def test_summary_nan_rule_uses_non_internal_companion():
-    """SUMMARY_NAN_RULES_V4_2 的排放强度 companion 跟随 non-internal 主 estimand；
-    v0.4.1 冻结表保持 total_vehicle_km。"""
-    from scripts.schema import SUMMARY_NAN_RULES_V4_1, SUMMARY_NAN_RULES_V4_2
+    """SUMMARY_NAN_RULES_V4_2 的排放强度 companion 跟随 non-internal 主 estimand。"""
+    from scripts.schema import SUMMARY_NAN_RULES_V4_2
 
     for key in ("CO2_g_per_veh_km", "NOx_mg_per_veh_km", "PMx_mg_per_veh_km", "fuel_g_per_veh_km"):
         assert SUMMARY_NAN_RULES_V4_2[key][0] == "non_internal_edge_vehicle_km"
-        assert SUMMARY_NAN_RULES_V4_1[key][0] == "total_vehicle_km"
 
 
 def test_summary_nan_rule_rejects_nan_with_exposure():
@@ -651,15 +649,10 @@ def test_edge_emis_empty_edge_omitted_attrs_is_valid(tmp_path):
 
 
 def test_v4_2_run_level_columns_include_drac_rate():
-    from scripts.schema import (
-        DRAC_RATE_COLUMNS_V4_2,
-        RUN_LEVEL_COLUMNS_V4_1,
-        RUN_LEVEL_COLUMNS_V4_2,
-    )
+    from scripts.schema import DRAC_RATE_COLUMNS_V4_2, RUN_LEVEL_COLUMNS_V4_2
 
     assert "drac_events_per_1000_veh_km" in RUN_LEVEL_COLUMNS_V4_2
     assert "drac_events_per_1000_veh_km" in DRAC_RATE_COLUMNS_V4_2
-    assert "drac_events_per_1000_veh_km" not in RUN_LEVEL_COLUMNS_V4_1  # v0.4.1 冻结
 
 
 def test_writer_recomputes_drac_rate_v4_2():
@@ -2221,10 +2214,13 @@ def test_writer_flags_missing_all_lap_stats_v4_2():
 # ── 本轮审查 P2：SUMO 命令 extratime 显式化 ──
 
 
-def test_v4_1_command_always_explicit_extratime():
-    """P2：--device.ssm.extratime 无条件显式传参（含默认 5.0），不依赖 SUMO 隐式默认。"""
-    from scripts.run_spec import PIPELINE_V4_1, RunSpec
-    from scripts.simulation.single_run import build_sumo_command_v4_1
+def test_command_always_explicit_extratime():
+    """P2：--device.ssm.extratime 无条件显式传参（含默认 5.0），不依赖 SUMO 隐式默认。
+
+    safety（ssm_enabled=True）保留 SSM 选项——主 factorial 会剥离全部 --device.ssm.*。
+    """
+    from scripts.run_spec import PIPELINE_V4_2, RunSpec
+    from scripts.simulation.single_run import build_sumo_command
     from tests.test_v4_2_p0_1_ssm_role import _dummy_prepared
 
     spec = RunSpec(
@@ -2234,13 +2230,15 @@ def test_v4_1_command_always_explicit_extratime():
         vehicle_count=10,
         seed=1,
         run_id="s0_IDM_v010_c005_as01_ss101",
-        pipeline_version=PIPELINE_V4_1,
+        pipeline_version=PIPELINE_V4_2,
         schema_version="2",
         sumo_seed=101,
         cav_count=5,
         requested_pcav=None,
+        experiment_role="safety",
+        ssm_enabled=True,
     )
-    cmd = build_sumo_command_v4_1(_dummy_prepared(), "net/scenario_0/loop.net.xml", spec)
+    cmd = build_sumo_command(_dummy_prepared(), "net/scenario_0/loop.net.xml", spec)
     idx = cmd.index("--device.ssm.extratime")
     assert cmd[idx + 1] == str(spec.ssm_extratime_s)
 
@@ -2568,37 +2566,19 @@ def test_v4_2_core_summary_excludes_mismatched_ttc_column():
     whole_network_ttc_events_per_1000_non_internal_edge_veh_km（全路网 TTC /
     non-internal veh-km），避免正式工件残留错误口径列。"""
     from scripts.parsing.metrics import compute_core_summary
-    from scripts.run_spec import PIPELINE_V4_1, RunSpec
 
     legacy_col = "whole_network_ttc_events_per_1000_non_internal_edge_veh_km"
     core = compute_core_summary(_lap_primitives(), _lap_spec(), {"HV": 100.0, "IDM": 100.0})
     assert legacy_col not in core
-    # v0.4.1（非 v0.4.2）仍输出该列
-    spec_legacy = _lap_spec()
-    spec_legacy = RunSpec(
-        scenario="scenario_0",
-        model="IDM",
-        pcav=0.5,
-        vehicle_count=10,
-        seed=1,
-        run_id="legacy",
-        pipeline_version=PIPELINE_V4_1,
-        sumo_seed=101,
-        cav_count=5,
-        requested_pcav=None,
-    )
-    core_legacy = compute_core_summary(_lap_primitives(), spec_legacy, {"HV": 100.0, "IDM": 100.0})
-    assert legacy_col in core_legacy
 
 
 def test_v4_2_column_set_excludes_mismatched_ttc():
     """P2-1：RUN_LEVEL_COLUMNS_V4_2 不含 legacy 空间错配列（aggregate 不再
     输出其 _mean）；v0.4.1 列集保持（v0.4.0~post3 schema=1 已移除）。"""
-    from scripts.schema import RUN_LEVEL_COLUMNS_V4_1, RUN_LEVEL_COLUMNS_V4_2
+    from scripts.schema import RUN_LEVEL_COLUMNS_V4_2
 
     legacy_col = "whole_network_ttc_events_per_1000_non_internal_edge_veh_km"
     assert legacy_col not in RUN_LEVEL_COLUMNS_V4_2
-    assert legacy_col in RUN_LEVEL_COLUMNS_V4_1  # v0.4.1 契约保留该列
 
 
 # ── 本轮审查 P2-2：SSM subgroup 未知车辆 fail-closed ──

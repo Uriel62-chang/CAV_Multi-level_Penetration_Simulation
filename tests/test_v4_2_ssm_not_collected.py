@@ -93,14 +93,14 @@ def _write_run_dir(tmp_path, spec, ssm_file: bool) -> Path:
 
 
 def _parse(tmp_path, spec, monkeypatch, ssm_file=False):
-    from scripts.parsing.runner import _parse_one_run_v4_1
+    from scripts.parsing.runner import _parse_one_run
 
     rd = _write_run_dir(tmp_path, spec, ssm_file=ssm_file)
     monkeypatch.setattr(
         "scripts.parsing.runner._load_free_flow_references",
         lambda spec, run_dir=None: {"HV": 100.0, "IDM": 100.0},
     )
-    core, subgroup, errors = _parse_one_run_v4_1(rd, spec, spec.network_file)
+    core, subgroup, errors = _parse_one_run(rd, spec, spec.network_file)
     return core, subgroup, errors
 
 

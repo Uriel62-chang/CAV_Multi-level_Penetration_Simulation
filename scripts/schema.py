@@ -147,12 +147,7 @@ QUALITY_COLUMNS = [
 ]
 
 # ── summary.json 审计字段（仅供阶段二内部，不进入 CSV） ──
-# 纯净分支（v0.4.0~post3 已移除）：仅保留 v0.4.1 起的 schema=2 审计字段。
-
-# ═══════════════════════════════════════════════════════════════
-# v0.4.1 schema_version=2 审计字段
-# ═══════════════════════════════════════════════════════════════
-
+# 纯净分支（v0.4.0~post3 已移除，v0.4.1 已并入）：schema=2 唯一审计键集。
 AUDIT_COLUMNS_V4_1 = [
     "ssm_parse_success",
     "lc_parse_success",
@@ -163,41 +158,8 @@ AUDIT_COLUMNS_V4_1 = [
     "ssm_not_collected",
 ]
 
-# v0.4.1 schema_version=2 核心 run-level CSV 列 (65 列)
-RUN_LEVEL_COLUMNS_V4_1 = (
-    list(IDENTIFIER_COLUMNS_V4_1)
-    + list(CONFIG_COLUMNS_V4_1)
-    + list(CAPACITY_COLUMNS)
-    + list(SAFETY_SSM_COLUMNS_V4_1)
-    + list(SAFETY_EB_COLUMNS)
-    + list(LANECHANGE_COLUMNS)
-    + list(EMISSIONS_COLUMNS)
-    + list(EFFICIENCY_COLUMNS)
-    + list(NORMALIZED_COLUMNS)
-    + list(DELAY_COLUMNS)
-    + list(QUALITY_COLUMNS)
-)
-
-# v0.4.1 schema_version=2 summary.json 必需字段
-SUMMARY_REQUIRED_KEYS_V4_1 = (
-    list(IDENTIFIER_COLUMNS_V4_1)
-    + list(CONFIG_COLUMNS_V4_1)
-    + list(CAPACITY_COLUMNS)
-    + list(SAFETY_SSM_COLUMNS_V4_1)
-    + list(SAFETY_EB_COLUMNS)
-    + list(LANECHANGE_COLUMNS)
-    + list(EMISSIONS_COLUMNS)
-    + list(EFFICIENCY_COLUMNS)
-    + list(NORMALIZED_COLUMNS)
-    + list(DELAY_COLUMNS)
-    + list(AUDIT_COLUMNS_V4_1)
-)
-
 # ═══════════════════════════════════════════════════════════════
-# v0.4.2 schema_version=2 扩展（P0-4/P1-1；P0-1 采集状态列）
-# v0.4.2 在 v0.4.1 schema=2 契约之上新增：采集状态列（experiment_role /
-# ssm_enabled / ssm_not_collected，位于 IDENTIFIER 之后）与排放双口径字段。
-# V4_1 集合保持冻结；validator/writer 按 pipeline_version 分流。
+# schema_version=2 契约（纯净分支：v0.4.1 已并入 v0.4.2 单管线）
 # ═══════════════════════════════════════════════════════════════
 
 # 审阅 P0-1（Safety 设计）：DRAC 空间配对事件率（全路网 DRAC 事件 / 全路网 veh-km，
@@ -290,9 +252,9 @@ SUBGROUP_LONG_COLUMNS_V4_1 = [
 ]
 
 # metric -> (companion field, maximum companion value for which NaN is valid)
-# v0.4.1（schema=2）冻结 companion 表：排放强度跟随 total_vehicle_km（v0.4.1
-# summary 不含 non_internal_edge_vehicle_km 键）。纯净分支已移除 schema=1 契约。
-SUMMARY_NAN_RULES_V4_1 = {
+# 纯净分支：v0.4.2 单管线 companion 表——排放强度 NaN companion 跟随
+# non-internal 主 estimand（non_internal_edge_vehicle_km，metrics.py P0-7）。
+SUMMARY_NAN_RULES_V4_2 = {
     "min_ttc_s": ("ttc_conflict_event_count", 0),
     "max_drac_mps2": ("drac_conflict_event_count", 0),
     "mean_speed_m_s": ("detector_speed_window_count", 0),
@@ -307,12 +269,10 @@ SUMMARY_NAN_RULES_V4_1 = {
     "ttc_events_per_1000_veh_km": ("total_vehicle_km", 0),
     "emergency_brakes_per_1000_veh_km": ("total_vehicle_km", 0),
     "lane_changes_per_1000_veh_km": ("total_vehicle_km", 0),
-    # legacy（schema=1 / v0.4.1 schema=2）冻结 companion：total_vehicle_km。
-    # 不得改动：legacy summary 不含 non_internal_edge_vehicle_km 键。
-    "CO2_g_per_veh_km": ("total_vehicle_km", 0),
-    "NOx_mg_per_veh_km": ("total_vehicle_km", 0),
-    "PMx_mg_per_veh_km": ("total_vehicle_km", 0),
-    "fuel_g_per_veh_km": ("total_vehicle_km", 0),
+    "CO2_g_per_veh_km": ("non_internal_edge_vehicle_km", 0),
+    "NOx_mg_per_veh_km": ("non_internal_edge_vehicle_km", 0),
+    "PMx_mg_per_veh_km": ("non_internal_edge_vehicle_km", 0),
+    "fuel_g_per_veh_km": ("non_internal_edge_vehicle_km", 0),
     "time_loss_s_per_veh_km": ("total_vehicle_km", 0),
     "whole_network_ttc_events_per_1000_non_internal_edge_veh_km": (
         "non_internal_edge_vehicle_km",
@@ -320,39 +280,22 @@ SUMMARY_NAN_RULES_V4_1 = {
     ),
 }
 
-# 审阅 P1-2（v0.4.2 专属）：主 estimand 为 non-internal（metrics.py P0-7），
-# 排放强度 NaN companion 跟随 non-internal veh-km。
-SUMMARY_NAN_RULES_V4_2 = dict(SUMMARY_NAN_RULES_V4_1)
-SUMMARY_NAN_RULES_V4_2.update(
-    {
-        "CO2_g_per_veh_km": ("non_internal_edge_vehicle_km", 0),
-        "NOx_mg_per_veh_km": ("non_internal_edge_vehicle_km", 0),
-        "PMx_mg_per_veh_km": ("non_internal_edge_vehicle_km", 0),
-        "fuel_g_per_veh_km": ("non_internal_edge_vehicle_km", 0),
-    }
-)
-
 
 def validate_summary_contract(
     summary: dict, schema_version: str, pipeline_version: str | None = None
 ) -> list[str]:
     """Return field-level schema errors; valid no-event extrema may be NaN.
 
-    纯净分支：仅支持 schema=2。按 pipeline_version 分流：v0.4.2 要求 V4_2
-    （含排放双口径扩展），v0.4.1 保持 V4_1 冻结契约（P1-1）。
+    纯净分支：仅支持 schema=2 单管线（v0.4.2 契约，V4_1 已并入）。
     """
     if schema_version != "2":
         raise ValueError(f"unsupported schema_version: {schema_version!r} (only '2' supported)")
-    required = (
-        SUMMARY_REQUIRED_KEYS_V4_2 if pipeline_version == "v0.4.2" else SUMMARY_REQUIRED_KEYS_V4_1
-    )
-    # 审阅 P2（复核）：v0.4.2 时 eb_parse_success 作为可选审计字段（若存在必须为 bool）
+    required = SUMMARY_REQUIRED_KEYS_V4_2
+    # 审阅 P2（复核）：eb_parse_success 作为可选审计字段（若存在必须为 bool）
     eb_audit_keys: set[str] = set()
-    if pipeline_version == "v0.4.2" and "eb_parse_success" in summary:
+    if "eb_parse_success" in summary:
         eb_audit_keys = {"eb_parse_success"}
-    # 审阅 P1-2：NaN companion 表按 pipeline 分流——v0.4.2 用 non-internal
-    # 主 estimand 覆盖表，v0.4.1 保持 V4_1 冻结表。
-    nan_rules = SUMMARY_NAN_RULES_V4_2 if pipeline_version == "v0.4.2" else SUMMARY_NAN_RULES_V4_1
+    nan_rules = SUMMARY_NAN_RULES_V4_2
     errors = [f"summary missing required key: {key}" for key in required if key not in summary]
     if errors:
         return errors
@@ -454,17 +397,15 @@ def validate_summary_contract(
             "whole_network_ttc_events_per_1000_non_internal_edge_veh_km",
         }
         keys_to_validate = [k for k in keys_to_validate if k not in ssm_skip]
-        # P1（第二轮）：v0.4.2 未采集必须为 NaN（fail-closed 双向）——"伪零"（计数填 0）
-        # 同样拒绝，不能只跳过类型检查。v0.4.1 的 ssm_not_collected 语义不同
-        # （parse 标记，非意图性未采集），不适用 NaN 强制。
-        if pipeline_version == "v0.4.2":
-            for key in sorted(ssm_skip):
-                if key in summary:
-                    value = summary[key]
-                    if not (isinstance(value, float) and math.isnan(value)):
-                        errors.append(
-                            f"summary {key} must be NaN when ssm_not_collected (got {value!r})"
-                        )
+        # P1（第二轮）：ssm_not_collected 未采集必须为 NaN（fail-closed 双向）——
+        # "伪零"（计数填 0）同样拒绝，不能只跳过类型检查。
+        for key in sorted(ssm_skip):
+            if key in summary:
+                value = summary[key]
+                if not (isinstance(value, float) and math.isnan(value)):
+                    errors.append(
+                        f"summary {key} must be NaN when ssm_not_collected (got {value!r})"
+                    )
     for key in keys_to_validate:
         value = summary[key]
         if key in nullable and value is None:

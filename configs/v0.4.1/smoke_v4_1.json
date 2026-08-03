@@ -1,12 +1,28 @@
 {
   "config_version": "v0.4.1-smoke-v4_1",
-  "pipeline_version": "v0.4.1",
+  "pipeline_version": "v0.4.2",
   "schema_version": "2",
   "grid_mode": "cav_count",
-  "scenarios": ["scenario_0"],
-  "models": ["IDM"],
-  "treatments": [{"vehicle_count": 10, "cav_counts": [5], "assignment_seeds": [1]}],
-  "sumo_seeds": [101],
+  "scenarios": [
+    "scenario_0"
+  ],
+  "models": [
+    "IDM"
+  ],
+  "treatments": [
+    {
+      "vehicle_count": 10,
+      "cav_counts": [
+        5
+      ],
+      "assignment_seeds": [
+        1
+      ]
+    }
+  ],
+  "sumo_seeds": [
+    101
+  ],
   "seed_scope": "vehicle_type_assignment",
   "simulation_end": 360,
   "warmup": 60,
@@ -24,5 +40,12 @@
   "with_internal": true,
   "network_files": {
     "scenario_0": "net/scenario_0/loop.net.xml"
-  }
+  },
+  "experiment_role": "main_factorial",
+  "ssm_enabled": false,
+  "analysis_ttc_threshold_s": 3.0,
+  "analysis_drac_threshold_mps2": 3.0,
+  "ssm_dedup_method": "greedy_one_to_one_80pct",
+  "ssm_mirror_overlap_ratio": 0.8,
+  "ssm_fragment_merge_gap_s": 0.0
 }

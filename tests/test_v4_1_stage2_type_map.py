@@ -5,7 +5,7 @@ import json
 import pytest
 
 from scripts.parsing.runner import load_and_validate_type_map
-from scripts.run_spec import PIPELINE_V4_1, RunSpec, build_run_id
+from scripts.run_spec import PIPELINE_V4_2, RunSpec, build_run_id
 
 
 def _make_spec(cav_count=5, vehicle_count=10):
@@ -23,7 +23,7 @@ def _make_spec(cav_count=5, vehicle_count=10):
             assignment_seed=1,
             sumo_seed=101,
         ),
-        pipeline_version=PIPELINE_V4_1,
+        pipeline_version=PIPELINE_V4_2,
         schema_version="2",
         sumo_seed=101,
         cav_count=cav_count,

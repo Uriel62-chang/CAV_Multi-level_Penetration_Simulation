@@ -8,7 +8,7 @@ from pathlib import Path
 
 from scripts.parsing.vehroute import parse_lap_times
 from scripts.provenance import net_semantic_sha256, sha256_file
-from scripts.run_spec import PIPELINE_V4_1, RunSpec, atomic_write_json, write_run_spec
+from scripts.run_spec import PIPELINE_V4_2, RunSpec, atomic_write_json, write_run_spec
 from scripts.simulation.flow_generator import generate_flow
 from scripts.simulation.single_run import load_network_meta
 
@@ -41,7 +41,7 @@ def measure_free_flow(
             edge_data_frequency=60,
             loops=cfg.get("loops", 60),
             network_file=network_file,
-            pipeline_version=PIPELINE_V4_1,
+            pipeline_version=PIPELINE_V4_2,
             schema_version="2",
             sumo_seed=1,
             cav_count=0,
@@ -67,7 +67,7 @@ def measure_free_flow(
                 edge_data_frequency=60,
                 loops=cfg.get("loops", 60),
                 network_file=network_file,
-                pipeline_version=PIPELINE_V4_1,
+                pipeline_version=PIPELINE_V4_2,
                 schema_version="2",
                 sumo_seed=1,
                 cav_count=1,

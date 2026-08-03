@@ -65,7 +65,7 @@ def test_summarize_ssm_evidence_marks_failed_positive_control(tmp_path):
 def test_ssm_off_command_removes_every_ssm_device_option(monkeypatch):
     monkeypatch.setattr(
         ssm_reproducer,
-        "build_sumo_command_v4_1",
+        "build_sumo_command",
         lambda *_: [
             "sumo",
             "--device.ssm.probability",
@@ -109,7 +109,7 @@ def test_normalized_non_ssm_commands_only_allow_ssm_and_attempt_path_differences
             str(prepared.run_dir / "fcd.xml.gz"),
         ]
 
-    monkeypatch.setattr(ssm_reproducer, "build_sumo_command_v4_1", base_command)
+    monkeypatch.setattr(ssm_reproducer, "build_sumo_command", base_command)
     prepared_on = SimpleNamespace(run_dir=Path("/tmp/attempt-a/raw/run"))
     prepared_off = SimpleNamespace(run_dir=Path("/tmp/attempt-b/raw/run"))
     on = build_diagnostic_command(prepared_on, "net.xml", None, "sumo", ssm_enabled=True)
@@ -173,7 +173,7 @@ def _patch_run(monkeypatch, tmp_path, *, returncode=0, ssm_text="<ssmLog/>", emi
         return paths
 
     monkeypatch.setattr(ssm_reproducer, "prepare_run", prepare)
-    monkeypatch.setattr(ssm_reproducer, "build_sumo_command_v4_1", lambda *_: ["fake-sumo"])
+    monkeypatch.setattr(ssm_reproducer, "build_sumo_command", lambda *_: ["fake-sumo"])
     if ssm_text == "not xml":
         monkeypatch.setattr(
             ssm_reproducer,

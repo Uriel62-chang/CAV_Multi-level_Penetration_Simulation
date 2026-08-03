@@ -1,6 +1,6 @@
 """v0.4.1 RunSpec 回归测试"""
 
-from scripts.run_spec import PIPELINE_V4_1, RunSpec, build_run_id
+from scripts.run_spec import PIPELINE_V4_2, RunSpec, build_run_id
 
 
 def test_v4_1_round_trip_cav_count_mode():
@@ -11,7 +11,7 @@ def test_v4_1_round_trip_cav_count_mode():
         vehicle_count=10,
         seed=1,
         run_id="s0_IDM_v010_c005_as01_ss101",
-        pipeline_version=PIPELINE_V4_1,
+        pipeline_version=PIPELINE_V4_2,
         schema_version="2",
         sumo_seed=101,
         cav_count=5,
@@ -36,7 +36,7 @@ def test_v4_1_pcav_consistency_rejected():
             vehicle_count=10,
             seed=1,
             run_id="r",
-            pipeline_version=PIPELINE_V4_1,
+            pipeline_version=PIPELINE_V4_2,
             sumo_seed=101,
             cav_count=5,
         )
@@ -50,7 +50,7 @@ def test_v4_1_hash_stable():
         vehicle_count=10,
         seed=1,
         run_id="s0_IDM_p050_v010_seed1",
-        pipeline_version=PIPELINE_V4_1,
+        pipeline_version=PIPELINE_V4_2,
         sumo_seed=101,
         cav_count=5,
     )

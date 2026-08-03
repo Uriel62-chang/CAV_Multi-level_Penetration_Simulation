@@ -79,9 +79,9 @@ def test_seed_only_controls_vehicle_type_assignment(tmp_path):
     other = tmp_path / "other.xml"
     args = (10, 0.5, 2)
 
-    generate_flow(*args, 7, str(same_a))
-    generate_flow(*args, 7, str(same_b))
-    generate_flow(*args, 8, str(other))
+    generate_flow(*args, 7, str(same_a), cav_count=5)
+    generate_flow(*args, 7, str(same_b), cav_count=5)
+    generate_flow(*args, 8, str(other), cav_count=5)
 
     assert _vehicle_types(same_a) == _vehicle_types(same_b)
     assert _vehicle_types(same_a) != _vehicle_types(other)
@@ -90,12 +90,9 @@ def test_seed_only_controls_vehicle_type_assignment(tmp_path):
 def test_seed_is_not_passed_to_sumo(tmp_path):
     spec = _spec()
     prepared = prepare_run(spec, tmp_path, spec.network_file)
-    command = build_sumo_command(
-        prepared,
-        spec.network_file,
-        sim_end_time=spec.simulation_end,
-        step_length=spec.step_length,
-    )
+    command = build_sumo_command(prepared, spec.network_file, spec)
 
-    assert "--seed" not in command
+    # v0.4.2：--seed 显式传 spec.sumo_seed（独立随机流）；--random 不得出现
+    idx = command.index("--seed")
+    assert command[idx + 1] == str(spec.sumo_seed)
     assert "--random" not in command

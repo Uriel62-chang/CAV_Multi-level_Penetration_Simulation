@@ -5,7 +5,7 @@ import json
 import pytest
 
 from scripts.provenance import sha256_file
-from scripts.run_spec import PIPELINE_V4_1, RunSpec, is_simulation_complete
+from scripts.run_spec import PIPELINE_V4_2, RunSpec, is_simulation_complete
 from scripts.simulation.batch_run import _missing_required_outputs
 
 
@@ -17,7 +17,7 @@ def _make_spec(cav_count=5, vehicle_count=10, net_file="net/scenario_0/loop.net.
         vehicle_count=vehicle_count,
         seed=1,
         run_id="test-net-meta",
-        pipeline_version=PIPELINE_V4_1,
+        pipeline_version=PIPELINE_V4_2,
         schema_version="2",
         sumo_seed=101,
         cav_count=cav_count,
@@ -38,6 +38,15 @@ def _setup_run_dir(tmp_path, spec, net_json_content):
         meta_file.write_text(net_json_content, encoding="utf-8")
     else:
         meta_file.write_text(json.dumps(net_json_content), encoding="utf-8")
+    # P1-1：sources.sha256 语义锚定（is_simulation_complete 要求）
+    import hashlib as _h
+
+    (fake_net.parent / "nodes.nod.xml").write_text("<nodes/>", encoding="utf-8")
+    (fake_net.parent / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
+    _digest = _h.sha256()
+    _digest.update((fake_net.parent / "nodes.nod.xml").read_bytes())
+    _digest.update((fake_net.parent / "edges.edg.xml").read_bytes())
+    (fake_net.parent / "sources.sha256").write_text(_digest.hexdigest(), encoding="utf-8")
 
     spec = RunSpec(
         scenario=spec.scenario,
@@ -55,11 +64,11 @@ def _setup_run_dir(tmp_path, spec, net_json_content):
     )
     for f in [
         "routes.rou.xml",
-        "ssm.xml",
         "lanechange.xml",
         "performance.xml",
         "emissions.xml",
         "vehroute.xml",
+        "additional.add.xml",
     ]:
         (rd / f).write_text("<root/>")
     (rd / "vehicle_type_map.json").write_text(
@@ -69,7 +78,7 @@ def _setup_run_dir(tmp_path, spec, net_json_content):
     )
     status = {
         "run_id": spec.run_id,
-        "pipeline_version": PIPELINE_V4_1,
+        "pipeline_version": PIPELINE_V4_2,
         "status": "SUCCESS",
         "return_code": 0,
         "run_spec_sha256": spec.sha256(),
@@ -80,6 +89,26 @@ def _setup_run_dir(tmp_path, spec, net_json_content):
         "sumo_seed": spec.sumo_seed,
         "route_file_sha256": sha256_file(str(rd / "routes.rou.xml")),
         "vehicle_type_map_sha256": sha256_file(str(rd / "vehicle_type_map.json")),
+        "additional_file_sha256": sha256_file(str(rd / "additional.add.xml")),
+        "network_xml_sha256": sha256_file(str(fake_net)),
+        "net_json_sha256": sha256_file(str(meta_file)),
+        "raw_output_sha256": {
+            fname: sha256_file(str(rd / fname))
+            for fname in (
+                "detector_lane0.xml",
+                "detector_lane0_HV.xml",
+                "detector_lane0_CAV.xml",
+                "emissions.xml",
+                "emissions_HV.xml",
+                "emissions_CAV.xml",
+                "lanechange.xml",
+                "performance.xml",
+                "performance_HV.xml",
+                "performance_CAV.xml",
+                "vehroute.xml",
+            )
+            if (rd / fname).exists()
+        },
     }
     (rd / "simulation_status.json").write_text(json.dumps(status))
     (rd / "run_spec.json").write_text(json.dumps(spec.to_dict()))
@@ -102,6 +131,26 @@ _DETECTOR_FILES = (
 def _write_all_files(rd):
     for fname in _SUBGROUP_FILES + _DETECTOR_FILES:
         (rd / fname).write_text("<root/>")
+    # v0.4.2 闭包：文件写齐后刷新 raw_output_sha256（status 在 _setup_run_dir 构造，
+    # 当时 subgroup/detector 文件尚不存在）
+    status_path = rd / "simulation_status.json"
+    status = json.loads(status_path.read_text(encoding="utf-8"))
+    _ALL_RAW_CANDIDATES = (
+        _SUBGROUP_FILES
+        + _DETECTOR_FILES
+        + (
+            "emissions.xml",
+            "lanechange.xml",
+            "performance.xml",
+            "vehroute.xml",
+        )
+    )
+    status["raw_output_sha256"] = {
+        fname: sha256_file(str(rd / fname))
+        for fname in _ALL_RAW_CANDIDATES
+        if (rd / fname).exists()
+    }
+    status_path.write_text(json.dumps(status), encoding="utf-8")
 
 
 def _write_subgroup_only(rd):
@@ -114,25 +163,25 @@ class TestNetMetaResume:
         spec = _make_spec()
         rd, spec = _setup_run_dir(tmp_path, spec, "[]")
         _write_all_files(rd)
-        assert is_simulation_complete(spec, rd, PIPELINE_V4_1) is False
+        assert is_simulation_complete(spec, rd, PIPELINE_V4_2) is False
 
     def test_net_json_nan_num_lanes(self, tmp_path):
         spec = _make_spec()
         rd, spec = _setup_run_dir(tmp_path, spec, {"num_lanes": float("nan")})
         _write_all_files(rd)
-        assert is_simulation_complete(spec, rd, PIPELINE_V4_1) is False
+        assert is_simulation_complete(spec, rd, PIPELINE_V4_2) is False
 
     def test_net_json_float_num_lanes(self, tmp_path):
         spec = _make_spec()
         rd, spec = _setup_run_dir(tmp_path, spec, {"num_lanes": 1.5})
         _write_all_files(rd)
-        assert is_simulation_complete(spec, rd, PIPELINE_V4_1) is False
+        assert is_simulation_complete(spec, rd, PIPELINE_V4_2) is False
 
     def test_net_json_valid_num_lanes(self, tmp_path):
         spec = _make_spec()
         rd, spec = _setup_run_dir(tmp_path, spec, {"num_lanes": 1, "edge_ids": ["e0"]})
         _write_all_files(rd)
-        assert is_simulation_complete(spec, rd, PIPELINE_V4_1) is True
+        assert is_simulation_complete(spec, rd, PIPELINE_V4_2) is True
 
 
 class TestNetMetaMissingOutputs:

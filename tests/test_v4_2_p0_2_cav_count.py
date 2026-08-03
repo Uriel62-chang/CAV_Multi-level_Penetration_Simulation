@@ -25,20 +25,6 @@ def test_generate_flow_cav_count_is_authoritative(tmp_path):
     assert out.exists()
 
 
-def test_generate_flow_round_fallback(tmp_path):
-    """cav_count=None（旧式构造）时按 round(vehN*pCAV) 推导。"""
-    out = tmp_path / "routes_fallback.rou.xml"
-    type_map = generate_flow(
-        vehicle_count=10,
-        cav_ratio=0.5,
-        loops=2,
-        seed=1,
-        output_path=str(out),
-    )
-    cavs = [v for v in type_map.values() if v == "CAV"]
-    assert len(cavs) == 5
-
-
 def test_generate_flow_cav_count_out_of_range(tmp_path):
     with pytest.raises(ValueError):
         generate_flow(

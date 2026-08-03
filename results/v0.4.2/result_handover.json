@@ -10,7 +10,7 @@
   "parsing": {
    "artifact_generation_commit": "031e4b7",
    "post_generation_validation_commit": "031e4b7",
-   "note": "二次全量重解析完成（031e4b7 代码，用户拍板执行）：main 3888 + safety 84 全部 SUCCESS；run-level/subgroup CSV 哈希与 8544f75 时代一致（多轮扫描证明的所有解析器修复对正式数据零数值影响得到最终确认）；parse_status 仅运行元数据变化。"
+   "note": "二次全量重解析完成（031e4b7 代码，用户拍板执行）：main 3888 + safety 84 全部 SUCCESS；run-level/subgroup CSV 哈希与重解析前逐字节一致（多轮扫描证明的所有解析器修复对正式数据零数值影响——最终确认）；parse_status 仅运行元数据变化。"
   },
   "writer": {
    "core_results_commit": "8f9ef4b",
@@ -33,19 +33,19 @@
    "runs": 3888,
    "success": 3888,
    "groups": 528,
-   "generated_by": "8544f75 全量重解析 + writer（当前 tracked 派生物）"
+   "generated_by": "031e4b7 全量重解析 + writer（当前 tracked 派生物）"
   },
   "safety": {
    "runs": 84,
    "success": 84,
    "groups": 84,
-   "generated_by": "8544f75 全量重解析 + writer（当前 tracked 派生物）"
+   "generated_by": "031e4b7 全量重解析 + writer（当前 tracked 派生物）"
   }
  },
  "writer_complete": {
   "main": true,
   "safety": true,
-  "generated_by": "8544f75 时代 writer 产物；当前 HEAD d3cb187 的后续解析器修复（vehroute 断点、FCD 缺失 time、lanechange gap 等）尚未重生成正式派生物——待二次全量重解析后统一更新本文件与哈希"
+  "generated_by": "031e4b7 时代 writer 产物（二次重解析后生成）；当前 HEAD c02c503 工作区干净，正式派生物由当前代码生成——版本闭包完成"
  },
  "hashes": {
   "raw_v0.4.2/main/manifest.json": "3e2c1e7e64569931016f27eef7c56fadc7dccaaa2bae2d7e00e072893d43146b",

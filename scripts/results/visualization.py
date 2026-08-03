@@ -184,29 +184,28 @@ MODEL_STYLES = {
 _PAIRED_TTC_METRIC = "ttc_per_k_mean"
 # 审阅 P0-1（Safety 设计）：DRAC 空间配对事件率（全路网 DRAC 事件 / 全路网 veh-km）
 _PAIRED_DRAC_METRIC = "drac_per_k_mean"
-# legacy post3 错配列：全路网事件 / non-internal-edge veh-km（仅兼容旧 CSV，不得优先）
-_LEGACY_MISMATCHED_TTC_METRIC = "whole_network_ttc_events_per_1000_non_internal_edge_veh_km_mean"
 
 
 def _ttc_metric_column(df: pd.DataFrame) -> str:
-    """v0.4.0 --v4 兼容路径：优先配对列，缺失时回退 legacy 错配列（post3 CSV）。"""
-    for col in (_PAIRED_TTC_METRIC, _LEGACY_MISMATCHED_TTC_METRIC):
-        if col in df.columns:
-            return col
+    """--v4 路径：只接受空间配对列（纯净分支已移除 legacy post3 错配列回退）。
+
+    v0.4.0~post3 的 whole_network_ttc_events_per_1000_non_internal_edge_veh_km
+    （全路网事件 / non-internal-edge veh-km）为 A 线已修正的错误口径，head 数据
+    一律用配对列；历史 post3 CSV 展示需 checkout v0.4.0.post3 tag。
+    """
+    if _PAIRED_TTC_METRIC in df.columns:
+        return _PAIRED_TTC_METRIC
     raise ValueError(f"no TTC per-veh-km column in aggregated CSV; expected {_PAIRED_TTC_METRIC}")
 
 
 def _paired_ttc_metric_column(df: pd.DataFrame) -> str:
     """v0.4.2 --safety 路径（P1-3）：只接受空间配对列，缺失 fail-closed。
 
-    不得回退到 legacy non-internal 错配列——那会重新生成 A 线已修正的错误口径。
+    不回退到 legacy non-internal 错配列——那会重新生成 A 线已修正的错误口径。
     """
     if _PAIRED_TTC_METRIC in df.columns:
         return _PAIRED_TTC_METRIC
-    raise ValueError(
-        f"safety report requires space-matched column {_PAIRED_TTC_METRIC!r}; "
-        f"found legacy mismatched column only: {_LEGACY_MISMATCHED_TTC_METRIC!r}"
-    )
+    raise ValueError(f"safety report requires space-matched column {_PAIRED_TTC_METRIC!r}")
 
 
 def _assert_experiment_role(df: pd.DataFrame, expected: str) -> None:

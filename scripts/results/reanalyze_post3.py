@@ -73,8 +73,17 @@ def reanalyze(raw_root: Path, source_csv: Path, output_dir: Path) -> tuple[Path,
             warmup_period=warmup,
             simulation_end=float(row["simulation_end_s"]),
         )
-        performance = parse_edge_performance(str(performance_path), warmup_period=warmup)
-        emissions = parse_edge_emissions(str(emissions_path), warmup_period=warmup)
+        # 审阅 P1-1：edgeData 与 SSM 同窗口 [warmup, simulation_end)（与 v0.4.2 runner 一致）
+        performance = parse_edge_performance(
+            str(performance_path),
+            warmup_period=warmup,
+            simulation_end=float(row["simulation_end_s"]),
+        )
+        emissions = parse_edge_emissions(
+            str(emissions_path),
+            warmup_period=warmup,
+            simulation_end=float(row["simulation_end_s"]),
+        )
 
         if not all(result["parse_success"] for result in (ssm, performance, emissions)):
             raise RuntimeError(f"{run_id}: corrected parser failed")

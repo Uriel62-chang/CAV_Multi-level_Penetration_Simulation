@@ -178,13 +178,13 @@ def _patch_run(monkeypatch, tmp_path, *, returncode=0, ssm_text="<ssmLog/>", emi
         monkeypatch.setattr(
             ssm_reproducer,
             "summarize_ssm_evidence",
-            lambda *_: (_ for _ in ()).throw(ValueError("invalid SSM XML")),
+            lambda *_, **__: (_ for _ in ()).throw(ValueError("invalid SSM XML")),
         )
     else:
         monkeypatch.setattr(
             ssm_reproducer,
             "summarize_ssm_evidence",
-            lambda *_: {"ttc_event_count": 1, "control_status": "pass"},
+            lambda *_, **__: {"ttc_event_count": 1, "control_status": "pass"},
         )
 
     class Process:

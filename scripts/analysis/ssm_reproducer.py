@@ -220,10 +220,16 @@ def _rss_kb(pid: int | None) -> int | None:
     return None
 
 
-def summarize_ssm_evidence(ssm_path: str | Path, warmup: float, expected_ttc: str) -> dict:
-    """Summarize the raw SSM output and never substitute a failed positive control."""
+def summarize_ssm_evidence(
+    ssm_path: str | Path, warmup: float, expected_ttc: str, simulation_end: float | None = None
+) -> dict:
+    """Summarize the raw SSM output and never substitute a failed positive control.
+
+    审阅 P2-1：传入 simulation_end（观测窗 [warmup, simulation_end)），否则窗口外
+    SSM 事件会导致 positive/zero control 误判。
+    """
     path = Path(ssm_path)
-    parsed = parse_ssm(str(path), warmup, 3.0, 3.0)
+    parsed = parse_ssm(str(path), warmup, 3.0, 3.0, simulation_end=simulation_end)
     ttc_events = parsed["ttc_conflict_event_count"]
     control_status = (
         "pass"
@@ -384,7 +390,10 @@ def run_case(
         if ssm_enabled:
             failure_stage = "ssm_parse"
             evidence = summarize_ssm_evidence(
-                prepared.ssm_path, spec.warmup, str(case["expected_ttc"])
+                prepared.ssm_path,
+                spec.warmup,
+                str(case["expected_ttc"]),
+                simulation_end=spec.simulation_end,
             )
             if evidence["control_status"] != "pass":
                 failure_stage = "positive_control"

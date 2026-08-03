@@ -75,7 +75,8 @@ def _dedup_none(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
                 invalid += 1
                 continue
             try:
-                etime = float(elem.get("time", "0"))
+                # 审阅 P1-2：缺失 time 默认 begin（与主解析器 parse_ssm 一致）
+                etime = float(elem.get("time", str(begin)))
             except (ValueError, TypeError):
                 invalid += 1
                 continue
@@ -174,7 +175,8 @@ def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th, simulation_end=None)
         if me is not None:
             try:
                 min_ttc_val = float(me.get("value", ""))
-                t = float(me.get("time", "0"))
+                # 审阅 P1-2：缺失 time 默认 begin（与主解析器一致）
+                t = float(me.get("time", str(begin)))
             except (ValueError, TypeError):
                 invalid += 1
                 continue
@@ -192,7 +194,8 @@ def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th, simulation_end=None)
         if mde is not None:
             try:
                 max_drac_val = float(mde.get("value", ""))
-                t = float(mde.get("time", "0"))
+                # 审阅 P1-2：缺失 time 默认 begin（与主解析器一致）
+                t = float(mde.get("time", str(begin)))
             except (ValueError, TypeError):
                 invalid += 1
                 continue

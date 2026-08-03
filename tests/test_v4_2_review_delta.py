@@ -1707,3 +1707,38 @@ def test_generate_polygon_loop_writes_sources_anchor(tmp_path):
     assert (out_dir / "sources.sha256").exists()
     content = (out_dir / "sources.sha256").read_text(encoding="utf-8").strip()
     assert len(content) == 64
+
+
+# ── 审查 P1-1（本轮）：post3 重分析 edgeData 传 simulation_end ──
+
+
+def test_reanalyze_edge_parsers_pass_simulation_end():
+    """post3 重分析 edge performance/emissions 调用必须携带 simulation_end。"""
+    import inspect
+
+    from scripts.results import reanalyze_post3
+
+    src = inspect.getsource(reanalyze_post3.reanalyze)
+    assert 'simulation_end=float(row["simulation_end_s"])' in src
+    assert src.count('simulation_end=float(row["simulation_end_s"])') >= 3  # ssm + perf + emis
+
+
+# ── 审查 P1-2（本轮）：sensitivity 缺失 time 默认 begin（与主解析一致）──
+
+
+def test_sensitivity_missing_time_defaults_to_begin(tmp_path):
+    """none 路径：极值元素缺失 time → 默认 begin（与 parse_ssm 一致，不再过滤）。"""
+    from scripts.analysis.ssm_sensitivity import _dedup_none
+
+    p = tmp_path / "ssm.xml"
+    p.write_text(
+        '<SSMLog><conflict begin="100" end="200" ego="v1" foe="v2">'
+        '<minTTC value="1.0"/>'  # 无 time 属性
+        "</conflict></SSMLog>",
+        encoding="utf-8",
+    )
+    ttc_cnt, drac_cnt, min_ttc, max_drac, affected = _dedup_none(
+        str(p), warmup=0, ttc_th=3.0, drac_th=3.0
+    )
+    assert ttc_cnt == 1  # 缺失 time 按 begin=100（warmup 内）保留
+    assert min_ttc == 1.0

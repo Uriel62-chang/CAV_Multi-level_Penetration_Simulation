@@ -60,7 +60,7 @@
   "results/v0.4.2/safety/run_level_subgroup_results.csv": "f7da72084ccc73aed08c04ea0e6102fc6c437830b58bc9b00d18394cbb90e556",
   "results/v0.4.2/safety/aggregated_results.csv": "a9a5d1ec4f9c54f79788916fe3dbf0a1de4d7f772f73ab9d34d418fe2c70e673",
   "results/v0.4.2/safety/writer_report.json": "00c31b99cf81413daaf7b45dab0c29007c8c6ee587e0592be9bd01c8d740b539",
-  "results/v0.4.2/raw_status_inventory.jsonl": "cf358bcf726360e5c59e901e9ecc600d93fdef30cea02a3820c4c68ee715f1f1",
+  "results/v0.4.2/raw_status_inventory.jsonl": "8e11e3a582547fe6b0f64fd35baa60a0e07b2036046e702563899a43086aecff",
   "results/v0.4.2/result_analysis.md": "3c9eceeaf89918bcb22f63bc12a07023f0a3d424bdeb907b72f4649d63e92c9d",
   "results/v0.4.2/pairing_report.json": "52b8c4a6dde1cbcec1988fe8bcce46356756a1c986449430dc5d75b0eeecbc2e"
  },
@@ -81,6 +81,10 @@
   "previous_net_anchor_net_json_sha256": {
    "scenario_0": "ed449b873e61b054b6f856aa99ffaf93650ce7d6cc839934ab1487474d2e5266",
    "note": "P1-1 强制门禁：4 个 net.json 增加 network_sources_sha256 锚定字段（源文件一致性可验证），inventory net_json_sha256 按 run_id 场景前缀重算（3,972 条）；loop.net.xml 未重编译，network_xml_sha256 与 raw additional/sidecar 锚定未变。"
+  },
+  "net_anchor_rollback": {
+   "previous_inventory_net_anchor_sha256": "cf358bcf726360e5c59e901e9ecc600d93fdef30cea02a3820c4c68ee715f1f1",
+   "note": "P1-1 修复中 net.json 加锚定字段破坏 simulation_status 锚定（3,972 runs 失配）——已回滚 net.json（恢复原字节，证据链恢复），锚定移入独立文件 sources.sha256（build_network/input_integrity 读取）；正式 3,972 runs input_integrity 全量 0 失败。"
   }
  },
  "runtime_clean_commit_warning": "本轮 parsing/writer/aggregate 运行于已提交的修复代码（8f9ef4b/91c256f/d963502），工作区仅含未跟踪的 results/.regen 临时目录；raw 证据目录与 simulation_status.json 未动。",

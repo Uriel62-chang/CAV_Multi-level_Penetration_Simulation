@@ -31,6 +31,13 @@ def test_build_network_invokes_netconvert_with_tracked_sources(tmp_path, monkeyp
     scenario_dir.mkdir()
     (scenario_dir / "nodes.nod.xml").write_text("<nodes/>", encoding="utf-8")
     (scenario_dir / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
+    # 审阅 P1-1：源一致性门禁需要 sources.sha256 锚定
+    import hashlib
+
+    digest = hashlib.sha256()
+    digest.update((scenario_dir / "nodes.nod.xml").read_bytes())
+    digest.update((scenario_dir / "edges.edg.xml").read_bytes())
+    (scenario_dir / "sources.sha256").write_text(digest.hexdigest() + "\n", encoding="utf-8")
     observed = {}
 
     def fake_run(command, check):

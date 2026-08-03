@@ -203,33 +203,28 @@ def verify(run_dir: Path, spec) -> tuple[bool, list[str]]:
             # 此处仅核验记录存在与 SHA-256 格式，不做字节比对。
             if len(expected_sha) != 64 or any(c not in "0123456789abcdef" for c in expected_sha):
                 errors.append(f"top-level hash invalid format: {field}")
-            # 审阅 P1-1：网络输入一致性闭环补强——net.json 锚定的源 SHA 与当前
-            # node/edge 源文件比对（源变化但锚定未更新 → 元数据可能过期，必须发现）
-            try:
-                meta = json.loads(net_meta_path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                errors.append(f"net.json unreadable: {net_meta_path}")
+            # 审阅 P1-1：网络输入一致性闭环补强——独立锚定文件 sources.sha256 与当前
+            # node/edge 源文件比对（源变化但锚定未更新 → 元数据可能过期，必须发现）。
+            # 锚定不放在 net.json（其为已归档 raw 证据，字节被 simulation_status 锚定）。
+            anchor_path = net_meta_path.with_name("sources.sha256")
+            if not anchor_path.exists():
+                errors.append(f"network sources anchor missing: {anchor_path}")
             else:
-                anchored = meta.get("network_sources_sha256")
-                if not anchored:
+                anchored = anchor_path.read_text(encoding="utf-8").strip()
+                digest = hashlib.sha256()
+                src_ok = True
+                for src_name in ("nodes.nod.xml", "edges.edg.xml"):
+                    src_path = net_meta_path.with_name(src_name)
+                    if not src_path.exists():
+                        errors.append(f"network source missing: {src_path}")
+                        src_ok = False
+                        break
+                    digest.update(src_path.read_bytes())
+                if src_ok and digest.hexdigest() != anchored:
                     errors.append(
-                        f"net.json missing network_sources_sha256 anchor: {net_meta_path}"
+                        f"network source changed vs sources.sha256: {anchor_path} "
+                        f"(current {digest.hexdigest()[:12]}... != anchored {anchored[:12]}...)"
                     )
-                else:
-                    digest = hashlib.sha256()
-                    src_ok = True
-                    for src_name in ("nodes.nod.xml", "edges.edg.xml"):
-                        src_path = net_meta_path.with_name(src_name)
-                        if not src_path.exists():
-                            errors.append(f"network source missing: {src_path}")
-                            src_ok = False
-                            break
-                        digest.update(src_path.read_bytes())
-                    if src_ok and digest.hexdigest() != anchored:
-                        errors.append(
-                            f"network source changed vs net.json anchor: {net_meta_path} "
-                            f"(current {digest.hexdigest()[:12]}... != anchored {anchored[:12]}...)"
-                        )
         elif sha256_file(p) != expected_sha:
             errors.append(f"top-level input hash mismatch: {p}")
 

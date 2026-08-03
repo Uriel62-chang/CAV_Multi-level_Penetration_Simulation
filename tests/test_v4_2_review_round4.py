@@ -169,10 +169,8 @@ def _make_stub(tmp_path) -> "_SpecStub":
     digest = _h.sha256()
     digest.update((net_dir / "nodes.nod.xml").read_bytes())
     digest.update((net_dir / "edges.edg.xml").read_bytes())
-    (net_dir / "net.json").write_text(
-        json.dumps({"num_lanes": 1, "network_sources_sha256": digest.hexdigest()}),
-        encoding="utf-8",
-    )
+    (net_dir / "sources.sha256").write_text(digest.hexdigest() + "\n", encoding="utf-8")
+    (net_dir / "net.json").write_text(json.dumps({"num_lanes": 1}), encoding="utf-8")
     stub = _SpecStub()
     stub.network_file = str(net_dir / "loop.net.xml")
     return stub

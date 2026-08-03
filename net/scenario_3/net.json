@@ -41,67 +41,17 @@
     "e30",
     "e31"
   ],
-  "route_edge_ids": [
-    "e0",
-    "e1",
-    "e2",
-    "e3",
-    "e4",
-    "e5",
-    "e6",
-    "e7",
-    "e8",
-    "e9",
-    "e10",
-    "e11",
-    "e12",
-    "e13",
-    "e14",
-    "e15",
-    "e16",
-    "e17",
-    "e18",
-    "e19",
-    "e20",
-    "e21",
-    "e22",
-    "e23",
-    "e24",
-    "e25",
-    "e26",
-    "e27",
-    "e28",
-    "e29",
-    "e30",
-    "e31"
-  ],
+  "route_edge_ids": ["e0", "e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8", "e9", "e10", "e11", "e12", "e13", "e14", "e15", "e16", "e17", "e18", "e19", "e20", "e21", "e22", "e23", "e24", "e25", "e26", "e27", "e28", "e29", "e30", "e31"],
   "detector_edge_id": "e0",
   "detector_position_m": 31.25,
-  "bottleneck_edge_ids": [
-    "e15",
-    "e16"
-  ],
+  "bottleneck_edge_ids": ["e15", "e16"],
   "edge_lane_counts": {
     "default": 2,
-    "overrides": {
-      "e15": 1,
-      "e16": 1
-    }
+    "overrides": {"e15": 1, "e16": 1}
   },
   "legal_initial_lanes": {
-    "default": [
-      0,
-      1
-    ],
-    "overrides": {
-      "e15": [
-        0
-      ],
-      "e16": [
-        0
-      ]
-    }
+    "default": [0, 1],
+    "overrides": {"e15": [0], "e16": [0]}
   },
-  "speed_mps": 33.33,
-  "network_sources_sha256": "5f5df1768c3041912324a73871c6181f6f5be594f4f67e5de77f690f027baa60"
+  "speed_mps": 33.33
 }

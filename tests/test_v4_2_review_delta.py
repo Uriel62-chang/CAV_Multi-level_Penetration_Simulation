@@ -1318,60 +1318,6 @@ def test_config_rejects_negative_assignment_seed(tmp_path):
 # ── 审查 P2-1（复核）：build_network 源 SHA 锚定三态测试 ──
 
 
-def _net_meta_with_anchor(sources_sha256):
-    return json.dumps({"scenario": "scenario_0", "network_sources_sha256": sources_sha256})
-
-
-def test_build_network_anchored_match_passes(tmp_path, monkeypatch):
-    """锚定且匹配 → 编译通过，无警告。"""
-    import scripts.simulation.network_generator as ng
-
-    d = tmp_path / "scenario_0"
-    d.mkdir()
-    (d / "nodes.nod.xml").write_text("<nodes/>", encoding="utf-8")
-    (d / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
-    import hashlib
-
-    digest = hashlib.sha256()
-    for name in ("nodes.nod.xml", "edges.edg.xml"):
-        digest.update((d / name).read_bytes())
-    (d / "net.json").write_text(_net_meta_with_anchor(digest.hexdigest()), encoding="utf-8")
-    monkeypatch.setattr(ng.subprocess, "run", lambda *a, **k: None)
-    out = ng.build_network(str(d), netconvert_command="netconvert")
-    assert out == d / "loop.net.xml"
-
-
-def test_build_network_anchored_mismatch_raises(tmp_path, monkeypatch):
-    """锚定但不匹配（源文件已改）→ RuntimeError。"""
-    import scripts.simulation.network_generator as ng
-
-    d = tmp_path / "scenario_0"
-    d.mkdir()
-    (d / "nodes.nod.xml").write_text("<nodes/>", encoding="utf-8")
-    (d / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
-    (d / "net.json").write_text(
-        _net_meta_with_anchor("0" * 64),
-        encoding="utf-8",  # 锚定值与实际源不符
-    )
-    monkeypatch.setattr(ng.subprocess, "run", lambda *a, **k: None)
-    with pytest.raises(RuntimeError, match="不一致"):
-        ng.build_network(str(d), netconvert_command="netconvert")
-
-
-def test_build_network_unanchored_fails(tmp_path, monkeypatch):
-    """审阅 P1-1：未锚定 network_sources_sha256 → 强制失败（不得警告后继续编译）。"""
-    import scripts.simulation.network_generator as ng
-
-    d = tmp_path / "scenario_0"
-    d.mkdir()
-    (d / "nodes.nod.xml").write_text("<nodes/>", encoding="utf-8")
-    (d / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
-    (d / "net.json").write_text('{"scenario": "scenario_0"}', encoding="utf-8")
-    monkeypatch.setattr(ng.subprocess, "run", lambda *a, **k: None)
-    with pytest.raises(RuntimeError, match="未锚定"):
-        ng.build_network(str(d), netconvert_command="netconvert")
-
-
 # ── 审查 P1-1：FCD 非法时间戳 fail-closed ──
 
 
@@ -1553,3 +1499,53 @@ def test_input_integrity_network_source_change_detected(tmp_path):
     ok, errors = verify(rd, stub)
     assert ok is False
     assert any("network source changed" in e for e in errors)
+
+
+def _write_sources_anchor(d, sources_sha256):
+    (d / "sources.sha256").write_text(sources_sha256 + "\n", encoding="utf-8")
+
+
+def test_build_network_anchored_match_passes(tmp_path, monkeypatch):
+    """锚定且匹配 → 编译通过，无警告。"""
+    import scripts.simulation.network_generator as ng
+
+    d = tmp_path / "scenario_0"
+    d.mkdir()
+    (d / "nodes.nod.xml").write_text("<nodes/>", encoding="utf-8")
+    (d / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
+    import hashlib
+
+    digest = hashlib.sha256()
+    for name in ("nodes.nod.xml", "edges.edg.xml"):
+        digest.update((d / name).read_bytes())
+    _write_sources_anchor(d, digest.hexdigest())
+    monkeypatch.setattr(ng.subprocess, "run", lambda *a, **k: None)
+    out = ng.build_network(str(d), netconvert_command="netconvert")
+    assert out == d / "loop.net.xml"
+
+
+def test_build_network_anchored_mismatch_raises(tmp_path, monkeypatch):
+    """锚定但不匹配（源文件已改）→ RuntimeError。"""
+    import scripts.simulation.network_generator as ng
+
+    d = tmp_path / "scenario_0"
+    d.mkdir()
+    (d / "nodes.nod.xml").write_text("<nodes/>", encoding="utf-8")
+    (d / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
+    _write_sources_anchor(d, "0" * 64)  # 锚定值与实际源不符
+    monkeypatch.setattr(ng.subprocess, "run", lambda *a, **k: None)
+    with pytest.raises(RuntimeError, match="不一致"):
+        ng.build_network(str(d), netconvert_command="netconvert")
+
+
+def test_build_network_unanchored_fails(tmp_path, monkeypatch):
+    """审阅 P1-1：sources.sha256 缺失 → 强制失败（不得警告后继续编译）。"""
+    import scripts.simulation.network_generator as ng
+
+    d = tmp_path / "scenario_0"
+    d.mkdir()
+    (d / "nodes.nod.xml").write_text("<nodes/>", encoding="utf-8")
+    (d / "edges.edg.xml").write_text("<edges/>", encoding="utf-8")
+    monkeypatch.setattr(ng.subprocess, "run", lambda *a, **k: None)
+    with pytest.raises(RuntimeError, match="缺失"):
+        ng.build_network(str(d), netconvert_command="netconvert")

@@ -10,7 +10,7 @@
   "parsing": {
    "artifact_generation_commit": "031e4b7",
    "post_generation_validation_commit": "031e4b7",
-   "note": "二次全量重解析完成（031e4b7 代码，用户拍板执行）：main 3888 + safety 84 全部 SUCCESS；run-level/subgroup CSV 哈希与重解析前逐字节一致（多轮扫描证明的所有解析器修复对正式数据零数值影响——最终确认）；parse_status 仅运行元数据变化。"
+   "note": "二次全量重解析完成（031e4b7 代码，用户拍板执行）：main 3888 + safety 84 全部 SUCCESS；run-level/subgroup CSV 哈希与重解析前逐字节一致（多轮扫描证明的所有解析器修复对正式数据零数值影响——最终确认）；parse_status 仅运行元数据变化。 后续 f27883d（detector/lanechange/stderr/vehroute [warmup, simulation_end) 窗口统一、负时间戳门禁、EB 质量标志）经全量扫描确认正式数据零影响（detector begin/lanechange time/EB event_time >= 3600 与负值均为 0、vehroute lap_end >= 3600 为 0）——031e4b7 重解析派生物仍与当前代码数值等价。"
   },
   "writer": {
    "core_results_commit": "8f9ef4b",

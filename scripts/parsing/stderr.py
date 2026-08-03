@@ -77,6 +77,8 @@ def parse_emergency_braking_subgroup(
             label: {
                 "emergency_braking_count": float("nan"),
                 "emergency_braking_affected_vehicle_count": float("nan"),
+                "parse_success": False,
+                "invalid_record_count": 0,
             }
             for label in ("all", "HV", "CAV")
         }

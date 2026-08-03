@@ -197,6 +197,10 @@ def _build_row_v4_1(summary: dict, parse_status: str, pipeline_version: str | No
             "fcd_parse_success",
         )
     ]
+    # 审阅 P2（复核）：emergency braking 解析质量门禁（v0.4.2 重解析后的 summary 含
+    # eb_parse_success；旧 summary 缺失时默认 True，不误伤历史 data_quality）
+    if pipeline_version == "v0.4.2":
+        parser_flags.append(summary.get("eb_parse_success", True))
     if parse_status == "SUCCESS" and all(flag is True for flag in parser_flags):
         row["data_quality"] = "ok"
         row["data_quality_detail"] = ""

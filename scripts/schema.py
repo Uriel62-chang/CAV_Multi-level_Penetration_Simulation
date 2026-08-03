@@ -417,6 +417,10 @@ def validate_summary_contract(
         )
     else:
         required = SUMMARY_REQUIRED_KEYS
+    # 审阅 P2（复核）：v0.4.2 时 eb_parse_success 作为可选审计字段（若存在必须为 bool）
+    eb_audit_keys: set[str] = set()
+    if schema_version == "2" and pipeline_version == "v0.4.2" and "eb_parse_success" in summary:
+        eb_audit_keys = {"eb_parse_success"}
     # 审阅 P1-2：NaN companion 表按 pipeline 分流——v0.4.2 用 non-internal
     # 主 estimand 覆盖表，legacy（schema=1 / v0.4.1 schema=2）保持冻结表。
     nan_rules = (
@@ -431,6 +435,7 @@ def validate_summary_contract(
     string_keys = {"run_id", "scenario", "model", "det_xml", "experiment_role", "ssm_dedup_method"}
     bool_keys = (
         set(AUDIT_COLUMNS_V4_1 if schema_version == "2" else AUDIT_COLUMNS)
+        | eb_audit_keys
         | {"with_internal"}
         # P0-1（新审阅）：SSM 采集状态列（仅 schema=2）为 bool
         | ({"ssm_enabled", "ssm_not_collected"} if schema_version == "2" else set())
@@ -514,6 +519,10 @@ def validate_summary_contract(
     ):
         if optional_key in summary and optional_key not in keys_to_validate:
             keys_to_validate.append(optional_key)
+    # 审阅 P2（复核）：eb_parse_success 为可选审计字段——存在时纳入校验
+    if eb_audit_keys:
+        keys_to_validate = [k for k in keys_to_validate if k not in eb_audit_keys]
+        keys_to_validate.extend(sorted(eb_audit_keys))
     if ssm_not_collected:
         ssm_skip = set(SAFETY_SSM_COLUMNS_V4_1) | {
             "ttc_events_per_1000_veh_km",

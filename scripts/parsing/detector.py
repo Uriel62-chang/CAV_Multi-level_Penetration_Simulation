@@ -82,7 +82,8 @@ def parse_detector_multi(
     审阅 P1-1：观测窗 [warmup, simulation_end)。
     """
     if len(xml_paths) == 1:
-        return parse_detector(xml_paths[0], warmup_period)
+        # 审阅 P2（复核）：单文件分支同样传递 simulation_end（公共 API 契约完整）
+        return parse_detector(xml_paths[0], warmup_period, simulation_end=simulation_end)
 
     # 读取所有车道的检测器数据，按 begin 时间分组
     import math

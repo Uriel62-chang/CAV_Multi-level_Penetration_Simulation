@@ -1882,3 +1882,52 @@ def test_vehroute_lap_end_at_simulation_end_excluded(tmp_path):
     )
     r = parse_lap_times(str(p), 4, warmup_period=0, sim_end_time=3600)
     assert r["completed_lap_count"] == 0  # 第 2 圈终点恰为 3600 → 排除
+
+
+# ── 审查 P2（复核）：detector 单文件分支 + EB 质量标志贯穿 ──
+
+
+def test_detector_multi_single_file_passes_simulation_end(tmp_path):
+    """单文件分支同样应用 simulation_end（公共 API 契约完整）。"""
+    from scripts.parsing.detector import parse_detector_multi
+
+    p = tmp_path / "det.xml"
+    p.write_text(
+        '<detector><interval begin="3600" end="3700" id="i1" flow="100.0" speed="10.0"/>'
+        "</detector>",
+        encoding="utf-8",
+    )
+    r = parse_detector_multi([str(p)], warmup_period=0, simulation_end=3600)
+    assert r[4] == 0  # window_count=0（begin>=3600 排除）
+
+
+def test_writer_eb_parse_success_gate():
+    """writer v0.4.2：eb_parse_success=False → data_quality 非 ok。"""
+    from scripts.results.writer import _build_row_v4_1
+
+    summary = {
+        "run_id": "r",
+        "scenario": "scenario_0",
+        "model": "IDM",
+        "det_xml": "x",
+        "vehN": 10,
+        "ssm_parse_success": True,
+        "lc_parse_success": True,
+        "ep_parse_success": True,
+        "ee_parse_success": True,
+        "vr_parse_success": True,
+        "fcd_parse_success": True,
+        "eb_parse_success": False,  # stderr 缺失
+    }
+    row = _build_row_v4_1(summary, "SUCCESS", pipeline_version="v0.4.2")
+    assert row["data_quality"] != "ok"
+
+
+def test_summary_contract_eb_parse_success_bool_check():
+    """schema v0.4.2：eb_parse_success 存在但非 bool → 契约错误。"""
+    from scripts.schema import validate_summary_contract
+
+    summary = _valid_v4_2_summary()
+    summary["eb_parse_success"] = "yes"  # 非 bool
+    errors = validate_summary_contract(summary, "2", pipeline_version=PIPELINE)
+    assert any("eb_parse_success" in e for e in errors)

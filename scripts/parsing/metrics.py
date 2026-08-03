@@ -209,6 +209,8 @@ def compute_core_summary(primitives, spec, free_flow_refs):
         "ep_parse_success": ep.get("parse_success", False),
         "ee_parse_success": ee.get("parse_success", False),
         "vr_parse_success": vr.get("parse_success", False),
+        # 审阅 P2（复核）：emergency braking 解析质量贯穿结果链路
+        "eb_parse_success": eb.get("parse_success", False),
         "fcd_parse_success": primitives.fcd.get("all", {}).get("parse_success", True)
         if primitives.fcd
         else True,

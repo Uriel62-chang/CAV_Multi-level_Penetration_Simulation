@@ -178,7 +178,7 @@
 - **当前分支**：`main`
 - **本文档最后更新**：参见 `git log -1 --oneline -- DEVELOPMENT.md`
 - **最近代码稳定提交**：`e99cd89`（release-review P1/P2 修复）；历史锚点 `439ace6`（Safety 图）、`ef1e536`/`53ca434`（docs-only）、A 线实现链 `6147853`~`b72c381`、正式网格热修复 `a21e05e`/`6637519`/`1a6da3c`
-- **版本发布状态**：GitHub 最新公开版本 v0.4.0.post3；v0.4.1 为本地内部里程碑（未 push、tag 已删）；**v0.4.2 为发布目标（跳号发布，release notes 已就绪）**；本地 annotated tag 已创建（当前指向旧 c1695ce，待 Reviewer 背书后重打至背书 SHA；未 push，方案 A：push main → 观察期 → push tag + release）；`raw_v0.4.2/`（约 34 GB）与 run-level/subgroup/failed CSV、writer report JSON 外部保留（untracked，.gitignore 保护）；已跟踪（Git）：`results/v0.4.2/` 聚合/交接/分析（aggregated_results.csv、result_handover.json、raw_status_inventory.jsonl、result_analysis.md）+ `graph/v0.4.2/` 图（main 3 + Safety 1）
+- **版本发布状态**：GitHub 最新公开版本 v0.4.0.post3；v0.4.1 为本地内部里程碑（未 push、tag 已删）；**v0.4.2 为发布目标（跳号发布，release notes 已就绪）**；本地 annotated tag 已创建（当前指向旧 c1695ce，待 Reviewer 背书后重打至背书 SHA；未 push，方案 A：push main → 观察期 → push tag + release）；**2026-08 历史数据已清空**（raw_v0.4.2/ 34 GB、raw/、results/v0.4.2/、graph/v0.4.2/、docs/report.md 全删，用户拍板、外部备份保留）——仓库为纯工具链 + 未来重跑定义（main 全开 SSM，合并设计）
 - **验证环境**：SUMO 1.27.1, Python 3.10, .venv/; 验证日期 2026-07-31
 - **可运行入口**：
   ```bash
@@ -194,7 +194,9 @@
 
 - **v0.4.2（发布目标，跳号发布）**：四环节已闭环并获背书（见「已完成」）；发布正文（README/CHANGELOG/DEVELOPMENT）已切换为 v0.4.2 状态。剩余动作：
   1. **打 tag / 发布**：`git tag v0.4.2`（指向新背书 SHA）+ push + 执行 `docs/engineering/release-checklist.md`（需用户指示）；
-  2. **数据归档**：`raw_v0.4.2/`（34 GB）与 `results/v0.4.2/` 是否纳入外部归档/README 数据可用性说明（README 已声明边界）；
+  2. **数据归档**：~~`raw_v0.4.2/`（34 GB）与 `results/v0.4.2/` 外部归档~~ →
+     2026-08 历史数据已清空（raw/results/graph/report.md 全删，外部备份保留）；
+     未来重跑后按既有链路重建并归档；
   3. **发布后同步**：AGENTS.md/DEVELOPMENT.md/roadmap 版本状态切换为已发布——tag 所指提交本身即最终发布状态，不得依赖 tag 后新 commit（如需再校，在 tag 前完成）。
 - **SUMO upstream（可选开源贡献，范围外 backlog，不在 v0.4.2 发布动作内）**：`raw/diagnostics/sumo_upstream_issue_ssm_s2_ab/ISSUE_DRAFT.md` 状态——
   - **Developer 预检认为**：issue 主内容（device-on/off 关联、零事件输出、可复现 RSS 差异）符合 D-014 表述边界，但 observation 2 含内部存储机制推断（引用旧 tag 源码），超出「只报告关联」范围；

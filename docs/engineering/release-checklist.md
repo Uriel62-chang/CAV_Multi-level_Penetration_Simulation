@@ -44,12 +44,11 @@
       `a21e05e`/`6637519`，caveat 已在 handover 披露。
 - [ ] **正式输入字节锚点**：`net/scenario_{1,2,3}/net.json` 的 `-text` 豁免生效，
       HEAD blob 与正式运行字节 SHA 一致。
-- [ ] **归档边界**：Git 内 = 1 份 aggregated CSV + handover + inventory +
-      analysis + 3 图（main 3，`graph/v0.4.2/main/`）；
-      raw_v0.4.2/ 与 run-level/subgroup/failed CSV、
-      writer report 由 `.gitignore` 覆盖（外部保留）。
-- [ ] **文档一致性**：README/report 的 v0.4.2 数值可定位到 tracked
-      aggregate/result_analysis；`--v4-2`/`--outDir` 与 CLI 一致；
+- [ ] **归档边界（2026-08 数据清空后）**：Git 内 = 纯工具链 + 未来重跑定义
+      （configs/v0.4.2/main.json 含 SSM 采集、net/、artifacts/free_flow/ 解析依赖）；
+      历史 raw/results/graph/report.md 已删（外部备份保留）；未来重跑后按既有
+      writer/aggregate/handover/inventory 链路重建并归档。
+- [ ] **文档一致性**：README 的 v0.4.2 数值为历史观测标注；`--v4-2`/`--outDir` 与 CLI 一致；
       Markdown 相对链接有效；禁止性措辞扫描通过。
 - [ ] **审查冻结**：当前 SHA 获正式 Reviewer 背书（阶段一独立复算 + delta +
       阶段二对账）；打 tag 前无未背书新 commit；tag 精确指向背书 SHA。

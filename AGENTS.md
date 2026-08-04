@@ -87,8 +87,9 @@ python3 -m scripts.results.visualization \
 > 「设计 → 实现 → 数据 → 结论」四环节已闭环并获正式 Reviewer 背书：
 > A 线实现（`a8aa09a`）→ 正式网格 main 3,888 + safety 84（热修复
 > `a21e05e`/`6637519`/`439ace6`/`1a6da3c`）→ 结果分析与 release notes（`ef1e536`）。
-> 公开基线为 v0.4.0.post3；`raw_v0.4.2/`（约 34 GB）与 run-level/subgroup/failed CSV、writer report JSON 外部保留
-> （untracked，.gitignore 保护）；已跟踪（Git）：`results/v0.4.2/` 聚合/交接/分析
+> 公开基线为 v0.4.0.post3；**2026-08 数据清空**：v0.4.0 与 v0.4.2 历史数据
+> （raw_v0.4.2/ 34 GB、raw/、results/v0.4.2/、graph/v0.4.2/、docs/report.md）已删
+> （用户拍板，外部备份保留）；仓库为纯工具链 + 未来重跑定义（main 全开 SSM）
 > （aggregated_results.csv、result_handover.json、raw_status_inventory.jsonl、result_analysis.md）
 > + `graph/v0.4.2/` 图（main 3 + Safety 1）。
 

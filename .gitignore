@@ -24,15 +24,11 @@ requirements-lock-v0.4-dev.txt
 /results/run_level_results.csv
 /results/failed_runs.csv
 /results/writer_report.json
-# v0.4.2 正式网格外部保留产物（Git 只跟踪聚合/交接/分析/图；v0.4.0 同款实践）
+# v0.4.2 未来重跑产物防误提交（2026-08 历史数据已清空，规则保留供重跑后使用）
 /raw_v0.4.2/
 /results/v0.4.2/main/run_level_results.csv
 /results/v0.4.2/main/run_level_subgroup_results.csv
 /results/v0.4.2/main/writer_report.json
 /results/v0.4.2/main/failed_runs.csv
-/results/v0.4.2/safety/run_level_results.csv
-/results/v0.4.2/safety/run_level_subgroup_results.csv
-/results/v0.4.2/safety/writer_report.json
-/results/v0.4.2/safety/failed_runs.csv
 # 注意：artifacts/free_flow/v0.4.1-pilot-ff-1/free_flow_references.json 是正式解析输入（P1-1），
 # 必须纳入版本控制；如未来产生大体积 artifact，用具体路径排除而非整个目录。

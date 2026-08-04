@@ -8,7 +8,6 @@
 [Scenario Design](#scenario-design) ·
 [Metric Methodology](#metric-methodology) ·
 [Quick Start](#quick-start) ·
-[Experiment Report](docs/report.md) ·
 [Engineering Audit](docs/engineering/audit.md) ·
 [Migration](docs/engineering/migration.md) ·
 [Release Checklist](docs/engineering/release-checklist.md)
@@ -39,7 +38,12 @@ The four scenarios support three structured scenario comparisons:
 
 ---
 
-## v0.4.2 Formal-grid Results
+## v0.4.2 Formal-grid Results（历史观测记录）
+
+> **2026-08 数据状态**：v0.4.0 与 v0.4.2 历史数据已全部清空（用户拍板，外部备份
+> 保留）——`raw_v0.4.2/`（33 GB）、`results/v0.4.2/`、`graph/v0.4.2/`、`docs/report.md`
+> 已删除；仓库为纯工具链 + 未来重跑定义。下文数值为历史观测记录，供设计参考，
+> 未来重跑（main 全开 SSM 采集）后更新。
 
 v0.4.2 (jump release) ran a formal grid independent of the v0.4.0 historical
 baseline: a **3,888-run main factorial covering all four evaluation dimensions**
@@ -47,10 +51,7 @@ baseline: a **3,888-run main factorial covering all four evaluation dimensions**
 (scenario, vehN) — cav=0: 3 + interior 4 levels × 2 models × 3 assignment
 seeds × 3 SUMO seeds: 72 + cav=vehN: 6 — with endpoint assignment
 deactivation). **2026-08 合并设计**：安全维度并入主网格（main 全开 SSM 采集，
-未来重跑生效）；旧的独立 safety experiment（84 runs）板块已取消。Aggregates
-and summaries are tracked under
-`results/v0.4.2/`; full per-run data is externally retained (see
-[Data Availability](#data-availability)).
+未来重跑生效）；旧的独立 safety experiment（84 runs）板块已取消。
 
 ### Main factorial
 
@@ -216,16 +217,19 @@ The parser pipeline provides:
 
 ---
 
-## Data Quality
+## Data Quality（历史观测，2026-08 数据已清空）
 
 ```text
-3,888 / 3,888  main-factorial simulations completed (SUCCESS)
-528 / 528      main aggregated groups
-440            automated tests passed
+3,888 / 3,888  main-factorial simulations completed (SUCCESS)   ← 历史观测
+528 / 528      main aggregated groups                           ← 历史观测
+440            automated tests passed（当前门禁基线）
 0              duplicate run IDs
 0              parser failures
 0              invariant violations
 ```
+
+> 前三行为 v0.4.2 历史数据质量记录（数据已清空）；当前仓库以 440 tests 门禁为
+> 基线。未来重跑后按相同链路重新记录。
 
 The testing strategy contains three levels:
 
@@ -370,46 +374,17 @@ Always run with `--resume` from the first launch—it costs nothing on a clean s
 
 ---
 
-## Data Availability
+## Data Availability（2026-08 数据已清空）
 
-### v0.4.2 formal grid (jump release)
+> v0.4.0 与 v0.4.2 历史数据已全部删除（用户拍板，外部备份保留）：
+> `raw_v0.4.2/`（33 GB raw + 解析产物）、`results/v0.4.2/`（聚合/证据链/分析）、
+> `graph/v0.4.2/`（图）、`docs/report.md`（v0.4.0 报告）、`raw/`（v0.4.1 pilot）、
+> `routes/`（生成物）均已移除。仓库当前为纯工具链 + 未来重跑定义：
+> `configs/v0.4.2/main.json`（3,888 runs，含 SSM 采集——2026-08 合并设计）为
+> 未来重跑的实验定义；`artifacts/free_flow/` 自由流参考保留（解析输入依赖）。
+> 未来重跑后，数据将按既有 writer / aggregate / handover / inventory 链路
+> 重新产生并归档。
 
-The repository includes:
-
-- `results/v0.4.2/main/aggregated_results.csv`
-  — 528 main-factorial groups (3,888 runs), aggregated across the
-  `(assignment_seed, sumo_seed)` combination unit (3 × 3 for interior cells);
-- `results/v0.4.2/result_handover.json` — minimal provenance handover: simulation
-  (`a8aa09a`), parsing/writer/aggregate artifacts (`6e85b23`, pure-branch full
-  reparse), main manifest SHA, and the SHA-256 of the archived result paths;
-- `results/v0.4.2/result_analysis.md` — structured results summary (peaks, s3 bottleneck
-  reversal, safety boundary, subgroup table);
-- the v0.4.2 figures under `graph/v0.4.2/` (main factorial × 3: capacity / CO2-flow /
-  delay).
-
-The following are **not** stored in Git (retained locally/externally, consistent with
-established archive practice):
-
-- `raw_v0.4.2/` — raw SUMO outputs, per-run `summary.json` / `simulation_status.json`
-  (main ≈ 34 GB; 旧独立 safety 84 runs 已随合并设计删除);
-- `results/v0.4.2/main/run_level_results.csv`,
-  `run_level_subgroup_results.csv`, `writer_report.json`, `failed_runs.csv`
-  (≈ 53 MB in total).
-
-**Git-side integrity anchor for the external raw:** `results/v0.4.2/raw_status_inventory.jsonl`
-(≈ 8.4 MB, Git-tracked) fixes the SHA-256 of every `simulation_status.json` and
-`parse_status.json` for all 3,888 runs (main factorial), sorted by
-`experiment_role, run_id`, and expands the status-embedded SHA for route/type-map/
-additional/network/net.json/raw-output/summary/subgroup. Its own SHA is recorded in
-`result_handover.json`. Verification: check the inventory SHA against the handover
-entry, then re-hash the status files under an external raw copy against the inventory
-per-line entries.
-
-The public repository can verify the aggregated CSVs, the handover SHA list, the raw
-status inventory anchor and the figures; it cannot independently reproduce the v0.4.2
-grid without the separately retained raw data. The handover/inventory SHA values
-identify that external intermediate; they are not a claim that those files are stored
-in Git.
 
 ---
 
@@ -448,24 +423,13 @@ tests/
 ├── test_edge_emissions_parser.py
 └── run_tests.py
 
-results/
-└── v0.4.2/
-    ├── main/
-    │   ├── aggregated_results.csv
-    │   ├── run_level_results.csv        (external, .gitignore)
-    │   └── run_level_subgroup_results.csv (external, .gitignore)
-    ├── result_handover.json
-    ├── result_analysis.md
-    └── raw_status_inventory.jsonl
+results/          （2026-08 数据清空后为空；未来重跑后由 writer/aggregate 重建）
 
 graph/
-├── scenario_overview.png
-└── v0.4.2/
-    └── main/    (chart_capacity / chart_co2_flow / chart_delay)
+└── scenario_overview.png
 
 docs/
 ├── README.md
-├── report.md
 └── engineering/
     ├── audit.md
     ├── migration.md
@@ -535,8 +499,7 @@ safety experiment with space-matched exposure (see [Data Availability](#data-ava
 
 | Document | Purpose |
 |---|---|
-| [Experiment Report](docs/report.md) | Complete experimental design, result tables, discussion and conclusions |
-| [Documentation index](docs/README.md) | Experiment report, engineering audit, migration and release checklist |
+| [Documentation index](docs/README.md) | Engineering audit, migration and release checklist |
 | `scripts/` source | Inline docstrings; see § Repository Structure below for module map |
 
 ---

@@ -126,8 +126,9 @@ python3 -m scripts.results.visualization \
 - S8 剩余项：PreparedRun.fcd_path（canonical_json_bytes、atomic_write_bytes、--acceptance 已在阶段 2 实现）
 
 ### 测试基线
-- 459 tests passed（纯净分支基线：阶段 1-3 完成后——G1 requested_pcav 网格删除 +
-  G2 v0.4.1 并入 v0.4.2 单管线 + Part 3 requested_pcav 契约列删除；schema=2 主路径
+- 458 tests passed（纯净分支基线：阶段 1-5 完成后——G1 requested_pcav 网格删除 +
+  G2 v0.4.1 并入 v0.4.2 单管线 + Part 3 requested_pcav 契约列删除 + 阶段 5 迁移/归档
+  （删 pilot 专属测试 459→458）+ 审核修订（single_run P1/P2/P3）；schema=2 主路径
   零行为变化，RunSpec 内部 requested_pcav 字段保留（D3））
 - Ruff / mypy / compileall / format 全通过
 - dry-run: safety 84 / main 3,888 / smoke（configs/smoke.json；v0.4.0 10,080 网格数据红线不重跑，配置已移除；v0.4.1 正式实验配置已归档 docs/internal/archive/configs-v0.4.1/）

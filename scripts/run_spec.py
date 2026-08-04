@@ -334,7 +334,7 @@ class RunSpec:
     def from_dict(cls, data: dict) -> RunSpec:
         """从持久化数据重建规格，根据 pipeline_version 选择字段集。
 
-        纯净分支：仅支持 v0.4.1/v0.4.2（schema=2）；v0.4.0~post3 已移除。
+        纯净分支：仅支持 v0.4.2（schema=2）；v0.4.0~post3 已移除。
         """
         pv = data.get("pipeline_version", PIPELINE_V4_2)
         if pv == PIPELINE_V4_2:
@@ -343,7 +343,7 @@ class RunSpec:
 
     @classmethod
     def _identity_from_dict(cls, data: dict) -> tuple[int, float, int, float | None]:
-        """v0.4.1/v0.4.2 共享的身份字段解析与不变量校验（from_dict 共用）。
+        """v0.4.2 身份字段解析与不变量校验（from_dict 共用）。
 
         返回 (vn, pcav, cav_count, requested_pcav)。
         """

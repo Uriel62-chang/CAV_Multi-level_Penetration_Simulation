@@ -43,7 +43,7 @@
 
 ### 测试与门禁
 
-- **459 tests（纯净分支基线，阶段 1-3 完成）**；Ruff / mypy / compileall /
+- **458 tests（纯净分支基线，阶段 1-5 完成 + 审核修订）**；Ruff / mypy / compileall /
   format 全通过
 - 纯净分支重构（draft/pure-v042）：移除 v0.4.0~post3 兼容支持——schema=1 契约
   （RUN_LEVEL_COLUMNS/SUMMARY_REQUIRED_KEYS/_build_row_legacy）、PIPELINE_V4_0_POST1

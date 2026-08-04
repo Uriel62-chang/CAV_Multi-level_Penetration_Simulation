@@ -25,36 +25,9 @@
 - [ ] GitHub Actions `python-quality` succeeds.
 - [ ] GitHub Actions `sumo-smoke` succeeds with `data_quality=ok`.
 
-## v0.4.0.post2 preservation gates（历史保留，不因 v0.4.2 回填）
-
-- [ ] `configs/v0.4.0.json` and its resolved 10,080 run IDs match the engineering baseline.
-- [ ] Model parameters, networks, vehicle placement and SUMO command hashes are unchanged.
-- [ ] `pipeline_version` remains `v0.4.0.post1` and `schema_version` remains `1`.
-- [ ] `results/aggregated_results.csv` metric values and published figures are unchanged.
-- [ ] The aggregated CSV has unique column names; the duplicate count header is renamed only.
-- [ ] Requested/realized pCAV differences, duplicate treatments and assignment-seed limits are disclosed.
-- [ ] `python -m scripts.experiment_audit` reports 10,080 / 2,400 / 400 / 768 for the frozen v0.4.0 grid.
-- [ ] Interpretive claims inconsistent with the preserved numeric results are corrected rather than retained for textual compatibility.
-- [ ] No historical run is deleted, relabelled or presented as a new independent treatment.
-
-## v0.4.0.post3 correction gates（历史保留，不因 v0.4.2 回填）
-
-- [ ] SUMO is not rerun; frozen raw XML and post2 results remain preserved.
-- [ ] Reanalysis covers all 10,080 runs and records source/output SHA-256 hashes.
-- [ ] The 30,240 raw XML inputs have a deterministic per-file SHA-256 inventory.
-- [ ] Reanalysis reruns invariants and reports 10,080 valid / 0 invalid rows.
-- [ ] Published CSVs expose requested/realized pCAV, edge scope and assignment-run count semantics.
-- [ ] Across-seed ratio aggregation is documented as equal-run-weight arithmetic statistics, not a pooled ratio.
-- [ ] SSM TTC/DRAC inclusion uses each metric's extreme time.
-- [ ] Warmup is an exact multiple of both detector and edgeData frequencies.
-- [ ] edgeData performance and emissions exclude intervals before warmup.
-- [ ] All normalized metrics use the common `[600, 3600)` window.
-- [ ] Historical `withInternal=false` scope and the safety numerator/denominator spatial mismatch are disclosed.
-- [ ] Capacity claims are phrased as maximum observed flow within the tested grid.
-- [ ] Corrected run-level and aggregated outputs are generated outside the raw archive.
-- [ ] Figures and every reported normalized safety/emissions value use post3 data.
-- [ ] Writer `complete` requires zero excluded runs and every written row to have `data_quality=ok`.
-- [ ] Data availability states that raw XML and run-level CSV are external, so the Git repository alone cannot rerun post3.
+> **v0.4.0 数据状态（2026-08 更新）**：v0.4.0 本地数据与图表已移除（用户拍板，
+> 外部备份保留）——不再存在 v0.4.0.post2/post3 preservation gates 的核验对象；
+> 历史复现需 checkout `v0.4.0.post3` tag（该 tag 保留完整工具链与数据）。
 
 ## v0.4.2 release gates
 

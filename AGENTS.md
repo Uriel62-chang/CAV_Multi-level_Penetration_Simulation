@@ -33,7 +33,7 @@ python3 -m scripts.simulation.batch_run --config configs/smoke.json --dry-run
 
 # 批量仿真阶段一：每个 run 写入独立 raw 目录；--net 必须与 --scenario 同用
 python3 -m scripts.simulation.batch_run \
-  --config configs/v0.4.0.json \
+  --config configs/v0.4.2/main.json \
   --scenario scenario_0 \
   --net net/scenario_0/loop.net.xml \
   --model IDM \
@@ -131,7 +131,9 @@ python3 -m scripts.results.visualization \
   （删 pilot 专属测试 459→458）+ 审核修订（single_run P1/P2/P3）；schema=2 主路径
   零行为变化，RunSpec 内部 requested_pcav 字段保留（D3））
 - Ruff / mypy / compileall / format 全通过
-- dry-run: safety 84 / main 3,888 / smoke（configs/smoke.json；v0.4.0 10,080 网格数据红线不重跑，配置已移除；v0.4.1 正式实验配置已归档 docs/internal/archive/configs-v0.4.1/）
+- dry-run: safety 84 / main 3,888 / smoke（configs/smoke.json；v0.4.0 10,080 网格
+  数据红线不重跑、本地数据已删（2026-08 用户拍板，外部备份保留）、配置已移除；
+  v0.4.1 正式实验配置已归档 docs/internal/archive/configs-v0.4.1/）
 - aggregate 现已要求 --schema-version 参数
 - 使用项目根目录的 `.venv` 虚拟环境运行所有 Python 命令（`ruff`、`mypy`、`pytest`、`compileall` 等）
   ```bash

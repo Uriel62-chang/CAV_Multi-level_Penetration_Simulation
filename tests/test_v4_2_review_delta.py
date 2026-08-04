@@ -1252,12 +1252,6 @@ def test_visualization_modes_are_mutually_exclusive(tmp_path, monkeypatch):
     )
     with pytest.raises(SystemExit):
         viz.main()
-    # --v4 与 --v4-2 同样互斥
-    monkeypatch.setattr(
-        sys, "argv", ["viz", "--v4", "--v4-2", "--aggregated", str(tmp_path / "none.csv")]
-    )
-    with pytest.raises(SystemExit):
-        viz.main()
 
 
 # ── 审查 P2-3：assignment seed 非负 ──
@@ -2624,42 +2618,6 @@ def test_stderr_bad_time_fails_closed():
     assert r2["parse_success"] is False
     assert r2["invalid_record_count"] == 1
     assert r2["emergency_braking_count"] == 0
-
-
-# ── 本轮审查 P2-4：visualization --v4 角色门禁 ──
-
-
-def test_run_v4_rejects_safety_csv(tmp_path, monkeypatch):
-    """P2-4：--v4 旧入口对含 experiment_role=safety 的 CSV fail-closed
-    （禁止渲染设计 §3.4 的联合 trade-off）。"""
-    import argparse
-
-    from scripts.results import visualization as viz
-
-    agg = tmp_path / "agg.csv"
-    agg.write_text(
-        "experiment_role,realized_pcav,mean_flow_veh_h,mean_lap_delay_s\nsafety,0.5,100,5.0\n",
-        encoding="utf-8",
-    )
-    out = tmp_path / "out"
-    out.mkdir()
-    args = argparse.Namespace(aggregated=str(agg), outDir=str(out))
-    monkeypatch.setattr(viz.plt, "show", lambda: None)
-    import pytest as _pt
-
-    with _pt.raises(ValueError, match="experiment_role"):
-        viz.run_v4(args)
-    # legacy（无角色列）仍放行
-    agg_legacy = tmp_path / "agg_legacy.csv"
-    agg_legacy.write_text("realized_pcav,mean_flow_veh_h\n0.5,100\n", encoding="utf-8")
-    args2 = argparse.Namespace(aggregated=str(agg_legacy), outDir=str(out))
-    # 需最小列集避免 chart 内部报错——run_v4 首断言角色列，无列直接跳过门禁；
-    # 后续 chart 需要列，这里仅验证不抛角色错误（用 monkeypatch 拦截 chart 函数）
-    monkeypatch.setattr(viz, "chart_observed_peak_flow_v4", lambda *a, **k: None)
-    monkeypatch.setattr(viz, "chart_safety_flow_v4", lambda *a, **k: None)
-    monkeypatch.setattr(viz, "chart_co2_flow_v4", lambda *a, **k: None)
-    monkeypatch.setattr(viz, "chart_delay_v4", lambda *a, **k: None)
-    viz.run_v4(args2)
 
 
 # ── 本轮审查 P2-5：writer schema_version 未知拒绝 ──

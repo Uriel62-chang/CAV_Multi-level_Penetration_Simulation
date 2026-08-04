@@ -1,10 +1,10 @@
-"""结果可视化（纯净分支：v0.4.2 schema=2 聚合 CSV；v0.4.0 旧 CSV 经 --v4 兼容展示）。
+"""结果可视化（纯净分支：v0.4.2 schema=2 聚合 CSV；v0.3 旧模式经 --csv 保留）。
 
 v0.3.0 模式（默认）：
   python3 -m scripts.results.visualization --csv out/results_raw_p05.csv
 
-v0.4.x 聚合模式：
-  python3 -m scripts.results.visualization --aggregated results/aggregated_results.csv --v4
+v0.4.2 聚合模式（--v4-2 main / --safety 独立报告）：
+  python3 -m scripts.results.visualization --aggregated results/v0.4.2/main/aggregated_results.csv --v4-2
 """
 
 import argparse
@@ -187,7 +187,7 @@ _PAIRED_DRAC_METRIC = "drac_per_k_mean"
 
 
 def _ttc_metric_column(df: pd.DataFrame) -> str:
-    """--v4 路径：只接受空间配对列（纯净分支已移除 legacy post3 错配列回退）。
+    """v0.4.2 路径：只接受空间配对列（纯净分支已移除 legacy post3 错配列回退）。
 
     v0.4.0~post3 的 whole_network_ttc_events_per_1000_non_internal_edge_veh_km
     （全路网事件 / non-internal-edge veh-km）为 A 线已修正的错误口径，head 数据
@@ -402,23 +402,6 @@ def chart_delay_v4(df: pd.DataFrame, out_dir: Path) -> None:
     print(f"[OK] {path}")
 
 
-def run_v4(args) -> None:
-    if not os.path.exists(args.aggregated):
-        print(f"错误: 找不到文件 {args.aggregated}")
-        return
-    df = pd.read_csv(args.aggregated)
-    # P2-4（本轮审查）：旧入口同样加 experiment_role 门禁——误传 v0.4.2 safety
-    # CSV 会渲染设计 §3.4 禁止的联合 trade-off 图（无角色列时跳过，legacy 兼容）。
-    _assert_experiment_role(df, "main_factorial")
-    out_dir = Path(args.outDir)
-    _ensure_dir(out_dir)
-    chart_observed_peak_flow_v4(df, out_dir)
-    chart_safety_flow_v4(df, out_dir)
-    chart_co2_flow_v4(df, out_dir)
-    chart_delay_v4(df, out_dir)
-    print(f"\n[DONE] 4 charts → {out_dir.resolve()}")
-
-
 def run_v4_2(args) -> None:
     """v0.4.2 main-factorial 报告入口（P0-6）。
 
@@ -525,11 +508,12 @@ def main():
     )
     parser.add_argument("--ring-length", type=float, default=None)
     parser.add_argument("--net", default=None, help="路网文件路径，自动读取环路总长")
-    # 聚合 CSV 展示参数（--v4 为历史模式名，保留目录约定 graph/v0.4.0）
+    # 聚合 CSV 展示参数（--v4-2 / --safety 为 v0.4.2 报告模式）
     parser.add_argument(
-        "--aggregated", default="results/aggregated_results.csv", help="多种子聚合 CSV"
+        "--aggregated",
+        default="results/v0.4.2/main/aggregated_results.csv",
+        help="多种子聚合 CSV",
     )
-    parser.add_argument("--v4", action="store_true", help="启用四组 trade-off 图表模式")
     parser.add_argument(
         "--v4-2",
         action="store_true",
@@ -545,17 +529,13 @@ def main():
     parser.add_argument(
         "--outDir",
         default=None,
-        help="输出目录（默认：--v4 → graph/v0.4.0；--v4-2 → graph/v0.4.2；"
-        "--safety → graph/v0.4.2/safety，P2-2 防版本混放）",
+        help="输出目录（默认：--v4-2 → graph/v0.4.2；--safety → graph/v0.4.2/safety，"
+        "P2-2 防版本混放）",
     )
     args = parser.parse_args()
 
-    # 审阅 P2-2：--safety / --v4-2 / --v4 互斥——不得静默按固定优先级执行
-    modes = [
-        name
-        for name, flag in (("--safety", args.safety), ("--v4-2", args.v4_2), ("--v4", args.v4))
-        if flag
-    ]
+    # 审阅 P2-2：--safety / --v4-2 互斥——不得静默按固定优先级执行
+    modes = [name for name, flag in (("--safety", args.safety), ("--v4-2", args.v4_2)) if flag]
     if len(modes) > 1:
         parser.error(f"互斥选项：{'、'.join(modes)} 只能同时指定一个（当前传入 {len(modes)} 个）")
 
@@ -563,16 +543,14 @@ def main():
         if args.safety:
             args.outDir = "graph/v0.4.2/safety"  # 审阅 P2-2：safety 归档层级
         elif args.v4_2:
-            args.outDir = "graph/v0.4.2"  # P2-2：v0.4.2 报告不与 v0.4.0 结果混放
+            args.outDir = "graph/v0.4.2"  # P2-2：v0.4.2 报告不与旧版本结果混放
         else:
-            args.outDir = "graph/v0.4.0"
+            args.outDir = "graph/v0.3"  # v0.3 旧模式默认输出目录
 
     if args.safety:
         run_safety_v4_2(args)
     elif args.v4_2:
         run_v4_2(args)
-    elif args.v4:
-        run_v4(args)
     else:
         run_v03(args)
 

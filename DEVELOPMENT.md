@@ -187,7 +187,7 @@
   .venv/bin/python3 -m scripts.results.writer --input-root /tmp/smoke --output-dir /tmp/smoke-out --manifest /tmp/smoke/manifest.json
   .venv/bin/python3 -m scripts.results.aggregate --input /tmp/smoke-out/run_level_results.csv --output /tmp/smoke-out/aggregated_results.csv --schema-version 2 --manifest /tmp/smoke/manifest.json
   .venv/bin/python3 -m scripts.simulation.batch_run --config docs/internal/archive/configs-v0.4.1/pilot.json --dry-run
-  .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.0.json --dry-run
+  .venv/bin/python3 -m scripts.simulation.batch_run --config configs/v0.4.2/main.json --dry-run
   ```
 
 ### 待处理
@@ -209,7 +209,10 @@
 
 ### 重要约束
 
-- **不得未经版本化决策修改**：`configs/v0.4.0.json`、`configs/smoke.json`（旧哈希基线）；legacy RunSpec.to_dict() 字段集；legacy SUMO 命令字节序列。修改时必须同步更新哈希基线和兼容测试。
+- **不得未经版本化决策修改**：`configs/smoke.json`、`configs/v0.4.2/{main,safety}.json`
+  （哈希基线）；legacy RunSpec.to_dict() 字段集；legacy SUMO 命令字节序列。修改时
+  必须同步更新哈希基线和兼容测试。（v0.4.0 本地数据已移除；`configs/v0.4.0.json`
+  不存在于 head，历史基线由 `v0.4.0.post3` tag 承载。）
 - **需要保持兼容**：`build_run_id()` 旧调用方式（`cav_count=None` 走 legacy 格式）；flow_generator 输出；10,080 旧 run ID 列表。
 - **schema=2 完整性约束**：detector 必须覆盖 net.json 指定的全部 lane，且每个 lane 同时存在 all/HV/CAV；net.json 异常不得回退单车道。subgroup JSONL 必须存在、非空且 SHA 与 parse_status 一致。
 - **自由流约束**：不得恢复硬编码 98.8 fallback；artifact 的 SUMO 完整版本、scenario net SHA、HV/当前 model 有限正圈时必须全部匹配。

@@ -100,6 +100,12 @@
 ### 不做的事情（显式排除）
 
 - 不重跑 v0.4.0 10,080-run 网格，不修改其配置/哈希/命令字节
+- **v0.4.0 本地数据与图表已移除（2026-08 用户拍板，外部备份保留）**：`graph/v0.4.0/`
+  图、`results/` 根 v0.4.0 产物（aggregated_results.csv / reanalysis_manifest.json /
+  raw_input_inventory.jsonl）删除；README v0.4.0 Historical Baseline 章节移除；
+  visualization `--v4` 模式与依赖 v0.4.0 数据的测试/fixture 清理。历史复现需
+  checkout `v0.4.0.post3` tag（该 tag 保留完整工具链）。未来轨迹数据标定新版本
+  以相同实验参数重跑时，以本版（v0.4.2）数据为对比基线。
 - 不推进 B 线（SSM 内存诊断）与 SUMO upstream 提交——未获用户授权前不列为发布动作
 - 不引入 ACC 自由流参考（D-008 约束保持）
 

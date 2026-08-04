@@ -2,11 +2,11 @@
 
 > A reproducible SUMO experiment platform for evaluating how CAV penetration and car-following control affect **observed flow, safety, emissions, and reference-relative lap time** under different road constraints.
 
-`SUMO 1.27.1` · `Python 3.10+` · `10,080 + 3,888 + 84 simulations` · `v0.4.2`
+`SUMO 1.27.1` · `Python 3.10+` · `3,888 + 84 simulations` · `v0.4.2`
 
-[Key Findings](#key-findings) ·
+[Formal-grid Results](#v042-formal-grid-results) ·
 [Scenario Design](#scenario-design) ·
-[Core Results](#core-results) ·
+[Metric Methodology](#metric-methodology) ·
 [Quick Start](#quick-start) ·
 [Experiment Report](docs/report.md) ·
 [Engineering Audit](docs/engineering/audit.md) ·
@@ -33,7 +33,7 @@ The four scenarios support three structured scenario comparisons:
 - `s1 → s2`: a transition to two lanes with added lateral freedom and lower per-lane density at fixed `vehN`;
 - `s2 → s3`: introduction of a 125 m `2→1→2` merge bottleneck.
 
-![Four progressively structured road scenarios](graph/v0.4.0/scenario_overview.png)
+![Four progressively structured road scenarios](graph/scenario_overview.png)
 
 *From left to right, the scenarios progressively change geometry, lane count/lateral freedom, and merge constraints. These comparisons do not isolate a single causal factor.*
 
@@ -54,29 +54,15 @@ descriptive results only). Aggregates and summaries are tracked under
 
 ### Main factorial
 
-Key v0.4.0 findings reproduce at the corresponding operating points:
+Key grid-observed results at the corresponding operating points:
 
 - **s2, CACC, pCAV=1.0, vehN=120**: grid-observed maximum flow **7,128 veh/h**
   (IDM 6,276 veh/h, +13.6%);
 - **s3, vehN=120, pCAV=1.0**: IDM **3,204 veh/h** / CACC 1,536 veh/h — the
-  high-density merge-bottleneck reversal reproduces (IDM ≈ 2.1× CACC flow and
+  high-density merge-bottleneck reversal holds (IDM ≈ 2.1× CACC flow and
   a much smaller reference-relative lap time);
 - scenario grid-observed peaks: s0 1,856.4, s1 4,178.4 (CACC, vehN=70),
   s2 7,128, s3 3,902.4 veh/h.
-
-### Cross-version comparison
-
-v0.4.2 reproduces key endpoints and some grid peaks exactly, but **that does
-not mean all 528 shared treatment keys match the v0.4.0 grid numerically**.
-Across the 528 shared keys: flow identical in 96, within 1% in 315, maximum
-absolute difference ≈ 337.55 veh/h; delay median relative difference ≈ 6.04%;
-CO₂ has no identical groups (the primary estimand is non-internal/non-internal
-in both versions by design, but the acquisition pipeline, `withInternal`
-handling and seed design differ, so no cross-version numeric-consistency or
-change-rate inference is drawn). The s1 grid peak differs (v0.4.2: 4,178.4 @
-CACC vehN=70 p=1.0 vs v0.4.0: 4,344.96 @ vehN=90 p=0.95) because the
-penetration resolution was reduced from 21 to 6 levels. Emissions are
-compared only within v0.4.2 (IDM vs CACC).
 
 ### Safety experiment
 
@@ -87,9 +73,6 @@ compared only within v0.4.2 (IDM vs CACC).
   parameters; this is not a claim of "no conflict";
 - every safety cell has **one seed pair only** — descriptive results, no
   significance inference;
-- s1's sampling design differs from v0.4.0 (1 seed pair + subset grid vs
-  5 assignment seeds × full grid), so no cross-version "no conflict"
-  conclusion is drawn;
 - SSM-on sampled peak RSS by scenario: s0 6.52 / s1 1.81 / s2 8.91 /
   s3 1.50 GiB (global peak 9,342,124 KiB @ s2_CACC_v120_c120) — historical
   observation context, not a hard budget;
@@ -98,57 +81,13 @@ compared only within v0.4.2 (IDM vs CACC).
 
 ---
 
-## Key Findings（v0.4.0 Historical Baseline）
 
-### 1. CACC raises the observed peak flow in an unconstrained dual-lane network
-
-In scenario **s2** at `pCAV = 1.0`, CACC reaches a maximum observed flow of **7,128 veh/h** within the tested vehicle-count grid, compared with **6,276 veh/h** for IDM—a **13.6% increase**. Both values occur at the upper grid boundary (`vehN = 120`), so they are not estimates of the true capacity peak.
-
-Mean lap-time difference from the fixed scenario reference is close to zero for both models.
-
-> This benefit is scenario-dependent and does not persist under the merge constraint in s3.
-
-### 2. The advantage reverses at a high-density merge bottleneck
-
-In scenario **s3** at `vehN = 120` and `pCAV = 1.0`:
-
-| Model | Flow | Mean lap-time difference from reference | CO₂ intensity |
-|---|---:|---:|---:|
-| IDM | **3,204 veh/h** | **74.2 s** | 228.3 g/veh-km |
-| CACC | 1,536 veh/h | 215.8 s | 352.0 g/veh-km |
-
-At this fixed high-density operating point, IDM carries approximately **2.1 times** the flow of CACC while producing a much smaller reference-relative lap-time difference and lower CO₂ intensity.
-
-> These values describe one fixed operating point. The maximum observed s3 flows within the tested grid are 3,902 veh/h for IDM and 3,564 veh/h for CACC.
-
-### 3. TTC conflicts concentrate around geometric and topological constraints
-
-Under the current `TTC < 3.0 s` SSM configuration:
-
-- s0 contains frequent conflicts associated with periodic sharp-turn braking;
-- s1 contains relatively few conflicts;
-- s2 contains no detected TTC conflicts within the tested parameter grid;
-- s3 contains dense conflict activity around forced merging.
-
-The observed distribution is consistent with road geometry and loss of lateral freedom being major contributors to conflict formation.
-
-> This interpretation is limited to the current SSM threshold, model parameters, and experiment grid. v0.4.1 delivered trajectory-level validation tooling and threshold sensitivity analysis; v0.4.2 ran a redesigned safety experiment (84 runs, space-matched exposure) independent of the main factorial grid.
-
----
-
-## Core Trade-off（v0.4.0 Historical Baseline）
-
-![Safety versus flow trade-off](graph/v0.4.0/chart_safety_flow.png)
-
-*CACC achieves high throughput in smooth, unconstrained networks, but the same advantage does not transfer directly to a dense merge bottleneck.*
-
----
 
 ## Why This Matters
 
 Earlier versions of the project primarily evaluated CAV performance through **traffic capacity**. Capacity alone, however, cannot determine whether a traffic state is also safe, energy-efficient, or time-efficient.
 
-v0.4.0 therefore extends the evaluation framework to four dimensions:
+This project extends the evaluation framework to four dimensions:
 
 | Dimension | Primary metric | Supporting metrics |
 |---|---|---|
@@ -163,203 +102,7 @@ The results indicate that **no single car-following model is globally optimal ac
 
 ---
 
-## Core Results（v0.4.0 Historical Baseline）
 
-All plots are generated from data aggregated across five vehicle-type assignment seeds. Means and arrangement variability are retained in `aggregated_results.csv`.
-
-Detector `mean_speed_m_s` is the arithmetic mean of non-empty 120-second
-detector-window speeds; `detector_mean_speed_temporal_variance` is the
-population variance across those windows. These are window-level temporal
-descriptors, not vehicle-weighted mean speed. A frozen-raw audit found no empty
-post-warmup detector windows in the 10,080 formal runs.
-
-### Maximum Observed Flow Within the Tested Grid
-
-CACC has higher observed maxima in s1 and s2 under high CAV penetration. The largest value in the tested grid, **7,128 veh/h**, occurs in s2 with CACC at `pCAV = 1.0` and the upper boundary `vehN = 120`.
-
-The s3 bottleneck reduces the grid-observed maximum flow by approximately 45–50% relative to s2, and IDM performs better than CACC at the highest tested density.
-
-![Maximum observed flow within the tested grid across four scenarios](graph/v0.4.0/chart_capacity.png)
-
-### Safety–Flow Trade-off
-
-The main safety metric is:
-
-```text
-whole-network TTC conflict events / 1,000 non-internal-edge vehicle-km
-```
-
-This exposure-normalized value is used alongside raw TTC totals because travelled distance differs across traffic states. It is internally time-matched but not fully space-matched; it should not be treated as an unbiased cross-scenario full-network event rate.
-
-The principal trade-off is shown in the overview figure above:
-
-- s0 conflicts are associated with periodic braking at 90° corners;
-- s3 conflicts concentrate around the merge bottleneck;
-- s1 contains few conflicts;
-- s2 contains no detected conflicts under the current configuration.
-
-### CO₂–Flow Trade-off
-
-In unconstrained scenarios, differences between IDM and CACC are relatively small and are largely associated with traffic density.
-
-Under the high-density s3 bottleneck, CACC's flow reduction, larger reference-relative lap time, and CO₂ deterioration occur simultaneously.
-
-![CO2 intensity versus traffic flow](graph/v0.4.0/chart_co2_flow.png)
-
-### Lap-Time Difference From the Fixed Reference
-
-Scenarios s1 and s2 remain close to the fixed scenario reference under most tested conditions. The reference-relative difference in s0 increases through repeated braking at the four sharp corners.
-
-Scenario s3 produces the largest reference-relative differences. At `pCAV = 1.0` and `vehN = 120`, the mean CACC difference reaches **215.8 s**, compared with **74.2 s** for IDM.
-
-![Mean lap-time difference from the fixed reference across requested CAV penetration levels](graph/v0.4.0/chart_delay.png)
-
-### Scenario-Dependent Summary
-
-| Scenario | CACC relative to IDM | Primary interpretation |
-|---|---|---|
-| s0 — sharp geometry | Small observed-flow gain; conflicts persist | Sharp corners repeatedly disturb longitudinal flow |
-| s1 — smooth single lane | Clear observed-flow advantage; few conflicts | Smooth geometry supports stable dense following |
-| s2 — smooth dual lane | **Largest grid-observed flow advantage**; no detected TTC | Dual lanes reduce longitudinal constraints and permit lane-changing |
-| s3 — merge bottleneck | **Advantage reverses** at high density | Forced merging disrupts the high-throughput regime observed in s2 |
-
-> **Main result:** under the current experimental configuration, CACC has a grid-observed flow advantage in smooth, unconstrained networks, but that advantage can diminish or reverse under a dense merge bottleneck.
-
-This is an experimental observation rather than a claim that either model is universally superior. Full causal verification requires vehicle-level trajectory analysis.
-
----
-
-## Experiment Design（v0.4.0 Baseline）
-
-```text
-4 scenarios
-× 2 car-following models
-× 21 CAV penetration levels
-× 12 vehicle-count levels
-× 5 vehicle-type assignment seeds
-= 10,080 SUMO simulations
-```
-
-| Parameter | Value |
-|---|---|
-| Scenarios | s0, s1, s2, s3 |
-| CAV models | IDM, CACC |
-| CAV penetration | 0.00–1.00 in increments of 0.05 |
-| Vehicle count | 10–120 in increments of 10 |
-| Vehicle-type assignment seeds | 1–5 |
-| Simulation duration | 3,600 s |
-| Warm-up period | 600 s |
-| Simulation step | 0.1 s |
-| Detector period | 120 s |
-| SSM TTC threshold | 3.0 s |
-| SSM DRAC threshold | 3.0 m/s² |
-| Emission class | HBEFA3/PC_G_EU4 for both HV and CAV |
-
-`--seed` only shuffles the Python-generated CAV/HV type assignment across fixed
-initial positions. It is not a SUMO random seed; the pipeline does not pass
-`--seed` or `--random` to SUMO. Run metadata records this scope as
-`seed_scope="vehicle_type_assignment"`. The five seeds are therefore five
-vehicle-type arrangements, not five independent SUMO stochastic replications.
-At `pCAV=0` or `pCAV=1`, changing this seed does not change the vehicle-type
-arrangement.
-
-Aggregation gives each successful assignment-seed run equal weight: ratios
-such as TTC events per vehicle-km are calculated within each run and then
-summarized using their arithmetic mean and standard deviation. They are not
-pooled ratios formed by dividing events summed across seeds by exposure summed
-across seeds. The output therefore describes arrangement sensitivity rather
-than sampling uncertainty.
-
-The formal experiment grid is defined in
-[`configs/v0.4.0.json`](configs/v0.4.0.json). Batch runs load this versioned
-configuration by default:
-
-```bash
-python3 -m scripts.simulation.batch_run \
-  --config configs/v0.4.0.json \
-  --dry-run
-```
-
-CLI grid options are explicit overrides. The resolved configuration and its
-stable SHA-256 are written to `manifest.json`, so an overridden run remains
-auditable. Invalid penetration levels, duplicate/empty lists, inconsistent
-network mappings, non-positive frequencies, and `warmup >= simulation_end` are
-rejected before any run directory is created. The warmup boundary must also be
-an exact multiple of both the detector and edgeData frequencies, because their
-parsers retain complete intervals rather than partial intervals.
-
-Audit the formal grid without running SUMO:
-
-```bash
-python3 -m scripts.experiment_audit --config configs/v0.4.0.json
-```
-
-The frozen v0.4.0 audit reports 2,400 requested/realized penetration
-mismatches, 400 duplicate penetration treatments, and 768 endpoint runs that
-add no new vehicle-type assignment information. Use `--json` for a
-machine-readable report.
-
-Each prepared run contains `run_spec.json` with the complete simulation
-parameters and derived penetration metadata (`requested_pcav`, `cav_count`,
-`hv_count`, and `realized_pcav`). `simulation_status.json` references its
-SHA-256; the parser refuses a missing or modified RunSpec instead of rebuilding
-parameters from the run directory name.
-
-For small vehicle populations, `realized_pcav` can differ from
-`requested_pcav` because the CAV count follows Python's existing
-`round(vehicle_count * requested_pcav)` rule. The formal CSV carries
-self-describing `realized_pcav`, `cav_count`, and `hv_count` columns.
-
-This is a known defect in the completed v0.4.0 experiment design, not merely a
-display-rounding issue. At `vehN=10`, the 21 requested penetration levels map
-to only 11 realizable vehicle compositions. For example, requested
-`pCAV=0.15`, `0.20`, and `0.25` all produce 2 CAVs and 8 HVs, hence a realized
-penetration of `0.20`. Across the formal grid, 2,400 runs have
-`realized_pcav != requested_pcav`; 400 runs at `vehN=10` are duplicate
-penetration treatments for the same scenario, model, and assignment seed.
-
-The main reported operating points are unaffected because they use
-`vehN=60`, `80`, or `120`, where every 0.05 penetration step is exactly
-realizable. The defect primarily limits interpretation of low-density
-penetration-response curves, especially `vehN=10`.
-
-The release, experiment, pipeline and schema versions intentionally describe
-different compatibility boundaries:
-
-| Version axis | Value | Meaning |
-|---|---|---|
-| Release/package | `v0.4.2` (current head); `v0.4.0.post3` = historical public release (tag checkout, code support removed from head) | Measurement toolchain (subgroup, THW, sensitivity, free-flow) |
-| Experiment config | `v0.4.2` (main 3,888 + safety 84) | Formal grid (jump release) |
-| Simulation/analysis pipeline | `v0.4.1` / `v0.4.2` (schema=2) | Only supported pipelines on head; `v0.4.0~post3` (schema=1) support removed |
-| Frozen pipeline schema | `2` | Schema recorded by the current simulation/parser pipeline |
-| Post3 output schema | `v0.4.0.post3.1` (historical) | Schema 1 metrics of the archived public baseline; readable only via the `v0.4.0.post3` tag
-
-Post3 does not rerun SUMO. Historical metadata correctly retains
-`pipeline_version="v0.4.0.post1"` while the reanalysis manifest records
-`analysis_version="v0.4.0.post3"`.
-
-Post3 preserves experimental inputs and raw observations but corrects derived
-metrics whose numerator and denominator previously covered different time
-windows. Edge performance, emissions and SSM safety measures are re-derived for
-the common `[600, 3600)` analysis window; affected aggregate values, figures and
-interpretations therefore supersede post2.
-
-The experiment-level `manifest.json` is created before SUMO starts. It records
-the full planned grid, Git state, Python/SUMO/netconvert versions, platform,
-launch command, resolved configuration hash, and SHA-256 values for every
-network and `net.json`. Interrupted runs therefore remain distinguishable from
-tasks that were never started.
-
-Simulation, parsing, and writing form a verified metadata chain. Resume checks
-the RunSpec, configuration, network, experiment and summary hashes; changing a
-summary or input prevents a stale result from being silently reused. The parser
-reads the pipeline version from `manifest.json` by default.
-
-The 120-second detector period covers approximately two free-flow laps in the smooth scenarios and avoids the sampling resonance previously observed with a 60-second period.
-
-Full configuration details, vehicle parameters, result tables, discussion and references are available in the [Experiment Report](docs/report.md).
-
----
 
 ## Metric Methodology
 
@@ -478,12 +221,14 @@ The parser pipeline provides:
 ## Data Quality
 
 ```text
-10,080 / 10,080  simulations completed
-2,016 / 2,016    aggregated groups with n_valid = 5
-212 / 212          automated tests passed
-0                duplicate run IDs
-0                parser failures
-0                invariant violations
+3,888 / 3,888  main-factorial simulations completed (SUCCESS)
+84 / 84        safety simulations completed (SUCCESS)
+528 / 528      main aggregated groups
+84 / 84        safety aggregated groups
+458            automated tests passed
+0              duplicate run IDs
+0              parser failures
+0              invariant violations
 ```
 
 The testing strategy contains three levels:
@@ -491,8 +236,6 @@ The testing strategy contains three levels:
 1. parser fixture unit tests;
 2. short SUMO smoke and positive-event tests;
 3. representative multi-scenario integration tests and full-grid closure checks.
-
-During the original batch, 74 runs failed because of memory pressure. They were rerun with one concurrent SUMO process and all were recovered before aggregation.
 
 ---
 
@@ -531,7 +274,7 @@ python3 -m scripts.simulation.network_generator --build-all
 ```
 
 With SUMO/netconvert 1.27.1, this reproduces the network XML used by the
-v0.4.0 experiment apart from generation metadata such as timestamp and output
+v0.4.2 experiment apart from generation metadata such as timestamp and output
 path. Scenario 3 is built from its tracked bottleneck-specific edge source; it
 is not reconstructed from an undocumented manual edit.
 
@@ -561,14 +304,6 @@ python3 -m scripts.simulation.single_run \
   --net net/scenario_2/loop.net.xml
 ```
 
-### Regenerate the v0.4.0 figures
-
-```bash
-python3 -m scripts.results.visualization \
-  --aggregated results/aggregated_results.csv \
-  --v4
-```
-
 ### Regenerate the v0.4.2 figures
 
 Two separate commands (option spelling is case-sensitive `--outDir`); output
@@ -588,12 +323,12 @@ python3 -m scripts.results.visualization \
 ```
 
 <details>
-<summary><strong>Full 10,080-run reproduction workflow</strong></summary>
+<summary><strong>Full formal-grid reproduction workflow</strong></summary>
 
 ```bash
 # Stage 1: parallel SUMO simulation
 python3 -m scripts.simulation.batch_run \
-  --config configs/v0.4.0.json \
+  --config configs/v0.4.2/main.json \
   --sumo-processes 6 \
   --resume \
   --output-root /path/to/raw
@@ -613,12 +348,7 @@ python3 -m scripts.results.writer \
 python3 -m scripts.results.aggregate \
   --input /path/to/results/run_level_results.csv \
   --output /path/to/results/aggregated_results.csv \
-  --schema-version 1
-
-# Generate the four trade-off figures
-python3 -m scripts.results.visualization \
-  --aggregated /path/to/results/aggregated_results.csv \
-  --v4
+  --schema-version 2 --manifest /path/to/raw/manifest.json
 ```
 
 </details>
@@ -651,36 +381,6 @@ Always run with `--resume` from the first launch—it costs nothing on a clean s
 
 ## Data Availability
 
-The repository includes:
-
-- `results/aggregated_results.csv`  
-  2,016 scenario–model–penetration–vehicle-count groups aggregated across five vehicle-type assignment seeds;
-
-- `results/reanalysis_manifest.json` and `results/raw_input_inventory.jsonl`,
-  which bind the source release, 30,240 raw input file identities and published
-  aggregate hash;
-
-- experiment configuration and plotting scripts;
-
-- the four v0.4.0 result figures under `graph/v0.4.0/`;
-
-- parser fixtures and unit tests.
-
-All published figures can be regenerated from `aggregated_results.csv`.
-The public repository can verify the aggregate file and raw-inventory digest,
-but it cannot independently reproduce the reanalysis without obtaining the
-separately retained raw XML and source run-level CSV. The manifest's run-level
-hash identifies that external intermediate; it is not a claim that the file is
-stored in Git.
-
-The following files are not included because of storage size:
-
-- raw SUMO XML outputs;
-- per-run `summary.json` files;
-- the full run-level dataset, which is retained in the external post3 archive.
-
-After SSM compaction, the retained raw experiment directory is approximately 58 GB. The complete dataset can be regenerated through the pipeline above.
-
 ### v0.4.2 formal grid (jump release)
 
 The repository includes:
@@ -689,16 +389,15 @@ The repository includes:
   — 528 main-factorial groups (3,888 runs) and 84 safety groups, aggregated across
   the `(assignment_seed, sumo_seed)` combination unit (3 × 3 for main interior cells);
 - `results/v0.4.2/result_handover.json` — minimal provenance handover: simulation
-  (`a8aa09a`), parsing artifacts (`d963502` + post-generation validation `507a80d`),
-  writer (`8f9ef4b` + schema-only rerun `e99cd89`), aggregate (`91c256f`) commits,
-  main/safety manifest SHA, and the SHA-256 of the fifteen archived result paths;
+  (`a8aa09a`), parsing/writer/aggregate artifacts (`6e85b23`, pure-branch full
+  reparse), main/safety manifest SHA, and the SHA-256 of the archived result paths;
 - `results/v0.4.2/result_analysis.md` — structured results summary (peaks, s3 bottleneck
   reversal, Safety by vehN facet, cross-version comparison boundary, subgroup table);
 - the v0.4.2 figures under `graph/v0.4.2/` (main factorial × 3 + Safety × 2: TTC and DRAC
   events-by-penetration, space-matched per-veh-km rates).
 
 The following are **not** stored in Git (retained locally/externally, consistent with
-the v0.4.0 post3 archive practice):
+established archive practice):
 
 - `raw_v0.4.2/` — raw SUMO outputs, per-run `summary.json` / `simulation_status.json`
   (main ≈ 34 GB, safety ≈ 0.8 GB);
@@ -759,14 +458,22 @@ tests/
 └── run_tests.py
 
 results/
-└── aggregated_results.csv
+└── v0.4.2/
+    ├── main/
+    │   ├── aggregated_results.csv
+    │   ├── run_level_results.csv        (external, .gitignore)
+    │   └── run_level_subgroup_results.csv (external, .gitignore)
+    ├── safety/                          (same layout)
+    ├── result_handover.json
+    ├── result_analysis.md
+    ├── pairing_report.json
+    └── raw_status_inventory.jsonl
 
-graph/v0.4.0/
+graph/
 ├── scenario_overview.png
-├── chart_capacity.png
-├── chart_safety_flow.png
-├── chart_co2_flow.png
-└── chart_delay.png
+└── v0.4.2/
+    ├── main/    (chart_capacity / chart_co2_flow / chart_delay)
+    └── safety/  (TTC + DRAC events by penetration)
 
 docs/
 ├── README.md
@@ -781,25 +488,25 @@ docs/
 
 ## Limitations
 
-- The formal CSV `pCAV` column is the requested penetration. Integer vehicle
-  counts cause requested and realized penetration to differ in 2,400 runs; at
-  `vehN=10`, 21 requested levels collapse to 11 actual compositions.
-- The formal CSV uses the explicit penetration/identity columns
+- The formal CSV carries the explicit penetration/identity columns
   (`realized_pcav`, `cav_count`, `hv_count`) and space-matched
   event-rate aliases; the historical v0.4.0~post3 legacy columns and the
   `requested_pcav` contract column are no longer produced on head (see the
   `v0.4.0.post3` tag for the archived schema; `requested_pcav` remains only
   as an internal `RunSpec` field for re-parsing archived raw runs).
-- The five seeds are vehicle-type assignment realizations rather than
-  independent SUMO stochastic replications. Endpoint penetrations do not gain
-  distinct arrangements from additional seeds, so endpoint `n_valid=5` does
-  not represent five independent observations.
+- The `(assignment_seed, sumo_seed)` pairs are vehicle-type assignment and
+  SUMO stochastic realizations; endpoint penetrations deactivate the
+  assignment dimension (sentinel 0) and keep the SUMO seed active, so endpoint
+  replication counts do not represent independent assignment realizations.
 - Across-seed means and standard deviations are equal-weight descriptive
   summaries of assignment runs, not pooled exposure ratios, confidence
   intervals or significance tests.
-- The v0.4.0 results are not separated into HV and CAV sub-populations; v0.4.1 adds subgroup tooling (detector/edgeData/SSM/vehroute/lanechange/stderr + `parsing/metrics.py`), and the v0.4.2 formal grid provides HV/CAV subgroup results (run-level subgroup long table + aggregated subgroup metrics).
+- The v0.4.2 formal grid provides HV/CAV subgroup results (run-level subgroup
+  long table + aggregated subgroup metrics, detector/edgeData/SSM/vehroute/
+  lanechange/stderr + FCD physical THW).
 - The absence of detected TTC conflicts in s2 applies only to the current `TTC < 3.0 s` threshold and tested parameter grid.
-- ACC is supported by earlier project versions but is not part of the formal v0.4.0 comparison.
+- ACC is supported by earlier project versions but is not part of the formal
+  comparison.
 - TTC events have not yet been independently reproduced from FCD or TraCI trajectories; v0.4.1 provides the trajectory-validation tooling (FCD physical THW), and the v0.4.2 safety experiment (84 runs) provides SSM-based event rates, but independent FCD/TraCI reproduction is still outstanding.
 - SSM mirror deduplication is an analysis heuristic: opposite-direction records
   for the same vehicle pair are matched one-to-one when their encounter
@@ -807,11 +514,12 @@ docs/
   shared event ID for deterministic pairing, so dense consecutive encounters
   may still be over- or under-deduplicated; absolute event counts should not be
   interpreted as exact physical conflict totals.
-- v0.4.1 adds model-specific free-flow references (HV/IDM/CACC) as validated artifacts (D-008); the v0.4.0 baseline table itself remains as published.
+- v0.4.1 adds model-specific free-flow references (HV/IDM/CACC) as validated
+  artifacts (D-008); the reference table itself remains as published.
 - Automated tests cover parsers, experiment configuration, RunSpec integrity,
   provenance, simulation state transitions, resume validation, result writing,
   aggregation, network metadata and representative SUMO pipelines. Regular CI
-  does not rerun the complete 10,080-run experiment.
+  does not rerun the complete formal grid (3,888 + 84 runs).
 
 ---
 

@@ -384,9 +384,25 @@ class ExperimentConfig:
             vn = _coerce_int(t.get("vehicle_count", 0), "vehicle_count")
             if vn <= 0:
                 raise ValueError(f"treatment vehicle_count must be positive, got {vn}")
-            if vn in seen_vn:
-                raise ValueError(f"duplicate vehicle_count in treatments: {vn}")
-            seen_vn.add(vn)
+            # 2026-08 A 方案：treatment 可带可选 scenarios 键（per-scenario vehN 轴，
+            # 如 s0/s1 10–120、s2/s3 20–240）；缺省 = 全部场景。唯一性按
+            # (vehicle_count, scenarios) 组合判定（不同场景组允许相同 vehN）。
+            t_scenarios = t.get("scenarios")
+            if t_scenarios is not None:
+                if not isinstance(t_scenarios, (list, tuple)) or not t_scenarios:
+                    raise ValueError(
+                        f"treatment scenarios must be a non-empty list for vehicle_count={vn}"
+                    )
+                unknown = [s for s in t_scenarios if s not in self.scenarios]
+                if unknown:
+                    raise ValueError(f"treatment scenarios contains unknown scenario(s): {unknown}")
+            seen_key = (vn, tuple(sorted(t_scenarios)) if t_scenarios else tuple(self.scenarios))
+            if seen_key in seen_vn:
+                raise ValueError(
+                    f"duplicate (vehicle_count, scenarios) in treatments: "
+                    f"vehicle_count={vn} scenarios={seen_key[1]}"
+                )
+            seen_vn.add(seen_key)
             cavs = t.get("cav_counts", [])
             if not cavs:
                 raise ValueError(f"cav_counts must not be empty for vehicle_count={vn}")

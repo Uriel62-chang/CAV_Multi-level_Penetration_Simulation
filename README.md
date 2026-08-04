@@ -2,7 +2,7 @@
 
 > A reproducible SUMO experiment platform for evaluating how CAV penetration and car-following control affect **observed flow, safety, emissions, and reference-relative lap time** under different road constraints.
 
-`SUMO 1.27.1` · `Python 3.10+` · `3,888 simulations` · `v0.4.2`
+`SUMO 1.27.1` · `Python 3.10+` · `8,208 simulations（A 方案）` · `v0.4.2`
 
 [Formal-grid Results](#v042-formal-grid-results) ·
 [Scenario Design](#scenario-design) ·
@@ -46,12 +46,15 @@ The four scenarios support three structured scenario comparisons:
 > 未来重跑（main 全开 SSM 采集）后更新。
 
 v0.4.2 (jump release) ran a formal grid independent of the v0.4.0 historical
-baseline: a **3,888-run main factorial covering all four evaluation dimensions**
-(flow, safety, emissions, efficiency; 4 scenarios × 12 vehN × 81 runs per
-(scenario, vehN) — cav=0: 3 + interior 4 levels × 2 models × 3 assignment
-seeds × 3 SUMO seeds: 72 + cav=vehN: 6 — with endpoint assignment
-deactivation). **2026-08 合并设计**：安全维度并入主网格（main 全开 SSM 采集，
-未来重跑生效）；旧的独立 safety experiment（84 runs）板块已取消。
+baseline: an **8,208-run main factorial covering all four evaluation dimensions**
+(flow, safety, emissions, efficiency). **2026-08 A 方案（v0.3.1 密度对齐）**：
+vehN 轴按场景密度对齐——s0/s1（单车道 2.0 km）10–120 步 10、s2/s3（双车道
+2.0 km）20–240 步 20（×2 密度对齐，每道 5–60 veh/km/道）；每档 cav_count
+0.1 步长 11 档（全整数）；每 treatment 171 runs（interior 9 档×2 模型×3×3
+=162 + cav=0: 3 + cav=vehN: 6），每场景 2,052、总计 8,208。**2026-08 合并设计**：
+安全维度并入主网格（main 全开 SSM 采集）；旧的独立 safety experiment（84 runs）
+板块已取消。s3 路网为 v0.3.1 几何（32 边形、主线双车道、e15/e16 单车道 125 m
+瓶颈），由 net.json 元数据驱动。
 
 ### Main factorial
 
@@ -228,8 +231,10 @@ The parser pipeline provides:
 0              invariant violations
 ```
 
-> 前三行为 v0.4.2 历史数据质量记录（数据已清空）；当前仓库以 440 tests 门禁为
-> 基线。未来重跑后按相同链路重新记录。
+> 前三行为 v0.4.2 旧网格（3,888）历史数据质量记录（数据已清空）；当前设计为
+> A 方案 8,208 runs（s0/s1 单车道 10–120、s2/s3 双车道 20–240 密度对齐，main
+> 全开 SSM——合并设计）。当前仓库以 440 tests 门禁为基线；未来重跑后按相同
+> 链路重新记录。
 
 The testing strategy contains three levels:
 
@@ -380,10 +385,10 @@ Always run with `--resume` from the first launch—it costs nothing on a clean s
 > `raw_v0.4.2/`（33 GB raw + 解析产物）、`results/v0.4.2/`（聚合/证据链/分析）、
 > `graph/v0.4.2/`（图）、`docs/report.md`（v0.4.0 报告）、`raw/`（v0.4.1 pilot）、
 > `routes/`（生成物）均已移除。仓库当前为纯工具链 + 未来重跑定义：
-> `configs/v0.4.2/main.json`（3,888 runs，含 SSM 采集——2026-08 合并设计）为
-> 未来重跑的实验定义；`artifacts/free_flow/` 自由流参考保留（解析输入依赖）。
-> 未来重跑后，数据将按既有 writer / aggregate / handover / inventory 链路
-> 重新产生并归档。
+> `configs/v0.4.2/main.json`（8,208 runs，A 方案密度对齐，含 SSM 采集——2026-08
+> 合并设计）为未来重跑的实验定义；`artifacts/free_flow/` 自由流参考保留（解析
+> 输入依赖）。未来重跑后，数据将按既有 writer / aggregate / handover / inventory
+> 链路重新产生并归档。
 
 
 ---
@@ -471,7 +476,7 @@ docs/
 - Automated tests cover parsers, experiment configuration, RunSpec integrity,
   provenance, simulation state transitions, resume validation, result writing,
   aggregation, network metadata and representative SUMO pipelines. Regular CI
-  does not rerun the complete formal grid (3,888 runs).
+  does not rerun the complete formal grid (8,208 runs).
 
 ---
 
@@ -481,7 +486,9 @@ docs/
 |---|---|
 | v0.4.0.post3 | Unified observation-window reanalysis of the frozen 10,080-run grid (historical public release; head no longer ships v0.4.0~post3 code support) |
 | v0.4.1 | Measurement and experimental-design upgrade: HV/CAV subgroup metrics, physical THW, compact FCD/TraCI validation, TTC threshold sensitivity, space-matched exposure, independent SUMO/assignment seeds, model-specific free-flow references, and a bounded pilot (internal milestone, **not released**; engineering outcomes folded into v0.4.2) |
-| v0.4.2 | Formal grid (jump release): main factorial 3,888 runs (efficiency/emissions/FCD, SSM disabled) + independent safety experiment 84 runs |
+| v0.4.2 | Formal grid (jump release): main factorial **8,208 runs**（A 方案
+  v0.3.1 密度对齐，s0/s1 10–120 + s2/s3 20–240；main 全开 SSM——2026-08
+  合并设计） |
 | v0.5.0 | Real-trajectory-driven car-following model calibration and simulation validation |
 | v0.6.0 | TraCI-based dynamic traffic control |
 | v0.7.0 | CACC communication degradation, including packet loss and latency |

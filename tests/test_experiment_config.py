@@ -7,8 +7,8 @@ from scripts.experiment_config import ExperimentConfig, load_experiment_config
 from scripts.simulation.batch_run import build_run_specs, validate_specs
 
 
-def test_default_config_is_stable_and_generates_3888_runs():
-    """v0.4.2 main 配置（cav_count 模式）round-trip 稳定 + 3,888 runs。"""
+def test_default_config_is_stable_and_generates_8208_runs():
+    """v0.4.2 main 配置（cav_count 模式，A 方案密度对齐）round-trip 稳定 + 8,208 runs。"""
     config = load_experiment_config("configs/v0.4.2/main.json")
     assert config.sha256() == ExperimentConfig.from_dict(config.to_dict()).sha256()
 
@@ -34,8 +34,8 @@ def test_default_config_is_stable_and_generates_3888_runs():
         treatments=list(config.treatments),
         sumo_seeds=list(config.sumo_seeds),
     )
-    assert len(specs) == 3_888
-    assert len({spec.run_id for spec in specs}) == 3_888
+    assert len(specs) == 8_208
+    assert len({spec.run_id for spec in specs}) == 8_208
 
 
 def test_smoke_config_passes_current_window_validation():

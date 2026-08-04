@@ -8,15 +8,17 @@
 
 ### 正式实验（新）
 
-- **主 factorial 网格**：4 场景 × 12 vehN × 每 (scenario, vehN) 81 runs
-  （cav=0: 3 + 内部 4 档×2 模型×3 assignment×3 SUMO: 72 + cav=vehN: 6）= 3,888 runs。
-  关键数值：s2 CACC 全 CAV 网格内最大观测流量 7,128 veh/h；s3 高密度全
-  CAV 运行点 IDM 3,204 vs CACC 1,536 veh/h（瓶颈反转复现 v0.4.0 定性结论）。
-  **2026-08 合并设计（用户拍板）**：旧独立 safety experiment（84 runs）板块
-  取消，安全维度并入主网格（main 全开 SSM 采集，未来重跑生效）；safety.json /
-  pairing_checker / safety 报告与 raw_v0.4.2/safety、results/v0.4.2/safety 随
-  合并删除。现有 raw 为旧设计过渡数据（main SSM-off + 旧 safety 84 runs），
-  重跑前保留解析兼容（experiment_role / ssm_not_collected 字段保留）。
+- **2026-08 A 方案（v0.3.1 密度对齐版）实验设计**：主网格扩展为 8,208 runs——
+  vehN 轴按场景密度对齐（s0/s1 单车道 10–120、s2/s3 双车道 20–240，×2 密度
+  对齐，每道 5–60 veh/km/道）；每档 cav_count 0.1 步长 11 档（全整数，替代
+  v0.3.1 已删除的 0.05 requested_pcav 缺陷设计）；每 treatment 171 runs、
+  每场景 2,052、总计 8,208。s3 路网为 v0.3.1 几何（32 边形、主线双车道、
+  e15/e16 单车道 125 m 瓶颈），由 net.json 元数据驱动；s2↔s3 在匹配主线密度
+  下隔离瓶颈效应，s2 真实峰值从 v120 边界伪影（7,128）重定位到预期 v140–180。
+  treatments 扩展支持 per-scenario vehN 轴（treatment.scenarios 键）。
+  **2026-08 合并设计**：安全维度并入主网格（main 全开 SSM 采集）；旧独立
+  safety experiment（84 runs）板块取消（safety.json / pairing_checker / safety
+  报告与相关数据随合并删除）。
 - **HV/CAV 子群拆分**：detector/edgeData/SSM/vehroute/lanechange/stderr + FCD THW，
   排放双口径（non-internal 主强度 + 全路网次要强度）。
 - 双 seed 统计单位：`(assignment_seed, sumo_seed)` 组合等权汇总，报告每格有效 n 与

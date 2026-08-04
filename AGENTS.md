@@ -132,7 +132,7 @@ python3 -m scripts.results.visualization \
   （删 pilot 专属测试 459→458）+ 审核修订（single_run P1/P2/P3）；schema=2 主路径
   零行为变化，RunSpec 内部 requested_pcav 字段保留（D3））
 - Ruff / mypy / compileall / format 全通过
-- dry-run: main 3,888 / smoke（configs/smoke.json；v0.4.0 10,080 网格
+- dry-run: main 8,208（A 方案）/ smoke（configs/smoke.json；v0.4.0 10,080 网格
   数据红线不重跑、本地数据已删（2026-08 用户拍板，外部备份保留）、配置已移除；
   旧独立 safety 84 runs 已随 2026-08 合并设计删除（安全维度并入主网格）；
   v0.4.1 正式实验配置已归档 docs/internal/archive/configs-v0.4.1/）

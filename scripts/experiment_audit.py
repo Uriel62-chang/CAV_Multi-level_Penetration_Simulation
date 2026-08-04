@@ -65,6 +65,9 @@ def _audit_cav_count_grid(config: ExperimentConfig) -> ExperimentAudit:
 
     for t in config.treatments:
         vn = _coerce_int(t.get("vehicle_count", 0), "vehicle_count")
+        # 2026-08 A 方案：treatment 可带可选 scenarios 键（per-scenario vehN 轴）；
+        # 缺省 = 全部场景。planned/endpoint 计数按 treatment 生效场景数展开。
+        t_scenarios = t.get("scenarios") or list(config.scenarios)
         cav_counts = [_coerce_int(c, "cav_counts") for c in t["cav_counts"]]
         unique_count = len(set(cav_counts))
         dup = len(cav_counts) - unique_count
@@ -93,21 +96,22 @@ def _audit_cav_count_grid(config: ExperimentConfig) -> ExperimentAudit:
             )
             if cav_count == 0 or cav_count == vn:
                 aseeds = aseeds[:1]
-            planned_run_count += n_models * len(aseeds) * len(config.sumo_seeds)
+            planned_run_count += n_models * len(aseeds) * len(config.sumo_seeds) * len(t_scenarios)
             if cav_count in seen:
-                duplicate_runs += n_models * len(aseeds) * len(config.sumo_seeds)
+                duplicate_runs += n_models * len(aseeds) * len(config.sumo_seeds) * len(t_scenarios)
             seen.add(cav_count)
             if cav_count == 0 or cav_count == vn:
-                endpoint_model_cells += n_models
+                endpoint_model_cells += n_models * len(t_scenarios)
 
-    endpoint_unique = len(config.scenarios) * endpoint_model_cells
+    endpoint_unique = endpoint_model_cells
     endpoint_runs = endpoint_unique * len(config.sumo_seeds)
 
-    # P2（reviewer 复核）：planned_run_count 需乘场景数——旧实现逐 treatment
+    # P2（reviewer 复核）：planned_run_count 乘场景数——旧实现逐 treatment
     # 累加单场景口径，与同函数 duplicate/endpoint 的乘数不一致（main.json 实测
-    # 972 vs 应为 3,888）。by_vehicle_count 为 per-vehN 审计，保持不乘场景
+    # 972 vs 应为 3,888）。2026-08 A 方案起按 treatment 生效场景数（t_scenarios）
+    # 逐项展开（per-scenario vehN 轴），不再整体乘 len(config.scenarios)。
+    # by_vehicle_count 为 per-vehN 审计，保持不乘场景
     # （与 requested_pcav 模式语义一致）。
-    planned_run_count *= len(config.scenarios)
 
     # P2-6（本轮审查）：cav_count 模式端点（cav=0/vn）的 assignment seed 在
     # _build_cav_count_specs 截断为失活 sentinel 0（不可区分）→ assignment 维度

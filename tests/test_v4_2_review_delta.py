@@ -2298,16 +2298,19 @@ def test_ssm_all_mirror_merge_keeps_extremes(tmp_path):
     assert r["parse_success"] is True
 
 
-def test_audit_cav_count_main_grid_planned_3888():
-    """P2（reviewer 复核）：cav_count 模式 planned_run_count 必须乘场景数——
-    main.json 实配（4 场景）输出 3,888（旧实现 972，缺场景乘数）。"""
+def test_audit_cav_count_main_grid_planned_8208():
+    """P2（reviewer 复核）+ 2026-08 A 方案：cav_count 模式 planned_run_count 按
+    treatment 生效场景数展开——main.json（s0/s1 单车道 10–120、s2/s3 双车道
+    20–240，per-scenario vehN 轴）输出 8,208。"""
     from scripts.experiment_audit import audit_experiment_config
 
     cfg = load_experiment_config("configs/v0.4.2/main.json")
     assert cfg.grid_mode == "cav_count"
     audit = audit_experiment_config(cfg)
-    assert audit.planned_run_count == 3888
-    # 与同函数端点口径一致（端点已乘场景数，planned 不得少乘）
+    assert audit.planned_run_count == 8208
+    # 端点：每场景-档位 3 端点单元格 × 48 场景-档位 × 3 sumo = 432
+    # （s0/s1 12 档 + s2/s3 12 档 = 24 treatments × 2 场景生效 = 48 场景-档位，
+    #  与旧设计 4 场景 × 12 档 = 48 相同）
     assert audit.endpoint_run_count == 432
 
 

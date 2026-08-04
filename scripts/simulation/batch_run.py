@@ -263,6 +263,12 @@ def _build_cav_count_specs(
 
     for scenario in scenarios:
         for treatment in treatments:
+            # 2026-08 A 方案（v0.3.1 密度对齐）：treatment 可带可选 scenarios 键，
+            # 支持 per-scenario vehN 轴（如 s0/s1 单车道 10–120、s2/s3 双车道
+            # 20–240）；缺省 = 应用于全部场景。
+            t_scenarios = treatment.get("scenarios")
+            if t_scenarios and scenario not in t_scenarios:
+                continue
             vn = _coerce_int(treatment["vehicle_count"], "vehicle_count")
             cav_counts = [_coerce_int(c, "cav_counts") for c in treatment["cav_counts"]]
             for cav_count in cav_counts:
@@ -432,6 +438,10 @@ def _validate_cav_count_specs(
     expected_combos: dict[tuple[str, int, int], tuple[set[str], set[int]]] = {}
     for _scenario in scenarios:
         for t in treatments:
+            # 2026-08 A 方案：per-scenario vehN 轴（treatment.scenarios 过滤，
+            # 与 _build_cav_count_specs 一致；缺省 = 全场景）
+            if t.get("scenarios") and _scenario not in t["scenarios"]:
+                continue
             vn = _coerce_int(t["vehicle_count"], "vehicle_count")
             cav_counts = [_coerce_int(c, "cav_counts") for c in t["cav_counts"]]
             for cc in cav_counts:

@@ -1,4 +1,4 @@
-"""结果可视化（纯净分支：v0.4.1/v0.4.2 schema=2 聚合 CSV；v0.4.0 旧 CSV 经 --v4 兼容展示）。
+"""结果可视化（纯净分支：v0.4.2 schema=2 聚合 CSV；v0.4.0 旧 CSV 经 --v4 兼容展示）。
 
 v0.3.0 模式（默认）：
   python3 -m scripts.results.visualization --csv out/results_raw_p05.csv

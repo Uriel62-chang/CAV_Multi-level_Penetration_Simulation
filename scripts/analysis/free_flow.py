@@ -14,7 +14,11 @@ from scripts.simulation.single_run import load_network_meta
 
 
 def measure_free_flow(
-    config_path="configs/free_flow.json", output_dir="artifacts/free_flow/v0.4.1-pilot-ff-1"
+    # 默认 output_dir 保留历史 pilot artifact 目录名（v0.4.1-pilot-ff-1）：该路径是
+    # 解析器 free-flow 参考的正式输入依赖（runner 默认 fallback 同路径），不得随
+    # pipeline 命名改名。
+    config_path="configs/free_flow.json",
+    output_dir="artifacts/free_flow/v0.4.1-pilot-ff-1",
 ):
     with open(config_path) as f:
         cfg = json.load(f)

@@ -2,6 +2,8 @@
 
 > 数据：`results/v0.4.2/{main,safety}/aggregated_results.csv`（schema=2，双 seed 统计单位）
 > 状态：main 3,888 runs / 528 组、safety 84 runs / 84 组，全部 data_quality=ok，writer complete=true
+> 版本：2026-08 纯净分支收尾全量重解析（6e85b23）后数据——run-level/subgroup/aggregated
+> CSV 无 `requested_pcav` 列，P0-1 圈时统计修复生效（本文 §1-6 数值逐项复核与此版本一致）
 > 图：`graph/v0.4.2/`（main 3 张）+ `graph/v0.4.2/safety/`（safety 2 张：TTC/DRAC 事件率，按 scenario × vehN 分面）
 > 口径说明：流量/排放主强度用 non-internal 配对；全路网次要强度用 `wn_*` 列；Safety 每格仅 1 个 seed pair，结果为描述性。
 
@@ -81,3 +83,12 @@ IDM 流量约为 CACC 2.1 倍、delay 约 1/3、排放强度更低——v0.4.0 �
 - **输入完整性**：3,972 个旧 run 的 stderr.log 哈希通过重解析前生成的
   input_integrity.sidecar.json（purpose=pre-reparse freeze）补全，
   未回填 simulation_status.json（不回填仿真时证据）。
+- **P0-1（纯净分支重解析 6e85b23）all-level 圈时统计修复**：修复前 metrics.py
+  delay 循环变量遮蔽导致 completed_lap_count / mean|median|p95_lap_time_s /
+  lap_time_std_s 六个 all-level 列实际报告 CAV 子群值（cav=0 组整体缺失）。纯净
+  分支收尾全量重解析（main 3,888 + safety 84 全 SUCCESS；simulation_status.json 与
+  input_integrity.sidecar.json 未动、逐文件哈希校验通过）产出正确值：聚合层
+  lap_mean/lap_std **432/528 键数值变化**、全 528 键无缺失；flow / delay_mean /
+  CO₂ / safety 结论不变（本文 §1-6 数值逐项复核与此版本一致）。run-level /
+  subgroup / aggregated CSV 同步删除 requested_pcav 契约列（RunSpec 内部字段保留，
+  存量 raw 可重解析）。

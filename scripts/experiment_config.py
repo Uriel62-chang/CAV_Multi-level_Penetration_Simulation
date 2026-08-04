@@ -306,8 +306,8 @@ class ExperimentConfig:
             raise ValueError(
                 f"fcd_max_leader_distance_m must be finite, got {self.fcd_max_leader_distance_m}"
             )
-        # pipeline 白名单
-        allowed_pipelines = {"v0.4.1", "v0.4.2"}
+        # pipeline 白名单（纯净分支单管线：仅 v0.4.2）
+        allowed_pipelines = {"v0.4.2"}
         if self.pipeline_version not in allowed_pipelines:
             raise ValueError(
                 f"unsupported pipeline_version: {self.pipeline_version!r}, "

@@ -1,4 +1,4 @@
-"""阶段三：统一结果写入器（纯净分支：仅 schema=2 v0.4.1/v0.4.2）。
+"""阶段三：统一结果写入器（纯净分支：仅 schema=2，v0.4.2 单管线）。
 
     读取 raw run 目录的 summary.json，生成 run_level_results.csv +
     failed_runs.csv + writer_report.json。
@@ -121,7 +121,7 @@ def _read_sim_status(run_dir: Path) -> str:
 
 
 def _build_row(summary: dict, parse_status: str, pipeline_version: str | None = None) -> dict:
-    """纯净分支：仅 schema=2（v0.4.1/v0.4.2）——schema=1 legacy 已移除。"""
+    """纯净分支：仅 schema=2（v0.4.2 单管线）——schema=1 legacy 已移除。"""
     return _build_row_v4_1(summary, parse_status, pipeline_version)
 
 
@@ -505,7 +505,7 @@ def build_run_level_results(
     if not manifest.get("config_sha256"):
         raise ValueError("manifest config_sha256 missing")
     schema_ver = manifest.get("schema_version")
-    # 纯净分支：仅支持 schema=2（v0.4.1/v0.4.2）——schema=1（v0.4.0~post3）已移除
+    # 纯净分支：仅支持 schema=2（v0.4.2 单管线）——schema=1（v0.4.0~post3）已移除
     if schema_ver != "2":
         raise ValueError(f"unsupported schema_version: {schema_ver!r} (only '2' supported)")
     results_value = manifest.get("results")

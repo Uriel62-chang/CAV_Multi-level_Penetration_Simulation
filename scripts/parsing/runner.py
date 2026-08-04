@@ -310,7 +310,7 @@ def parse_one_run(run_dir: Path, pipeline_version: str, network_file: str = "") 
             if not _integrity_ok:
                 raise ValueError("input integrity: " + "; ".join(_integrity_errors))
 
-        # ── 解析（纯净分支：仅 schema=2 v0.4.1/v0.4.2 路径；schema=1 legacy 已移除）──
+        # ── 解析（纯净分支：仅 schema=2，v0.4.2 单管线；schema=1 legacy 已移除）──
         net_file = network_file or spec.network_file
         core, subgroup, errors = _parse_one_run(run_dir, spec, net_file)
         summary = core
@@ -493,9 +493,7 @@ def _load_free_flow_references(spec, run_dir=None):
 
     if key not in refs:
         if spec.model == "ACC":
-            raise ValueError(
-                "ACC free-flow reference not available in v0.4.1; add to artifact first"
-            )
+            raise ValueError("ACC free-flow reference not available; add to artifact first")
         raise ValueError(f"model {spec.model} not in free-flow artifact")
     model_lap = refs[key]["lap_time_s"]
     if (

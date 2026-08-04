@@ -80,7 +80,7 @@ def _expected_seed_pairs(manifest: dict, vehN: int, cav_count: int) -> set[tuple
 def aggregate(
     input_csv: Path, output_csv: Path, schema_ver: str, manifest: dict | None = None
 ) -> pd.DataFrame:
-    # 纯净分支：仅支持 schema=2（v0.4.1/v0.4.2）——schema=1（v0.4.0~post3）已移除
+    # 纯净分支：仅支持 schema=2（v0.4.2 单管线）——schema=1（v0.4.0~post3）已移除
     if schema_ver != "2":
         raise ValueError(f"schema_ver must be '2', got {schema_ver!r}")
     # P1-2（审阅）：schema=2 在函数层强制 manifest（CLI 强制可被 import 调用绕过）。

@@ -526,15 +526,17 @@ def run_simulation(
         "edge_data_frequency": DEFAULT_EDGEDATA_FREQ,
         "loops": loops,
         "network_file": network_file,
-        "pipeline_version": "v0.4.1",
+        "pipeline_version": "v0.4.2",
         "schema_version": "2",
     }
     config_sha256 = hashlib.sha256(canonical_json(resolved_config).encode("utf-8")).hexdigest()
     network_sha256 = sha256_file(network_file)
     experiment_id = f"single-{config_sha256[:12]}-{network_sha256[:12]}"
 
-    # 纯净分支：single_run 单跑迁移到 v0.4.1（schema=2，与 batch 同架构）——
-    # cav_count 取整（run_id 生成处已算）、pcav 用 realized、requested_pcav 保留请求值。
+    # 纯净分支：single_run 单跑（v0.4.2，与 batch 同架构）——cav_count 取整（run_id
+    # 生成处已算）、pcav 用 realized、requested_pcav 保持 None（D3：内部字段，与
+    # batch cav_count 路径一致；请求比例不可表示时（round(vn×r)/vn≠r）若存请求值会
+    # 导致 from_dict 自读不一致 raise）。
     realized_pcav = cav_count / vehicle_count
 
     spec = RunSpec(
@@ -557,7 +559,7 @@ def run_simulation(
         pipeline_version=PIPELINE_V4_2,
         schema_version="2",
         cav_count=cav_count,
-        requested_pcav=cav_ratio,
+        requested_pcav=None,
         sumo_seed=0,
     )
 

@@ -915,22 +915,21 @@ async def run_sumo_process(
         sumo_version_out = _sumo_version_of(sumo_command)
         if sumo_version_out:
             status_data["sumo_version"] = sumo_version_out
-        # v0.4.1/v0.4.2: 记录冻结输入哈希供 resume 校验（P0-4 覆盖 v0.4.2）
-        if status == "SUCCESS" and spec.pipeline_version in ("v0.4.1", "v0.4.2"):
+        # v0.4.2: 记录冻结输入哈希供 resume 校验（纯净分支单管线）
+        if status == "SUCCESS" and spec.pipeline_version == "v0.4.2":
             status_data["route_file_sha256"] = sha256_file(str(prepared.route_path))
             type_map_path = prepared.vehicle_type_map_path or (run_dir / "vehicle_type_map.json")
             if type_map_path.exists():
                 status_data["vehicle_type_map_sha256"] = sha256_file(str(type_map_path))
-            # P0-10：v0.4.2 额外记录 additional 与 network XML SHA（resume 闭包）
-            if spec.pipeline_version == "v0.4.2":
-                status_data["additional_file_sha256"] = sha256_file(str(prepared.additional_path))
-                if spec.network_sha256:
-                    status_data["network_xml_sha256"] = spec.network_sha256
-                # P0-1：net.json 与 raw SUMO 输出进 SHA 闭包（Reviewer 复检 P0-1）
-                net_meta_path = Path(spec.network_file).with_name("net.json")
-                if net_meta_path.exists():
-                    status_data["net_json_sha256"] = sha256_file(str(net_meta_path))
-                status_data["raw_output_sha256"] = _collect_v4_2_raw_hashes(run_dir, spec)
+            # P0-10：额外记录 additional 与 network XML SHA（resume 闭包）
+            status_data["additional_file_sha256"] = sha256_file(str(prepared.additional_path))
+            if spec.network_sha256:
+                status_data["network_xml_sha256"] = spec.network_sha256
+            # P0-1：net.json 与 raw SUMO 输出进 SHA 闭包（Reviewer 复检 P0-1）
+            net_meta_path = Path(spec.network_file).with_name("net.json")
+            if net_meta_path.exists():
+                status_data["net_json_sha256"] = sha256_file(str(net_meta_path))
+            status_data["raw_output_sha256"] = _collect_v4_2_raw_hashes(run_dir, spec)
         atomic_write_json(prepared.status_path, status_data)
 
         return SimulationResult(
@@ -1382,7 +1381,7 @@ def main():
         "resolved_config": resolved_config.to_dict(),
         "config_sha256": config_sha256,
         "sumo_seed_mode": "explicit"
-        if resolved_config.pipeline_version in ("v0.4.1", "v0.4.2")
+        if resolved_config.pipeline_version == "v0.4.2"
         else "SUMO default; no --seed passed",
         "started_at": batch_started_at,
         "finished_at": None,

@@ -17,12 +17,12 @@
    "schema_only_rerun_commit": "6e85b23",
    "rerun_head": "6e85b23",
    "rerun_tracked_clean": true,
-   "note": "纯净分支 writer/aggregate 重跑：run-level CSV 无 requested_pcav 列、data_quality 全 ok、complete=True；aggregated CSV 列布局与正式线唯一差异= 删除 requested_pcav（相对顺序不变）；P0-1 修复后 lap 统计 432/528 键变化。"
+   "note": "纯净分支 writer/aggregate 重跑；2026-08 合并设计：safety 独立板块取消、pairing_checker 与 safety 报告移除、safety 产物删除"
   },
   "aggregate": {
    "commit": "6e85b23",
    "clean": true,
-   "note": "schema=2 强制 --manifest（P1-5 期望集合校验通过）；main 528 组 / safety 84 组"
+   "note": "schema=2 强制 --manifest；main 528 组（合并后不再有 safety 组）"
   },
   "hotfix_tests": "1a6da3c"
  },
@@ -33,33 +33,20 @@
    "runs": 3888,
    "success": 3888,
    "groups": 528,
-   "generated_by": "6e85b23 纯净分支全量重解析 + writer（P0-1 修复后数据）"
-  },
-  "safety": {
-   "runs": 84,
-   "success": 84,
-   "groups": 84,
-   "generated_by": "6e85b23 纯净分支全量重解析 + writer（P0-1 修复后数据）"
+   "generated_by": "6e85b23 纯净分支全量重解析 + writer（P0-1 修复后数据；2026-08 合并设计：safety 板块取消，safety 产物已删）"
   }
  },
  "writer_complete": {
   "main": true,
-  "safety": true,
-  "generated_by": "6e85b23 时代 writer 产物（纯净分支重解析后生成）；重生成 run-level/subgroup CSV 无 requested_pcav 列、subgroup 104 行/run 闭合"
+  "generated_by": "6e85b23 时代 writer 产物；合并设计后仅 main 网格（旧 safety 84 runs 已删）"
  },
  "hashes": {
   "raw_v0.4.2/main/manifest.json": "3e2c1e7e64569931016f27eef7c56fadc7dccaaa2bae2d7e00e072893d43146b",
-  "raw_v0.4.2/safety/manifest.json": "a9f97692d1f7e1bc0578e3a01d15e04c2752ba1fa8459fb05d1da70da1037151",
   "raw_v0.4.2/main/parse_manifest.json": "5c9aad67397b39330b4e2b029221d7b6140b9976121eb484dcc691df7a6b67d8",
-  "raw_v0.4.2/safety/parse_manifest.json": "437b07a6012ff02829587649d02229accc5207381f1b9116319f6be74781db87",
   "results/v0.4.2/main/run_level_results.csv": "d29bd98d02096dae52a3b0448dfeb2bf98d81b8b2d3af0151a62a4b6cebaa5de",
   "results/v0.4.2/main/run_level_subgroup_results.csv": "7d0a1579cda7ee4338a83bae6d3a5c377113552dc22f944b58337789e592edda",
   "results/v0.4.2/main/aggregated_results.csv": "bd3a3df22b16ad52aba13bec33c7479bfd9f062c3f7fb54b3f0ee8c6c49543eb",
-  "results/v0.4.2/main/writer_report.json": "26483fac1524f26c94865bab43cfc45f9fcc2b335a382e343f925c5c294ba073",
-  "results/v0.4.2/safety/run_level_results.csv": "23eb84d737146073b4521ab859d5dbb77f8f7da46c2661a5d6c11152b3c0bdf0",
-  "results/v0.4.2/safety/run_level_subgroup_results.csv": "49d396cbff5bd1243dc581b76563714695d50cd637808d31b8f84e641cb15d98",
-  "results/v0.4.2/safety/aggregated_results.csv": "4e15411ad7f9cac5b7da22d96c12fb059375e5f2cad783bf1ab1ba275bf8ee6f",
-  "results/v0.4.2/safety/writer_report.json": "00c31b99cf81413daaf7b45dab0c29007c8c6ee587e0592be9bd01c8d740b539"
+  "results/v0.4.2/main/writer_report.json": "26483fac1524f26c94865bab43cfc45f9fcc2b335a382e343f925c5c294ba073"
  },
  "supersedes": {
   "previous_p0_1_regen_sha256": {
@@ -107,6 +94,9 @@
    "results/v0.4.2/result_analysis.md": "3c9eceeaf89918bcb22f63bc12a07023f0a3d424bdeb907b72f4649d63e92c9d",
    "results/v0.4.2/pairing_report.json": "52b8c4a6dde1cbcec1988fe8bcce46356756a1c986449430dc5d75b0eeecbc2e",
    "note": "纯净分支收尾（阶段 3-5）：requested_pcav 契约列删除 + P0-1 全量重解析（main 3,888 + safety 84，6e85b23 代码）后，下列产物哈希全部更新；P0-1 修复影响 lap 统计（lap_mean/lap_std 432/528 键），flow/delay/CO2/safety 结论不变（见 result_analysis.md §7）。"
+  },
+  "merge_design_2026_08": {
+   "note": "safety 独立板块取消（用户拍板）：safety.json / pairing_checker / safety 报告 / raw_v0.4.2/safety / results/v0.4.2/safety 删除；main 网格未来全开 SSM 重跑；本 handover 哈希仅覆盖 main 产物"
   }
  },
  "runtime_clean_commit_warning": "本轮 parsing/writer/aggregate 运行于已提交的修复代码（8f9ef4b/91c256f/d963502），工作区仅含未跟踪的 results/.regen 临时目录；raw 证据目录与 simulation_status.json 未动。",

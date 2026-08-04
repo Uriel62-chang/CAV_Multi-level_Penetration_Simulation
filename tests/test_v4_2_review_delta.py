@@ -692,16 +692,6 @@ def test_aggregate_metrics_include_drac_rate():
     assert "drac_events_per_1000_veh_km" in METRIC_COLUMNS
 
 
-def test_paired_drac_metric_column():
-    import pandas as pd
-
-    from scripts.results.visualization import _paired_drac_metric_column
-
-    assert _paired_drac_metric_column(pd.DataFrame({"drac_per_k_mean": [1.0]})) == "drac_per_k_mean"
-    with pytest.raises(ValueError, match="drac_per_k_mean"):
-        _paired_drac_metric_column(pd.DataFrame({"ttc_per_k_mean": [1.0]}))
-
-
 # ── 审查 P1-2：SSM 解析器语义损坏记录 fail-closed ──
 
 from scripts.parsing.ssm import parse_ssm, parse_ssm_subgroup  # noqa: E402
@@ -1239,14 +1229,15 @@ def test_vehroute_subgroup_non_monotonic_times_fails_closed(tmp_path):
     assert r["all"]["parse_success"] is False
 
 
-# ── 审查 P2-2：可视化模式互斥 ──
+# ── 审查 P2-2：可视化模式（--v4-2 唯一模式；--safety 已随合并设计移除） ──
 
 
-def test_visualization_modes_are_mutually_exclusive(tmp_path, monkeypatch):
+def test_visualization_v4_2_mode_is_single(tmp_path, monkeypatch):
     import sys
 
     import scripts.results.visualization as viz
 
+    # 合并设计（2026-08）：不再有独立 safety 板块；未知 --safety 参数 fail-closed
     monkeypatch.setattr(
         sys, "argv", ["viz", "--safety", "--v4-2", "--aggregated", str(tmp_path / "none.csv")]
     )

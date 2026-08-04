@@ -9,12 +9,14 @@
 ### 正式实验（新）
 
 - **主 factorial 网格**：4 场景 × 12 vehN × 每 (scenario, vehN) 81 runs
-  （cav=0: 3 + 内部 4 档×2 模型×3 assignment×3 SUMO: 72 + cav=vehN: 6）= 3,888 runs，
-  SSM 关闭。关键数值：s2 CACC 全 CAV 网格内最大观测流量 7,128 veh/h；s3 高密度全
+  （cav=0: 3 + 内部 4 档×2 模型×3 assignment×3 SUMO: 72 + cav=vehN: 6）= 3,888 runs。
+  关键数值：s2 CACC 全 CAV 网格内最大观测流量 7,128 veh/h；s3 高密度全
   CAV 运行点 IDM 3,204 vs CACC 1,536 veh/h（瓶颈反转复现 v0.4.0 定性结论）。
-- **独立 safety experiment**：84 runs（p∈{0,0.2,0.6,1.0} × vehN∈{30,60,120}），TTC/DRAC
-  事件率与暴露量空间配对（withInternal=true）；s1 与 s2 在当前阈值/配置下未检出事件
-  （边界声明，不升级为「无安全冲突」）。
+  **2026-08 合并设计（用户拍板）**：旧独立 safety experiment（84 runs）板块
+  取消，安全维度并入主网格（main 全开 SSM 采集，未来重跑生效）；safety.json /
+  pairing_checker / safety 报告与 raw_v0.4.2/safety、results/v0.4.2/safety 随
+  合并删除。现有 raw 为旧设计过渡数据（main SSM-off + 旧 safety 84 runs），
+  重跑前保留解析兼容（experiment_role / ssm_not_collected 字段保留）。
 - **HV/CAV 子群拆分**：detector/edgeData/SSM/vehroute/lanechange/stderr + FCD THW，
   排放双口径（non-internal 主强度 + 全路网次要强度）。
 - 双 seed 统计单位：`(assignment_seed, sumo_seed)` 组合等权汇总，报告每格有效 n 与

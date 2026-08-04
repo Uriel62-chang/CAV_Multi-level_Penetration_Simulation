@@ -502,11 +502,12 @@ def test_from_dict_rejects_safety_with_ssm_disabled():
         RunSpec.from_dict(_v4_2_spec_dict(experiment_role="safety", ssm_enabled=False))
 
 
-def test_from_dict_rejects_main_with_ssm_enabled():
+def test_from_dict_allows_main_with_ssm_enabled():
+    """2026-08 合并设计：main_factorial + ssm_enabled=true 合法（安全维度并入主网格）。"""
     from scripts.run_spec import RunSpec
 
-    with pytest.raises(ValueError, match="main_factorial experiment must set ssm_enabled=false"):
-        RunSpec.from_dict(_v4_2_spec_dict(experiment_role="main_factorial", ssm_enabled=True))
+    spec = RunSpec.from_dict(_v4_2_spec_dict(experiment_role="main_factorial", ssm_enabled=True))
+    assert spec.ssm_enabled is True
 
 
 def test_from_dict_rejects_analysis_ttc_above_capture():

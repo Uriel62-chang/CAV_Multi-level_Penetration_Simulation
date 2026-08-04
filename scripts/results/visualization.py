@@ -3,7 +3,7 @@
 v0.3.0 模式（默认）：
   python3 -m scripts.results.visualization --csv out/results_raw_p05.csv
 
-v0.4.2 聚合模式（--v4-2 main / --safety 独立报告）：
+v0.4.2 聚合模式（--v4-2）：
   python3 -m scripts.results.visualization --aggregated results/v0.4.2/main/aggregated_results.csv --v4-2
 """
 
@@ -17,7 +17,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-import numpy as np
 import pandas as pd
 
 RING_LENGTH_KM = 2.0  # 环路长度 (km)，v0.3.0 兼容
@@ -198,16 +197,6 @@ def _ttc_metric_column(df: pd.DataFrame) -> str:
     raise ValueError(f"no TTC per-veh-km column in aggregated CSV; expected {_PAIRED_TTC_METRIC}")
 
 
-def _paired_ttc_metric_column(df: pd.DataFrame) -> str:
-    """v0.4.2 --safety 路径（P1-3）：只接受空间配对列，缺失 fail-closed。
-
-    不回退到 legacy non-internal 错配列——那会重新生成 A 线已修正的错误口径。
-    """
-    if _PAIRED_TTC_METRIC in df.columns:
-        return _PAIRED_TTC_METRIC
-    raise ValueError(f"safety report requires space-matched column {_PAIRED_TTC_METRIC!r}")
-
-
 def _assert_experiment_role(df: pd.DataFrame, expected: str) -> None:
     """审阅 P2-2：可视化入口校验 experiment_role——误把 main/safety CSV 传给错误
     模式时 fail-closed（而非生成空图/语义错误图）。CSV 无角色列时跳过（legacy 兼容）。"""
@@ -216,13 +205,6 @@ def _assert_experiment_role(df: pd.DataFrame, expected: str) -> None:
     roles = sorted(str(r) for r in df["experiment_role"].dropna().unique())
     if roles and roles != [expected]:
         raise ValueError(f"当前模式需要 experiment_role={expected!r} 的 CSV，实际含 {roles}")
-
-
-def _paired_drac_metric_column(df: pd.DataFrame) -> str:
-    """v0.4.2 --safety 路径（审阅 P0-1）：DRAC 空间配对事件率列，缺失 fail-closed。"""
-    if _PAIRED_DRAC_METRIC in df.columns:
-        return _PAIRED_DRAC_METRIC
-    raise ValueError(f"safety report requires space-matched DRAC column {_PAIRED_DRAC_METRIC!r}")
 
 
 def _ensure_dir(path: Path) -> None:
@@ -277,42 +259,6 @@ def chart_observed_peak_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
     axes[3].set_xlabel("CAV Penetration Rate", fontsize=11)
     fig.suptitle("CAV Penetration vs Maximum Observed Flow", fontsize=14)
     path = out_dir / "chart_capacity.png"
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    print(f"[OK] {path}")
-
-
-def chart_safety_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
-    """x=flow_mean, y=全路网 TTC / 普通-edge 暴露量，s0+s3 双面板"""
-    ttc_metric = _ttc_metric_column(df)
-    fig, axes = plt.subplots(1, 2, figsize=(16, 7), constrained_layout=True)
-    for ax, sc in zip(axes, ["scenario_0", "scenario_3"], strict=True):
-        sub = df[df["scenario"] == sc]
-        for model in ["IDM", "CACC"]:
-            d = sub[sub["model"] == model]
-            if len(d) == 0:
-                continue
-            s = MODEL_STYLES[model]
-            sizes = np.clip(d["vehN"] / 2, 10, 120)
-            ax.scatter(
-                d["flow_mean"],
-                d[ttc_metric],
-                s=sizes,
-                alpha=0.6,
-                edgecolors="white",
-                linewidth=0.3,
-                color=MODEL_COLORS[model],
-                marker=s["marker"],
-                label=model,
-            )
-        ax.set_title(SCENARIO_LABELS.get(sc, sc), fontsize=12)
-        ax.set_xlabel("Flow (veh/h)", fontsize=10)
-        ax.set_ylabel("TTC Events / 1000 Non-internal-edge veh-km", fontsize=10)
-        if ax.get_legend_handles_labels()[0]:
-            ax.legend(fontsize=9)
-        ax.grid(True, alpha=0.3)
-    fig.suptitle("Safety–Flow Trade-off: TTC Events per Non-internal-edge Exposure", fontsize=14)
-    path = out_dir / "chart_safety_flow.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[OK] {path}")
@@ -405,8 +351,8 @@ def chart_delay_v4(df: pd.DataFrame, out_dir: Path) -> None:
 def run_v4_2(args) -> None:
     """v0.4.2 main-factorial 报告入口（P0-6）。
 
-    不生成 Safety–Flow trade-off 曲线（分拆设计 §3.4 禁止把两实验拼成联合 trade-off）；
-    Safety 事件率仅由独立 safety 报告使用空间配对列。"""
+    合并设计（2026-08）：安全维度已并入主网格（SSM 采集随主网格），不再有独立
+    safety 报告板块。"""
     if not os.path.exists(args.aggregated):
         print(f"错误: 找不到文件 {args.aggregated}")
         return
@@ -418,81 +364,6 @@ def run_v4_2(args) -> None:
     chart_co2_flow_v4(df, out_dir)
     chart_delay_v4(df, out_dir)
     print(f"\n[DONE] 3 charts (main factorial, no safety-flow trade-off) → {out_dir.resolve()}")
-
-
-def run_safety_v4_2(args) -> None:
-    """v0.4.2 safety 独立报告入口（P0-11）。
-
-    生成 TTC 与 DRAC 事件率随渗透率（realized_pcav）变化的图（审阅 P0-1 补 DRAC；
-    审阅 P1-1 四场景全分面，s1/s2 零检出边界一并展示），使用空间配对列
-    （ttc_per_k_mean / drac_per_k_mean）；不生成与主 factorial 的联合 trade-off。
-    P0（Reviewer 复检）：按 scenario × vehN 分面、model 分线——Safety 每渗透率有
-    vehN={30,60,120} 三个点，不得在同一响应曲线中混合。
-    """
-    if not os.path.exists(args.aggregated):
-        print(f"错误: 找不到文件 {args.aggregated}")
-        return
-    df = pd.read_csv(args.aggregated)
-    _assert_experiment_role(df, "safety")  # 审阅 P2-2：角色门禁
-    out_dir = Path(args.outDir)
-    _ensure_dir(out_dir)
-    ttc_col = _paired_ttc_metric_column(df)  # P1-3：fail-closed，不回退 legacy 错配列
-    pen = _penetration_column(df)
-    # 审阅 P1-1：四场景全分面（s1/s2 零事件检出也是正式结果，纳入图表边界展示）
-    scenarios = ["scenario_0", "scenario_1", "scenario_2", "scenario_3"]
-    vehn_levels = sorted(df["vehN"].dropna().unique().tolist())
-    n_sc, n_vn = len(scenarios), len(vehn_levels)
-
-    def _plot_safety_metric(metric_col: str, ylabel: str, out_name: str, metric_label: str):
-        fig, axes = plt.subplots(
-            n_sc, n_vn, figsize=(5.5 * max(n_vn, 1), 6.5 * n_sc), constrained_layout=True
-        )
-
-        def _get_ax(i: int, j: int):
-            # matplotlib 对 1×1 / 1×N / N×1 布局的 axes 退化处理
-            if isinstance(axes, np.ndarray):
-                if axes.ndim == 2:
-                    return axes[i, j]
-                return axes[j] if n_sc == 1 else axes[i]
-            return axes  # 单个 Axes
-
-        for i, sc in enumerate(scenarios):
-            sub = df[df["scenario"] == sc]
-            for j, vn in enumerate(vehn_levels):
-                ax = _get_ax(i, j)
-                d = sub[sub["vehN"] == vn]
-                ax.set_title(f"{sc} vehN={vn}" if not d.empty else f"{sc} vehN={vn} (no data)")
-                ax.set_xlabel(f"{pen} (realized)")
-                ax.set_ylabel(ylabel)
-                if d.empty:
-                    continue
-                for model in ["IDM", "CACC"]:
-                    m = d[d["model"] == model].sort_values(pen)
-                    if not m.empty:
-                        ax.plot(m[pen], m[metric_col], marker="o", label=model)
-                if ax.get_legend_handles_labels()[0]:
-                    ax.legend(fontsize=8)
-        fig.savefig(out_dir / out_name, dpi=150, bbox_inches="tight")
-        plt.close(fig)
-        print(f"[safety] {metric_label} chart → {out_dir.resolve()}")
-
-    _plot_safety_metric(
-        ttc_col,
-        "TTC events / 1000 veh-km (whole-network)",
-        "chart_safety_events_by_penetration.png",
-        "TTC",
-    )
-    # 审阅 P0-1（Safety 设计）：DRAC 空间配对事件率（全路网 DRAC 事件 / 全路网 veh-km）
-    drac_col = _paired_drac_metric_column(df)
-    _plot_safety_metric(
-        drac_col,
-        "DRAC events / 1000 veh-km (whole-network)",
-        "chart_safety_drac_by_penetration.png",
-        "DRAC",
-    )
-    print(
-        f"\n[DONE] safety report (TTC + DRAC events by penetration, by vehN) → {out_dir.resolve()}"
-    )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -508,7 +379,7 @@ def main():
     )
     parser.add_argument("--ring-length", type=float, default=None)
     parser.add_argument("--net", default=None, help="路网文件路径，自动读取环路总长")
-    # 聚合 CSV 展示参数（--v4-2 / --safety 为 v0.4.2 报告模式）
+    # 聚合 CSV 展示参数（--v4-2 为 v0.4.2 报告模式）
     parser.add_argument(
         "--aggregated",
         default="results/v0.4.2/main/aggregated_results.csv",
@@ -517,39 +388,23 @@ def main():
     parser.add_argument(
         "--v4-2",
         action="store_true",
-        help="启用 v0.4.2 main-factorial 报告模式（不生成 safety-flow trade-off）",
-    )
-    parser.add_argument(
-        "--safety",
-        action="store_true",
-        help="启用 v0.4.2 safety 独立报告模式（TTC + DRAC 事件率随渗透率、"
-        "四场景全分面，使用空间配对列 ttc_per_k_mean / drac_per_k_mean）",
+        help="启用 v0.4.2 main-factorial 报告模式（合并设计：安全维度已并入主网格）",
     )
     # 通用
     parser.add_argument(
         "--outDir",
         default=None,
-        help="输出目录（默认：--v4-2 → graph/v0.4.2；--safety → graph/v0.4.2/safety，"
-        "P2-2 防版本混放）",
+        help="输出目录（默认：--v4-2 → graph/v0.4.2）",
     )
     args = parser.parse_args()
 
-    # 审阅 P2-2：--safety / --v4-2 互斥——不得静默按固定优先级执行
-    modes = [name for name, flag in (("--safety", args.safety), ("--v4-2", args.v4_2)) if flag]
-    if len(modes) > 1:
-        parser.error(f"互斥选项：{'、'.join(modes)} 只能同时指定一个（当前传入 {len(modes)} 个）")
-
     if args.outDir is None:
-        if args.safety:
-            args.outDir = "graph/v0.4.2/safety"  # 审阅 P2-2：safety 归档层级
-        elif args.v4_2:
-            args.outDir = "graph/v0.4.2"  # P2-2：v0.4.2 报告不与旧版本结果混放
+        if args.v4_2:
+            args.outDir = "graph/v0.4.2"
         else:
             args.outDir = "graph/v0.3"  # v0.3 旧模式默认输出目录
 
-    if args.safety:
-        run_safety_v4_2(args)
-    elif args.v4_2:
+    if args.v4_2:
         run_v4_2(args)
     else:
         run_v03(args)

@@ -253,9 +253,8 @@ class RunSpec:
         if self.ssm_fragment_merge_gap_s < 0 or not self._finite(self.ssm_fragment_merge_gap_s):
             raise ValueError("ssm_fragment_merge_gap_s must be non-negative and finite")
         # P1-4：与 ExperimentConfig.validate() 一致的 role×ssm_enabled 与阈值包络约束，
-        # 使配置"单源"贯穿至实际运行单元（RunSpec 直构/from_dict 路径同样拒绝）
-        if self.experiment_role == "main_factorial" and self.ssm_enabled:
-            raise ValueError("main_factorial experiment must set ssm_enabled=false")
+        # 使配置"单源"贯穿至实际运行单元（RunSpec 直构/from_dict 路径同样拒绝）。
+        # 2026-08 合并设计：main_factorial + ssm_enabled=true 合法（安全维度并入主网格）。
         if self.experiment_role == "safety" and not self.ssm_enabled:
             raise ValueError("safety experiment must set ssm_enabled=true")
         if self.analysis_ttc_threshold_s > self.ssm_capture_ttc_threshold_s:

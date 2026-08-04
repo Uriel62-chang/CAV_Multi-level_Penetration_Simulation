@@ -43,9 +43,12 @@ def test_parse_bool_rejects_invalid_string():
         _parse_bool({"x": "maybe"}, "x", False)
 
 
-def test_main_factorial_rejects_ssm_enabled():
-    with pytest.raises(ValueError, match="ssm_enabled=false"):
-        _cfg(ssm_enabled=True).validate()
+def test_main_factorial_allows_ssm_enabled():
+    """合并设计（2026-08）：main 网格含 SSM 采集（安全维度并入主网格），
+    main_factorial + ssm_enabled=true 合法。"""
+    cfg = _cfg(ssm_enabled=True)
+    cfg.validate()  # 不再拒绝
+    assert cfg.ssm_enabled is True
 
 
 def test_safety_rejects_ssm_disabled():

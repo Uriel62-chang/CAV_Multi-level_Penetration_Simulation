@@ -48,7 +48,8 @@ Use one of these approaches:
 
 1. Keep previously published CSV files as historical results and retain their
    original release/tag and environment notes.
-2. Re-run the formal grid from `configs/v0.4.2/main.json` (or `safety.json`)
+2. Re-run the formal grid from `configs/v0.4.2/main.json`
+   （2026-08 合并设计后安全维度并入主网格，不再有独立 safety 配置）
    to create fully traceable current-schema raw data.
 3. If historical XML must be re-analysed, use the original v0.4.0 code in an
    isolated checkout of the `v0.4.0.post3` tag and label the output as

@@ -4,7 +4,6 @@ import pandas as pd
 import pytest
 
 from scripts.results.aggregate import aggregate
-from scripts.results.visualization import _paired_ttc_metric_column
 from scripts.run_spec import PIPELINE_V4_2, RunSpec
 from scripts.schema import (
     EMISSIONS_COLUMNS_V4_2,
@@ -126,20 +125,6 @@ def test_aggregate_includes_v4_2_emission_columns(tmp_path):
     assert row["wn_co2_per_k_mean"] == pytest.approx(2.25)  # mean of 1.5, 3.0
 
 
-# ── P1-3：Safety 入口对 legacy 错配列 fail-closed ──
-
-
-def test_safety_metric_column_rejects_mismatched():
-    df = pd.DataFrame({"whole_network_ttc_events_per_1000_non_internal_edge_veh_km_mean": [1.0]})
-    with pytest.raises(ValueError, match="space-matched"):
-        _paired_ttc_metric_column(df)
-
-
-def test_safety_metric_column_accepts_paired():
-    df = pd.DataFrame({"ttc_per_k_mean": [1.0]})
-    assert _paired_ttc_metric_column(df) == "ttc_per_k_mean"
-
-
 # ── P1-4：RunSpec 直构/from_dict 路径同样拒绝无效 v0.4.2 身份 ──
 
 
@@ -161,9 +146,10 @@ def _spec_v4_2(**overrides) -> RunSpec:
     return RunSpec(**base)
 
 
-def test_runspec_rejects_main_with_ssm_enabled():
-    with pytest.raises(ValueError, match="ssm_enabled=false"):
-        _spec_v4_2(experiment_role="main_factorial", ssm_enabled=True)
+def test_runspec_allows_main_with_ssm_enabled():
+    """2026-08 合并设计：main_factorial + ssm_enabled=true 合法（安全维度并入主网格）。"""
+    spec = _spec_v4_2(experiment_role="main_factorial", ssm_enabled=True)
+    assert spec.ssm_enabled is True
 
 
 def test_runspec_rejects_safety_without_ssm():

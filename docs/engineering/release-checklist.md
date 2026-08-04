@@ -31,26 +31,25 @@
 
 ## v0.4.2 release gates
 
-- [ ] **网格与配置**：`configs/v0.4.2/main.json`（3,888）与 `safety.json`（84）
-      dry-run 通过；主配置 SHA `a293545f…`、Safety `84df0e53…` 记录于
-      grid-design 冻结附录；端点 assignment 失活、cav_count 全整数。
-- [ ] **数据闭包**：main 3,888 + safety 84 simulation/parse 全 SUCCESS；
-      聚合 main 528 / safety 84 组；writer 两份 `complete=true`、零排除；
-      `raw_status_inventory.jsonl`（3,972 条目）与 `result_handover.json`
-      的 15 文件 SHA 与外部 raw/CSV 匹配。
+- [ ] **网格与配置**：`configs/v0.4.2/main.json`（3,888，含 SSM 采集——2026-08
+      合并设计，安全维度并入主网格）dry-run 通过；端点 assignment 失活、
+      cav_count 全整数。（旧独立 safety.json 已随合并设计删除）
+- [ ] **数据闭包**：main 3,888 simulation/parse 全 SUCCESS；
+      聚合 main 528 组；writer `complete=true`、零排除；
+      `raw_status_inventory.jsonl`（3,888 条目）与 `result_handover.json`
+      的产物 SHA 与外部 raw/CSV 匹配。（旧 safety 84 runs 已随合并设计删除）
 - [ ] **provenance（如实记录，不声称 clean）**：main simulation manifest
       记录 `git_dirty=true`，不得表述为 runtime clean（porcelain 证据不能
       证明零 tracked diff）；parsing/writer 在未提交工作树修复后分别提交为
       `a21e05e`/`6637519`，caveat 已在 handover 披露。
 - [ ] **正式输入字节锚点**：`net/scenario_{1,2,3}/net.json` 的 `-text` 豁免生效，
       HEAD blob 与正式运行字节 SHA 一致。
-- [ ] **归档边界**：Git 内 = 2 份 aggregated CSV + handover + inventory +
-      analysis + 5 图（main 3 + safety 2，safety 图位于 `graph/v0.4.2/safety/`）；
+- [ ] **归档边界**：Git 内 = 1 份 aggregated CSV + handover + inventory +
+      analysis + 3 图（main 3，`graph/v0.4.2/main/`）；
       raw_v0.4.2/ 与 run-level/subgroup/failed CSV、
       writer report 由 `.gitignore` 覆盖（外部保留）。
-- [ ] **main/Safety 配对静态验收**：`scripts.results.pairing_checker --main-root raw_v0.4.2/main --safety-root raw_v0.4.2/safety` 输出 `all_match=true`（84 共享键四类输入 SHA + 非 SSM 规范化命令一致）；`results/v0.4.2/pairing_report.json` SHA 记录于 handover。
 - [ ] **文档一致性**：README/report 的 v0.4.2 数值可定位到 tracked
-      aggregate/result_analysis；`--v4-2`/`--safety`/`--outDir` 与 CLI 一致；
+      aggregate/result_analysis；`--v4-2`/`--outDir` 与 CLI 一致；
       Markdown 相对链接有效；禁止性措辞扫描通过。
 - [ ] **审查冻结**：当前 SHA 获正式 Reviewer 背书（阶段一独立复算 + delta +
       阶段二对账）；打 tag 前无未背书新 commit；tag 精确指向背书 SHA。

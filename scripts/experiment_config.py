@@ -265,8 +265,6 @@ class ExperimentConfig:
                 f"experiment_role must be 'main_factorial' or 'safety', "
                 f"got {self.experiment_role!r}"
             )
-        if self.experiment_role == "main_factorial" and self.ssm_enabled:
-            raise ValueError("main_factorial experiment must set ssm_enabled=false (SSM disabled)")
         if self.experiment_role == "safety" and not self.ssm_enabled:
             raise ValueError("safety experiment must set ssm_enabled=true")
         if self.analysis_ttc_threshold_s > self.ssm_capture_ttc_threshold_s:

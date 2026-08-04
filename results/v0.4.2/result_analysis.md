@@ -1,11 +1,11 @@
 # v0.4.2 正式网格结果分析（结构化摘要）
 
-> 数据：`results/v0.4.2/{main,safety}/aggregated_results.csv`（schema=2，双 seed 统计单位）
-> 状态：main 3,888 runs / 528 组、safety 84 runs / 84 组，全部 data_quality=ok，writer complete=true
+> 数据：`results/v0.4.2/main/aggregated_results.csv`（schema=2，双 seed 统计单位）
+> 状态：main 3,888 runs / 528 组，全部 data_quality=ok，writer complete=true（旧独立 safety 84 runs 已随 2026-08 合并设计删除）
 > 版本：2026-08 纯净分支收尾全量重解析（6e85b23）后数据——run-level/subgroup/aggregated
 > CSV 无 `requested_pcav` 列，P0-1 圈时统计修复生效（本文 §1-6 数值逐项复核与此版本一致）
-> 图：`graph/v0.4.2/`（main 3 张）+ `graph/v0.4.2/safety/`（safety 2 张：TTC/DRAC 事件率，按 scenario × vehN 分面）
-> 口径说明：流量/排放主强度用 non-internal 配对；全路网次要强度用 `wn_*` 列；Safety 每格仅 1 个 seed pair，结果为描述性。
+> 图：`graph/v0.4.2/main/`（3 张：capacity / CO2-flow / delay）
+> 口径说明：流量/排放主强度用 non-internal 配对；全路网次要强度用 `wn_*` 列。
 
 ## 1. 主 factorial：各场景网格内最大观测流量
 
@@ -27,20 +27,12 @@ s2 高渗透率（v120）：CACC cav=96/120 → 6,166 / 7,128；IDM → 5,647 / 
 
 IDM 流量约为 CACC 2.1 倍、delay 约 1/3、排放强度更低——v0.4.0 定性结论复现。排放仅作 v0.4.2 内部 IDM/CACC 比较（口径与 v0.4.0 不同，不做跨版本变化率）。
 
-## 3. Safety：TTC 事件率随渗透率（按 vehN 分层，每格 1 seed，描述性）
-
-- **s0**：p=1.0 端点事件率数值上明显上升（v30: IDM/CACC ~1,952；v60: 5,855/3,905；v120: 3,939/1,951），与 s0 急弯周期制动一致；vehN 与渗透率效应叠加，须分面阅读。单 seed 描述性结果，不作置信/显著性推断。
-- **s3**：v120 事件率随 p 单调上升（IDM 843→1,445、CACC 897→3,006）；v30/v60 的 p=1.0 端点反而为 0（该格无 TTC 事件，单 seed 描述性结果）。
-- **s1 与 s2 均未检出 TTC 事件**（s1 max ttc_per_k_mean=0.0、s2 非零组=0）；仅表示当前 TTC<3.0 s 阈值、SUMO 1.27.1、Safety 网格、单 seed 和现有 SSM 配置下未检测到，不升级为「无安全冲突」。
-- **DRAC（审阅 P0-1 补齐，空间配对率 drac_events_per_1000_veh_km = 全路网 DRAC 事件 / 全路网 veh-km）**：26/84 runs 检出 DRAC 事件（合计 31,793 个），s0 峰值 1,951.1（IDM p=1.0，v30/v60/v120 均 ~1,950，与 TTC 同运行点共现）、s3 峰值 1,616.9（CACC p=1.0 v120）；s1/s2 与 TTC 相同为全零。单 seed 描述性结果，不作置信/显著性推断。
-
 ## 4. 跨版本（v0.4.2 vs v0.4.0）比较边界
 
 - **精确复现**：s0/s2/s3 网格峰值与 s3 高密度全 CAV 运行点（flow/delay）与 v0.4.0 数值一致。
 - **非全网格一致**：Reviewer 对 528 个共享键独立比较——flow 完全相同 96/528、1% 内 315/528、最大绝对差 337.55 veh/h；delay 中位相对差约 6.0%；CO₂ 无相同项。
 - **差异来源（可预期，非错误）**：① 渗透率分辨率 21 档→6 档（s1 峰值从 v90 p0.95 移到 v70 p1.0）；② seed 设计（assignment 3 + SUMO 3 独立维度 vs v0.4.0 仅 assignment 5）；③ 暴露量口径 withInternal=true + non-internal 主强度。
 - **排放**：只做 v0.4.2 内部 IDM/CACC 比较；v0.4.0 的 352/228 与 v0.4.2 的 426.6/260.8 口径不同，不计算变化率。
-- **s1 安全事件跨版本不可直接比较**：v0.4.0 的 s1 TTC 场景累计 9,109.2（各处理组合 assignment-seed 均值之和，8 个非零组）vs v0.4.2 Safety 网格 s1 21 组全零——v0.4.2 Safety 每格仅 1 个 seed pair、vehN∈{30,60,120} 子采样，与 v0.4.0 完整网格 × 5 assignment seed 采样设计不同；零检出不构成「s1 无冲突」的跨版本结论。
 
 ## 5. Subgroup（HV/CAV 分拆）
 
@@ -61,8 +53,7 @@ IDM 流量约为 CACC 2.1 倍、delay 约 1/3、排放强度更低——v0.4.0 �
 
 ## 6. 边界声明
 
-- Safety 每格 1 个 seed pair：结果为描述性，不做显著性/置信推断。
-- **s1 与 s2 零事件**：全路网 TTC 事件率（ttc_per_k）分母为 withInternal=true 全路网 veh-km，空间配对；仅表示当前 TTC<3.0 s 阈值、SUMO 1.27.1、网格与 SSM 配置下未检测到，不升级为「无安全冲突」。
+- **s1 与 s2 零事件**（旧独立 safety 网格观测）：全路网 TTC 事件率分母为 withInternal=true 全路网 veh-km，空间配对；仅表示当前 TTC<3.0 s 阈值、SUMO 1.27.1、网格与 SSM 配置下未检测到，不升级为「无安全冲突」。合并设计后安全维度随主网格重跑将提供完整统计强度。
 
 ## 7. 2026-08 重解析修订（P0-1/P0-2 数据正确性）
 
@@ -92,3 +83,9 @@ IDM 流量约为 CACC 2.1 倍、delay 约 1/3、排放强度更低——v0.4.0 �
   CO₂ / safety 结论不变（本文 §1-6 数值逐项复核与此版本一致）。run-level /
   subgroup / aggregated CSV 同步删除 requested_pcav 契约列（RunSpec 内部字段保留，
   存量 raw 可重解析）。
+
+- **2026-08 合并设计（用户拍板）**：safety 独立板块取消，安全维度并入主网格
+  （main 全开 SSM 采集，未来重跑生效）；§3 旧 safety 结果（84 runs 单 seed
+  描述性）随数据删除；旧 pairing_checker / safety 报告 / safety.json 移除。
+  现有 raw 为旧设计过渡数据（main SSM-off + 旧 safety 84 runs），重跑前保留
+  解析兼容（experiment_role / ssm_not_collected 字段保留）。

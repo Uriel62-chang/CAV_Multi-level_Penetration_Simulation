@@ -2,7 +2,7 @@
 
 > A reproducible SUMO experiment platform for evaluating how CAV penetration and car-following control affect **observed flow, safety, emissions, and reference-relative lap time** under different road constraints.
 
-`SUMO 1.27.1` · `Python 3.10+` · `3,888 + 84 simulations` · `v0.4.2`
+`SUMO 1.27.1` · `Python 3.10+` · `3,888 simulations` · `v0.4.2`
 
 [Formal-grid Results](#v042-formal-grid-results) ·
 [Scenario Design](#scenario-design) ·
@@ -42,13 +42,13 @@ The four scenarios support three structured scenario comparisons:
 ## v0.4.2 Formal-grid Results
 
 v0.4.2 (jump release) ran a formal grid independent of the v0.4.0 historical
-baseline: a 3,888-run main factorial (SSM disabled; 4 scenarios × 12 vehN ×
-81 runs per (scenario, vehN) — cav=0: 3 + interior 4 levels × 2 models × 3
-assignment seeds × 3 SUMO seeds: 72 + cav=vehN: 6 — with endpoint assignment
-deactivation) and an 84-run safety experiment (4 scenarios × 3 vehN × 7 runs
-per (scenario, vehN) — HV-only: 1 + 2 interior levels × 2 models: 4 + full-CAV:
-2 — space-matched exposure, one seed pair per effective treatment key,
-descriptive results only). Aggregates and summaries are tracked under
+baseline: a **3,888-run main factorial covering all four evaluation dimensions**
+(flow, safety, emissions, efficiency; 4 scenarios × 12 vehN × 81 runs per
+(scenario, vehN) — cav=0: 3 + interior 4 levels × 2 models × 3 assignment
+seeds × 3 SUMO seeds: 72 + cav=vehN: 6 — with endpoint assignment
+deactivation). **2026-08 合并设计**：安全维度并入主网格（main 全开 SSM 采集，
+未来重跑生效）；旧的独立 safety experiment（84 runs）板块已取消。Aggregates
+and summaries are tracked under
 `results/v0.4.2/`; full per-run data is externally retained (see
 [Data Availability](#data-availability)).
 
@@ -64,15 +64,13 @@ Key grid-observed results at the corresponding operating points:
 - scenario grid-observed peaks: s0 1,856.4, s1 4,178.4 (CACC, vehN=70),
   s2 7,128, s3 3,902.4 veh/h.
 
-### Safety experiment
+### Safety dimension (merged into the main grid)
 
-- main factorial and safety are **separate experiments**; no combined
-  safety–flow trade-off is produced;
+- **安全维度随主网格采集**（合并设计 2026-08）；旧的独立 safety 板块（84 runs、
+  单 seed pair）已取消——每格安全指标将获得与流量/排放同等的 3×3 seed 统计强度；
 - **s1 and s2 show zero detected TTC events** — limited to the current
   `TTC < 3.0 s` threshold, SUMO 1.27.1, the safety grid and the configured SSM
   parameters; this is not a claim of "no conflict";
-- every safety cell has **one seed pair only** — descriptive results, no
-  significance inference;
 - SSM-on sampled peak RSS by scenario: s0 6.52 / s1 1.81 / s2 8.91 /
   s3 1.50 GiB (global peak 9,342,124 KiB @ s2_CACC_v120_c120) — historical
   observation context, not a hard budget;
@@ -222,10 +220,8 @@ The parser pipeline provides:
 
 ```text
 3,888 / 3,888  main-factorial simulations completed (SUCCESS)
-84 / 84        safety simulations completed (SUCCESS)
 528 / 528      main aggregated groups
-84 / 84        safety aggregated groups
-458            automated tests passed
+440            automated tests passed
 0              duplicate run IDs
 0              parser failures
 0              invariant violations
@@ -315,11 +311,6 @@ under `graph/v0.4.2/` are not overwritten:
 python3 -m scripts.results.visualization \
   --aggregated results/v0.4.2/main/aggregated_results.csv \
   --v4-2 --outDir /tmp/v042-figs/main
-
-# safety figures (TTC + DRAC events by penetration, faceted by scenario × vehN)
-python3 -m scripts.results.visualization \
-  --aggregated results/v0.4.2/safety/aggregated_results.csv \
-  --safety --outDir /tmp/v042-figs/safety
 ```
 
 <details>
@@ -385,29 +376,29 @@ Always run with `--resume` from the first launch—it costs nothing on a clean s
 
 The repository includes:
 
-- `results/v0.4.2/main/aggregated_results.csv` and `results/v0.4.2/safety/aggregated_results.csv`
-  — 528 main-factorial groups (3,888 runs) and 84 safety groups, aggregated across
-  the `(assignment_seed, sumo_seed)` combination unit (3 × 3 for main interior cells);
+- `results/v0.4.2/main/aggregated_results.csv`
+  — 528 main-factorial groups (3,888 runs), aggregated across the
+  `(assignment_seed, sumo_seed)` combination unit (3 × 3 for interior cells);
 - `results/v0.4.2/result_handover.json` — minimal provenance handover: simulation
   (`a8aa09a`), parsing/writer/aggregate artifacts (`6e85b23`, pure-branch full
-  reparse), main/safety manifest SHA, and the SHA-256 of the archived result paths;
+  reparse), main manifest SHA, and the SHA-256 of the archived result paths;
 - `results/v0.4.2/result_analysis.md` — structured results summary (peaks, s3 bottleneck
-  reversal, Safety by vehN facet, cross-version comparison boundary, subgroup table);
-- the v0.4.2 figures under `graph/v0.4.2/` (main factorial × 3 + Safety × 2: TTC and DRAC
-  events-by-penetration, space-matched per-veh-km rates).
+  reversal, safety boundary, subgroup table);
+- the v0.4.2 figures under `graph/v0.4.2/` (main factorial × 3: capacity / CO2-flow /
+  delay).
 
 The following are **not** stored in Git (retained locally/externally, consistent with
 established archive practice):
 
 - `raw_v0.4.2/` — raw SUMO outputs, per-run `summary.json` / `simulation_status.json`
-  (main ≈ 34 GB, safety ≈ 0.8 GB);
-- `results/v0.4.2/{main,safety}/run_level_results.csv`,
+  (main ≈ 34 GB; 旧独立 safety 84 runs 已随合并设计删除);
+- `results/v0.4.2/main/run_level_results.csv`,
   `run_level_subgroup_results.csv`, `writer_report.json`, `failed_runs.csv`
   (≈ 53 MB in total).
 
 **Git-side integrity anchor for the external raw:** `results/v0.4.2/raw_status_inventory.jsonl`
 (≈ 8.4 MB, Git-tracked) fixes the SHA-256 of every `simulation_status.json` and
-`parse_status.json` for all 3,972 runs (main 3,888 + safety 84), sorted by
+`parse_status.json` for all 3,888 runs (main factorial), sorted by
 `experiment_role, run_id`, and expands the status-embedded SHA for route/type-map/
 additional/network/net.json/raw-output/summary/subgroup. Its own SHA is recorded in
 `result_handover.json`. Verification: check the inventory SHA against the handover
@@ -463,17 +454,14 @@ results/
     │   ├── aggregated_results.csv
     │   ├── run_level_results.csv        (external, .gitignore)
     │   └── run_level_subgroup_results.csv (external, .gitignore)
-    ├── safety/                          (same layout)
     ├── result_handover.json
     ├── result_analysis.md
-    ├── pairing_report.json
     └── raw_status_inventory.jsonl
 
 graph/
 ├── scenario_overview.png
 └── v0.4.2/
-    ├── main/    (chart_capacity / chart_co2_flow / chart_delay)
-    └── safety/  (TTC + DRAC events by penetration)
+    └── main/    (chart_capacity / chart_co2_flow / chart_delay)
 
 docs/
 ├── README.md
@@ -507,7 +495,7 @@ docs/
 - The absence of detected TTC conflicts in s2 applies only to the current `TTC < 3.0 s` threshold and tested parameter grid.
 - ACC is supported by earlier project versions but is not part of the formal
   comparison.
-- TTC events have not yet been independently reproduced from FCD or TraCI trajectories; v0.4.1 provides the trajectory-validation tooling (FCD physical THW), and the v0.4.2 safety experiment (84 runs) provides SSM-based event rates, but independent FCD/TraCI reproduction is still outstanding.
+- TTC events have not yet been independently reproduced from FCD or TraCI trajectories; v0.4.1 provides the trajectory-validation tooling (FCD physical THW), and the v0.4.2 grid provides SSM-based event rates (merged into the main grid), but independent FCD/TraCI reproduction is still outstanding.
 - SSM mirror deduplication is an analysis heuristic: opposite-direction records
   for the same vehicle pair are matched one-to-one when their encounter
   intervals overlap by at least 80% of the shorter duration. SUMO provides no
@@ -519,7 +507,7 @@ docs/
 - Automated tests cover parsers, experiment configuration, RunSpec integrity,
   provenance, simulation state transitions, resume validation, result writing,
   aggregation, network metadata and representative SUMO pipelines. Regular CI
-  does not rerun the complete formal grid (3,888 + 84 runs).
+  does not rerun the complete formal grid (3,888 runs).
 
 ---
 

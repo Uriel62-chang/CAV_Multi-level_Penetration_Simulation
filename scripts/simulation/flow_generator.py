@@ -257,10 +257,15 @@ def generate_flow(
 
         edges_str = _build_route(edges, edge_index, loops)
         lines.append(f'  <route id="r{i}" edges="{edges_str}"/>')
+        # 审阅 P0（终审）：departSpeed="max" 在闭环饱和环路上要求前方约
+        # v²/2a≈123m 制动空档（v=33.33 m/s, a≈4.5），该空档永不出现 → 高密度下
+        # 大量车辆永久滞留插入队列、从不进入仿真（代理实测 s2 v240 仅插入
+        # 84–221/240、s0 v120 74–96/120），缩减车队完全静默。改 departSpeed="0"
+        # （或省略）：车辆以静止插入，warmup=600 吸收冷启动瞬态，100% 插入。
         depart_attrs = (
-            f'departPos="{position:.2f}" departSpeed="max" departLane="{lane}"'
+            f'departPos="{position:.2f}" departSpeed="0" departLane="{lane}"'
             if lane is not None
-            else f'departPos="{position:.2f}" departSpeed="max"'
+            else f'departPos="{position:.2f}" departSpeed="0"'
         )
         lines.append(
             f'  <vehicle id="veh{i}" type="{vehicle_type}" route="r{i}" depart="0" {depart_attrs}/>'

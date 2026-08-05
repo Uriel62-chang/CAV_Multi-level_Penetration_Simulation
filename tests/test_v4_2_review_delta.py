@@ -2298,20 +2298,20 @@ def test_ssm_all_mirror_merge_keeps_extremes(tmp_path):
     assert r["parse_success"] is True
 
 
-def test_audit_cav_count_main_grid_planned_8208():
-    """P2（reviewer 复核）+ 2026-08 A 方案：cav_count 模式 planned_run_count 按
-    treatment 生效场景数展开——main.json（s0/s1 单车道 10–120、s2/s3 双车道
-    20–240，per-scenario vehN 轴）输出 8,208。"""
+def test_audit_cav_count_main_grid_planned_7524():
+    """P2（reviewer 复核）+ 2026-08 U50 重设计（内存约束修订）：cav_count 模式
+    planned_run_count 按 treatment 生效场景数展开——main.json（s0/s1 单车道
+    10–110、s2/s3 双车道 20–220，统一密度轴 U55 11 档/场景 + 渗透率 0.1 步长
+    11 档 + 观测窗 [600,1800)）输出 7,524。"""
     from scripts.experiment_audit import audit_experiment_config
 
     cfg = load_experiment_config("configs/v0.4.2/main.json")
     assert cfg.grid_mode == "cav_count"
     audit = audit_experiment_config(cfg)
-    assert audit.planned_run_count == 8208
-    # 端点：每场景-档位 3 端点单元格 × 48 场景-档位 × 3 sumo = 432
-    # （s0/s1 12 档 + s2/s3 12 档 = 24 treatments × 2 场景生效 = 48 场景-档位，
-    #  与旧设计 4 场景 × 12 档 = 48 相同）
-    assert audit.endpoint_run_count == 432
+    assert audit.planned_run_count == 7524
+    # 端点：每场景-档位 3 端点单元格 × 44 场景-档位 × 3 sumo = 396
+    # （s0/s1 11 档 + s2/s3 11 档 = 22 treatments × 2 场景生效 = 44 场景-档位）
+    assert audit.endpoint_run_count == 396
 
 
 # ── 本轮审查 P2-1：writer all 圈数>0 门禁贯通 subgroup 排除 ──
@@ -2409,6 +2409,79 @@ def test_writer_subgroup_excluded_when_lap_stats_missing(tmp_path, monkeypatch):
     with (tmp_path / "out" / "run_level_results.csv").open(newline="", encoding="utf-8") as f:
         q = {row["run_id"]: row["data_quality"] for row in csv.DictReader(f)}
     assert q["buggy-run"] == "invariant_failed"
+    assert q["healthy-run"] == "ok"
+
+
+# ── 收敛审核 P1：subgroup 解析质量门禁（ssm/fcd/eb 等 parser 审计标志）──
+
+
+def test_writer_subgroup_excluded_when_ssm_parse_failed(tmp_path, monkeypatch):
+    """P1（收敛审核）：ssm_parse_success=False（fail-closed 解析检测到语义损坏
+    SSM 记录）的 run——run-level 标 parser_warning，且 subgroup 行被排除出
+    subgroup CSV（旧实现仅 run-level 排除，subgroup 残缺 pair/role 计数仍聚合）。"""
+    import hashlib
+
+    from scripts.results.writer import build_run_level_results
+
+    def _write_run(run_id, ssm_ok):
+        run_dir = tmp_path / run_id
+        run_dir.mkdir()
+        summary = _valid_v4_2_summary()
+        summary["run_id"] = run_id
+        summary["ssm_parse_success"] = ssm_ok
+        summary_bytes = json.dumps(summary).encode("utf-8")
+        (run_dir / "summary.json").write_bytes(summary_bytes)
+        sub_bytes = json.dumps({"run_id": run_id}).encode("utf-8")
+        (run_dir / "subgroup_summary.jsonl").write_bytes(sub_bytes)
+        (run_dir / "run_spec.json").write_text(json.dumps({"run_id": run_id}), encoding="utf-8")
+        status_common = {
+            "pipeline_version": "v0.4.2",
+            "schema_version": "2",
+            "config_sha256": "a" * 64,
+            "run_spec_sha256": "b" * 64,
+        }
+        (run_dir / "simulation_status.json").write_text(
+            json.dumps({**status_common, "run_id": run_id, "status": "SUCCESS"}),
+            encoding="utf-8",
+        )
+        (run_dir / "parse_status.json").write_text(
+            json.dumps(
+                {
+                    **status_common,
+                    "run_id": run_id,
+                    "status": "SUCCESS",
+                    "summary_sha256": hashlib.sha256(summary_bytes).hexdigest(),
+                    "subgroup_summary_sha256": hashlib.sha256(sub_bytes).hexdigest(),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    _write_run("buggy-run", False)
+    _write_run("healthy-run", True)
+    manifest = {
+        "pipeline_version": "v0.4.2",
+        "schema_version": "2",
+        "config_sha256": "a" * 64,
+        "total": 2,
+        "results": [
+            {"run_id": "buggy-run", "run_spec_sha256": "b" * 64},
+            {"run_id": "healthy-run", "run_spec_sha256": "b" * 64},
+        ],
+    }
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    monkeypatch.setattr("scripts.results.writer._valid_subgroup_rows", lambda *a, **k: True)
+    report = build_run_level_results(tmp_path, tmp_path / "out", "v0.4.2", manifest_path)
+    # 仅 buggy-run 的 subgroup 被排除（旧实现 subgroup_excluded=0，残缺行仍聚合）
+    assert report["subgroup_excluded_runs"] == 1
+    assert report["subgroup_csv_rows"] == 1
+    import csv
+
+    with (tmp_path / "out" / "run_level_results.csv").open(newline="", encoding="utf-8") as f:
+        q = {row["run_id"]: row["data_quality"] for row in csv.DictReader(f)}
+    assert q["buggy-run"] == "parser_warning"
     assert q["healthy-run"] == "ok"
 
 

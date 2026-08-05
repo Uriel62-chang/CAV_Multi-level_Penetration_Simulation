@@ -57,8 +57,32 @@ def test_interior_seed_pair_stats(tmp_path):
     assert row["seed_pair_combination_count"] == 9
     assert row["assignment_seed_run_count"] == 9
     assert row["sumo_seed_run_count"] == 3
-    assert row["independent_random_replication_count"] == 0
+    # 收敛审核 P2：双 seed 统计单位下独立随机复现数 = 有效 (assignment, sumo) 组合数
+    assert row["independent_random_replication_count"] == 9
     assert row["n_valid"] == 9
+
+
+def test_flow_per_lane_column(tmp_path):
+    """收敛审核 P0（FD 口径）：flow_per_lane = flow_mean / 场景车道数——
+    单车道（s0/s1）为 1 倍、双车道（scenario_2/scenario_3）为 1/2。"""
+    out_single = _aggregate(_make_df(3, 3), tmp_path)  # scenario="s0"（单车道）
+    row = out_single.iloc[0]
+    assert abs(row["flow_per_lane"] - row["flow_mean"]) < 1e-9
+    df_dual = _make_df(3, 3).assign(scenario="scenario_2")  # 双车道
+    out_dual = _aggregate(df_dual, tmp_path)
+    row2 = out_dual.iloc[0]
+    assert abs(row2["flow_per_lane"] - row2["flow_mean"] / 2) < 1e-9
+    assert row2["flow_per_lane"] < row2["flow_mean"]
+
+
+def test_flow_per_lane_absent_on_old_csv_visualization_fallback():
+    """收敛审核 P0：旧聚合 CSV 无 flow_per_lane 时可视化回退 flow_mean（不抛错）。"""
+    from scripts.results.visualization import _flow_metric_column
+
+    df_old = pd.DataFrame({"flow_mean": [1.0]})
+    df_new = pd.DataFrame({"flow_mean": [1.0], "flow_per_lane": [0.5]})
+    assert _flow_metric_column(df_old) == "flow_mean"
+    assert _flow_metric_column(df_new) == "flow_per_lane"
 
 
 def test_endpoint_seed_stats(tmp_path):

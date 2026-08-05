@@ -485,6 +485,26 @@ def run_simulation(
     output_csv: str = "out/results_raw.csv",
     model: str = "IDM",
     network_file: str = DEFAULT_NETWORK_FILE,
+    # 收敛审核 P1（Phase 3 加固）：测量设置不再静默使用 RunSpec 出厂默认
+    # （with_internal=False / ssm_enabled=False / fcd=None——与 A 方案主网格
+    # configs/v0.4.2/main.json 不一致：不同 veh-km 分母、无 SSM/FCD 采集）。
+    # 默认值现与主网格对齐（with_internal=true、SSM 全开、fcd="1s"、
+    # TTC=3.0/range=50/dedup greedy），可按需传参覆盖。
+    with_internal: bool = True,
+    ssm_enabled: bool = True,
+    fcd_profile: str | None = "1s",
+    sumo_seed: int = 0,
+    ssm_capture_ttc_threshold_s: float = 3.0,
+    ssm_capture_drac_threshold_mps2: float = 3.0,
+    ssm_range_m: float = 50.0,
+    ssm_extratime_s: float = 5.0,
+    ssm_trajectories: bool = False,
+    analysis_ttc_threshold_s: float = 3.0,
+    analysis_drac_threshold_mps2: float = 3.0,
+    ssm_dedup_method: str = "greedy_one_to_one_80pct",
+    ssm_mirror_overlap_ratio: float = 0.8,
+    ssm_fragment_merge_gap_s: float = 0.0,
+    fcd_max_leader_distance_m: float = 4000.0,
 ):
     """使用与批处理相同的仿真、解析和 writer 链路执行一个 run。"""
     from scripts.parsing.runner import parse_one_run
@@ -503,7 +523,9 @@ def run_simulation(
         seed,
         cav_count=cav_count,
         assignment_seed=seed,
-        sumo_seed=0,
+        # 审查 P2-2：run_id 用实际 sumo_seed（原硬编码 0——程序化传非 0 seed 时
+        # 不同 seed 的单跑写同一 raw 目录、CSV 静默覆盖）。
+        sumo_seed=sumo_seed,
     )
     output_path = Path(output_csv)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -528,6 +550,24 @@ def run_simulation(
         "network_file": network_file,
         "pipeline_version": "v0.4.2",
         "schema_version": "2",
+        # 收敛审核 P2：单跑 resolved_config 补齐测量设置字段（与 RunSpec 构造
+        # 同源）——config_sha256 语义完整（单跑自身一致；与 batch 因 entrypoint
+        # 与 treatments 差异本就不等价，独立工具不影响主网格）。
+        "with_internal": with_internal,
+        "ssm_enabled": ssm_enabled,
+        "fcd_profile": fcd_profile,
+        "ssm_capture_ttc_threshold_s": ssm_capture_ttc_threshold_s,
+        "ssm_capture_drac_threshold_mps2": ssm_capture_drac_threshold_mps2,
+        "ssm_range_m": ssm_range_m,
+        "ssm_extratime_s": ssm_extratime_s,
+        "ssm_trajectories": ssm_trajectories,
+        "analysis_ttc_threshold_s": analysis_ttc_threshold_s,
+        "analysis_drac_threshold_mps2": analysis_drac_threshold_mps2,
+        "ssm_dedup_method": ssm_dedup_method,
+        "ssm_mirror_overlap_ratio": ssm_mirror_overlap_ratio,
+        "ssm_fragment_merge_gap_s": ssm_fragment_merge_gap_s,
+        "fcd_max_leader_distance_m": fcd_max_leader_distance_m,
+        "sumo_seed": sumo_seed,
     }
     config_sha256 = hashlib.sha256(canonical_json(resolved_config).encode("utf-8")).hexdigest()
     network_sha256 = sha256_file(network_file)
@@ -560,8 +600,29 @@ def run_simulation(
         schema_version="2",
         cav_count=cav_count,
         requested_pcav=None,
-        sumo_seed=0,
+        sumo_seed=sumo_seed,
+        with_internal=with_internal,
+        ssm_enabled=ssm_enabled,
+        fcd_profile=fcd_profile,
+        ssm_capture_ttc_threshold_s=ssm_capture_ttc_threshold_s,
+        ssm_capture_drac_threshold_mps2=ssm_capture_drac_threshold_mps2,
+        ssm_range_m=ssm_range_m,
+        ssm_extratime_s=ssm_extratime_s,
+        ssm_trajectories=ssm_trajectories,
+        analysis_ttc_threshold_s=analysis_ttc_threshold_s,
+        analysis_drac_threshold_mps2=analysis_drac_threshold_mps2,
+        ssm_dedup_method=ssm_dedup_method,
+        ssm_mirror_overlap_ratio=ssm_mirror_overlap_ratio,
+        ssm_fragment_merge_gap_s=ssm_fragment_merge_gap_s,
+        fcd_max_leader_distance_m=fcd_max_leader_distance_m,
     )
+
+    # 收敛审核 P2：single_run 与 batch 共用 FCD 采集距离校验（batch 在
+    # validate_environment 中调用，single_run 不经过该流程——此处显式补齐）。
+    if spec.fcd_profile is not None:
+        from scripts.parsing.runner import validate_fcd_leader_distance
+
+        validate_fcd_leader_distance(spec, network_file)
 
     print("\n[RUN CONFIG]")
     print(f"  scenario    = {net_scenario}")
@@ -580,7 +641,10 @@ def run_simulation(
         "seed_scope": spec.seed_scope,
         "resolved_config": resolved_config,
         "config_sha256": config_sha256,
-        "sumo_seed_mode": "SUMO default; no --seed passed",
+        # 收敛审核 P1（Phase 3 加固）：build_sumo_command 恒注入
+        # --seed <spec.sumo_seed>（single_run sentinel 默认 0）——旧文案
+        # "SUMO default; no --seed passed" 与实际行为不符。
+        "sumo_seed_mode": f"explicit --seed {sumo_seed} (single_run sentinel; SUMO randomness fixed)",
         "provenance": collect_provenance(
             {net_scenario: network_file}, sumo_command, ["single_run", run_id]
         ),
@@ -667,6 +731,14 @@ def main():
         "--net", default=DEFAULT_NETWORK_FILE, help=f"路网文件路径 (默认: {DEFAULT_NETWORK_FILE})"
     )
     args = parser.parse_args()
+    # 审查 P2-1：warmup/freq/edge_data_frequency 组合预校验（prepare_run 的
+    # validate_analysis_windows 要求 warmup 同时整除 detector 与 edge_data 频率；
+    # 此处 argparse 层给出明确提示，而非仿真启动后抛错）。
+    if args.warmup % args.freq != 0 or args.warmup % DEFAULT_EDGEDATA_FREQ != 0:
+        parser.error(
+            f"warmup={args.warmup} 必须是 detector_frequency={args.freq} 与 "
+            f"edge_data_frequency={DEFAULT_EDGEDATA_FREQ} 的整数倍"
+        )
 
     run_simulation(
         vehicle_count=args.vehN,

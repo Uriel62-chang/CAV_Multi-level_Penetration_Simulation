@@ -449,26 +449,33 @@ def _validate_cav_count_specs(
                 aseeds = t.get("assignment_seeds", _default_assignment_seeds(cc, vn))
                 n_aseeds = 1 if (cc == 0 or cc == vn) else len(aseeds)
                 expected_count += n_models * n_aseeds * len(sumo_seeds)
-                for scenario in scenarios:
-                    key = (scenario, vn, cc)
-                    allowed_models = set(models)
-                    allowed_seeds = set(_coerce_int(a, "assignment_seeds") for a in aseeds)
-                    if key not in expected_combos:
-                        expected_combos[key] = (allowed_models, allowed_seeds)
-                    else:
-                        expected_combos[key][1].update(allowed_seeds)
+                # 审阅 P2-1（复核）：键只写当前生效场景 _scenario（外层已按
+                # t.scenarios 过滤），不再遍历全部 scenarios——否则 expected_combos
+                # 会含该 treatment 未生效场景的 (scenario, vn, cc) 键（现仅因
+                # membership 门禁而惰性，语义与 treatment_set 不一致）。
+                key = (_scenario, vn, cc)
+                allowed_models = set(models)
+                allowed_seeds = set(_coerce_int(a, "assignment_seeds") for a in aseeds)
+                if key not in expected_combos:
+                    expected_combos[key] = (allowed_models, allowed_seeds)
+                else:
+                    expected_combos[key][1].update(allowed_seeds)
     if len(specs) != expected_count:
         raise RuntimeError(f"Expected {expected_count} specs for cav_count grid, got {len(specs)}")
 
-    # 构建 treatment 查找表
+    # 构建 treatment 查找表（审阅 P2-1：与上方 expected_combos 同规则按
+    # treatment.scenarios 过滤，缺省 = 全场景；否则 treatment 会注册到未生效
+    # 场景，使 membership 校验误放行不属于该场景的 vehN）
     treatment_set: dict[str, dict[int, set[int]]] = {}
     for scenario in scenarios:
         treatment_set[scenario] = {}
     for t in treatments:
         vn = _coerce_int(t["vehicle_count"], "vehicle_count")
         cavs = set(_coerce_int(c, "cav_counts") for c in t["cav_counts"])
-        for scenario in scenarios:
-            treatment_set[scenario][vn] = cavs
+        t_scenarios = t.get("scenarios") or scenarios
+        for scenario in t_scenarios:
+            if scenario in treatment_set:
+                treatment_set[scenario][vn] = cavs
 
     for s in specs:
         if s.sumo_seed not in sumo_seeds:
@@ -565,8 +572,16 @@ def validate_environment(
 
 
 def sort_specs(specs: list[RunSpec]) -> list[RunSpec]:
-    """重任务优先：s3 > s2 > s1 > s0，vehN 降序"""
-    return sorted(
+    """重任务优先 + 内存错峰：s3 > s2 > s1 > s0、vehN 降序；高内存档
+    （s2 且 vehN>=160、s1 且 vehN>=80：密度 ≥40 veh/km/道、9.5–22.7 GiB）
+    之间插入低内存 run（s0/s3/低密度单车道：≤3.4 GiB），避免 3 workers 队首
+    并发叠满高内存档（s2 v220 单档 22.67 GiB × 3 ≈ 68 GiB 必 OOM）。
+
+    审查 P1-2：执行顺序变更不影响 run 集合与结果；静态交错为**概率性缓解**
+    ——动态 asyncio 取任务（低内存短任务提前完成）可能瞬时并发 2 个高内存档，
+    无法硬保证峰值上限（OOM→FAILED→resume 恢复，无正确性影响）。
+    """
+    ordered = sorted(
         specs,
         key=lambda s: (
             SCENARIO_WEIGHT.get(s.scenario, 0),
@@ -575,6 +590,30 @@ def sort_specs(specs: list[RunSpec]) -> list[RunSpec]:
         ),
         reverse=True,
     )
+
+    def _high_memory(s: RunSpec) -> bool:
+        # 按密度阈值（≥40 veh/km/道）而非整场景分类：s1 低密度档实际内存低，
+        # 整场景误判会致 low 桶耗尽后尾部连续堆叠（审查核验实测）。
+        return (s.scenario == "scenario_2" and s.vehicle_count >= 160) or (
+            s.scenario == "scenario_1" and s.vehicle_count >= 80
+        )
+
+    high_mem = [s for s in ordered if _high_memory(s)]
+    low_mem = [s for s in ordered if not _high_memory(s)]
+    result: list[RunSpec] = []
+    hi = lo = 0
+    # 交错：每 1 个高内存后跟 2 个低内存，尽力将 3 workers 并发窗口内高内存
+    # 档压到 ≤1（峰值 ≈22.67+2×3.4 ≈ 29.5 GiB < 24 GB+swap）；动态取任务下
+    # 仅为概率性保证（见 docstring）。
+    while hi < len(high_mem) or lo < len(low_mem):
+        if hi < len(high_mem):
+            result.append(high_mem[hi])
+            hi += 1
+        for _ in range(2):
+            if lo < len(low_mem):
+                result.append(low_mem[lo])
+                lo += 1
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1228,7 +1267,10 @@ def main():
         help="版本化实验配置 JSON (默认: configs/v0.4.2/main.json)",
     )
     parser.add_argument(
-        "--sumo-processes", type=int, default=4, help="同时运行的 SUMO 进程数 (默认: 4)"
+        "--sumo-processes",
+        type=int,
+        default=3,
+        help="同时运行的 SUMO 进程数 (默认: 3，U55 内存约束定案)",
     )
     parser.add_argument("--output-root", default="raw", help="独立 run 目录根路径 (默认: raw/)")
     parser.add_argument(

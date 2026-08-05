@@ -16,6 +16,8 @@ def _make_agg(tmp_path):
             "vehN": [60, 60],
             "cav_count": [30, 30],
             "flow_mean": [1000.0, 1100.0],
+            "flow_per_lane": [1000.0, 1100.0],
+            "density_veh_per_km_lane": [30.0, 30.0],
             "co2_per_k_mean": [200.0, 190.0],
             "delay_mean": [10.0, 8.0],
             "ttc_per_k_mean": [0.1, 0.2],
@@ -40,8 +42,10 @@ def test_run_v4_2_no_safety_flow_chart(tmp_path, monkeypatch):
     assert "chart_safety_flow.png" not in files
     assert "chart_capacity.png" in files
     assert "chart_co2_flow.png" in files
+    assert "chart_fundamental_diagram.png" in files
+    assert "chart_fundamental_diagram_s3.png" in files
     assert "chart_delay.png" in files
-    assert len(files) == 3
+    assert len(files) == 5
 
 
 def test_penetration_column_prefers_realized(tmp_path):

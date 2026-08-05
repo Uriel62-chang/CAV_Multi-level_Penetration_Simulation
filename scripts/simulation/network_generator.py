@@ -7,9 +7,22 @@ from pathlib import Path
 
 
 def generate_polygon_loop(
-    scenario_dir: str, num_sides: int, radius: float, num_lanes: int, speed: float
+    scenario_dir: str,
+    num_sides: int,
+    radius: float,
+    num_lanes: int,
+    speed: float,
+    edge_lane_overrides: dict | None = None,
+    bottleneck_edge_ids: list | None = None,
+    force: bool = False,
 ) -> dict:
     """生成多边形闭环路网源文件（nodes.nod.xml, edges.edg.xml, net.json）
+
+    复现已提交场景：s3 = 32 边形、radius=318.82、num_lanes=2、speed=33.33、
+    bottleneck e15/e16（单车道）——CLI：
+      --scenario scenario_3 --sides 32 --radius 318.82 --lanes 2 --speed 33.33
+      --bottleneck-edges e15,e16 --force
+    （s0/s1/s2 无瓶颈，不带 --bottleneck-edges 即可。）
 
     Args:
         scenario_dir: 输出目录，如 "net/scenario_1"
@@ -17,11 +30,36 @@ def generate_polygon_loop(
         radius: 外接圆半径 (m)
         num_lanes: 车道数
         speed: 限速 (m/s)
+        edge_lane_overrides: per-edge 车道覆盖（如 {"e15": 1, "e16": 1}，
+            用于 s3 瓶颈），覆盖边 id 必须合法
+        bottleneck_edge_ids: 瓶颈边列表（写入 net.json 元数据；
+            未在 edge_lane_overrides 中显式给出的瓶颈边默认单车道）
+        force: 目标目录已被 sources.sha256 锚定（被跟踪/受保护源文件）时，
+            必须显式 force=True 才允许覆盖重新生成
 
     Returns:
         dict: 路网元数据
     """
+    from pathlib import Path
+
+    directory = Path(scenario_dir)
+    if (directory / "sources.sha256").exists() and not force:
+        raise RuntimeError(
+            f"{scenario_dir} 已被 sources.sha256 锚定（被跟踪/受保护的路网源文件）；"
+            f"裸调用覆盖会破坏路网源一致性链——如确需重新生成请显式 --force"
+        )
     os.makedirs(scenario_dir, exist_ok=True)
+
+    # per-edge 车道覆盖：显式覆盖优先，瓶颈边缺省单车道
+    effective_overrides = dict(edge_lane_overrides or {})
+    for bid in bottleneck_edge_ids or []:
+        effective_overrides.setdefault(bid, 1)
+    valid_ids = {f"e{i}" for i in range(num_sides)}
+    unknown = sorted(set(effective_overrides) - valid_ids)
+    if unknown:
+        raise ValueError(
+            f"edge_lane_overrides 含非法边 id: {unknown}（合法范围 e0..e{num_sides - 1}）"
+        )
 
     # 边长（弦长）
     edge_length = 2.0 * radius * math.sin(math.pi / num_sides)
@@ -43,9 +81,10 @@ def generate_polygon_loop(
     edge_lines = ["<edges>"]
     for i in range(num_sides):
         next_node = (i + 1) % num_sides
+        lanes = effective_overrides.get(f"e{i}", num_lanes)
         edge_lines.append(
             f'    <edge id="e{i}" from="n{i}" to="n{next_node}" '
-            f'numLanes="{num_lanes}" speed="{speed}"/>'
+            f'numLanes="{lanes}" speed="{speed}"/>'
         )
     edge_lines.append("</edges>")
 
@@ -57,6 +96,7 @@ def generate_polygon_loop(
     total_length = num_sides * edge_length
     edge_ids = [f"e{i}" for i in range(num_sides)]
     legal_lanes = list(range(num_lanes))
+    lane_overrides = {k: v for k, v in sorted(effective_overrides.items()) if v != num_lanes}
     meta = {
         "schema_version": "1",
         "scenario": os.path.basename(scenario_dir),
@@ -70,9 +110,12 @@ def generate_polygon_loop(
         "route_edge_ids": edge_ids,
         "detector_edge_id": edge_ids[0],
         "detector_position_m": round(edge_length / 2.0, 4),
-        "bottleneck_edge_ids": [],
-        "edge_lane_counts": {"default": num_lanes, "overrides": {}},
-        "legal_initial_lanes": {"default": legal_lanes, "overrides": {}},
+        "bottleneck_edge_ids": list(bottleneck_edge_ids or []),
+        "edge_lane_counts": {"default": num_lanes, "overrides": lane_overrides},
+        "legal_initial_lanes": {
+            "default": legal_lanes,
+            "overrides": {k: list(range(v)) for k, v in lane_overrides.items()},
+        },
         "speed_mps": speed,
     }
 
@@ -181,7 +224,17 @@ def main():
     parser.add_argument(
         "--build-all",
         action="store_true",
-        help="从 outdir 下已跟踪的四场景源文件编译 loop.net.xml",
+        help="从 outdir 下已跟踪的四场景源文件编译 loop.net.xml（只编译，不生成/不覆盖源文件）",
+    )
+    parser.add_argument(
+        "--bottleneck-edges",
+        default=None,
+        help="瓶颈边列表（逗号分隔，如 e15,e16；缺省单车道并写入 net.json）",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="允许覆盖已被 sources.sha256 锚定的路网源文件（裸调用默认拒绝）",
     )
     parser.add_argument("--netconvert", default="netconvert", help="netconvert 可执行文件")
     args = parser.parse_args()
@@ -190,8 +243,21 @@ def main():
         build_all_networks(args.outdir, args.netconvert)
         return
 
+    bottleneck_ids = (
+        [e.strip() for e in args.bottleneck_edges.split(",") if e.strip()]
+        if args.bottleneck_edges
+        else None
+    )
     scenario_dir = os.path.join(args.outdir, args.scenario)
-    generate_polygon_loop(scenario_dir, args.sides, args.radius, args.lanes, args.speed)
+    generate_polygon_loop(
+        scenario_dir,
+        args.sides,
+        args.radius,
+        args.lanes,
+        args.speed,
+        bottleneck_edge_ids=bottleneck_ids,
+        force=args.force,
+    )
     build_network(scenario_dir, args.netconvert)
 
 

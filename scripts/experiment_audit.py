@@ -123,7 +123,10 @@ def _audit_cav_count_grid(config: ExperimentConfig) -> ExperimentAudit:
     return ExperimentAudit(
         planned_run_count=planned_run_count,
         requested_realized_mismatch_runs=0,
-        duplicate_penetration_treatment_runs=duplicate_runs * len(config.scenarios),
+        # 审阅 P2-3：duplicate_runs 已在上方按 t_scenarios（treatment 生效场景数）
+        # 逐项展开——此处不得再整体乘 len(config.scenarios)（A 方案前旧口径残留，
+        # 会重复乘场景数；main.json 下 duplicate=0 未暴露，但语义错误）。
+        duplicate_penetration_treatment_runs=duplicate_runs,
         endpoint_run_count=endpoint_runs,
         endpoint_unique_assignment_treatments=endpoint_unique,
         endpoint_assignment_redundant_runs=endpoint_assignment_redundant,

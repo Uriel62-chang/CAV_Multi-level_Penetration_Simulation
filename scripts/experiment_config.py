@@ -136,10 +136,7 @@ class ExperimentConfig:
         _check_required(data, _CAV_COUNT_MODE_EXTRA)
         treatments = tuple(dict(t) for t in data["treatments"])
         sumo_seeds = tuple(_coerce_int(x, "sumo_seeds") for x in data["sumo_seeds"])
-        seeds = tuple(
-            _coerce_int(x, "assignment_seeds")
-            for x in data.get("assignment_seeds", data.get("seeds", ()))
-        )
+        seeds = tuple(_coerce_int(x, "assignment_seeds") for x in data.get("assignment_seeds", ()))
         # 审阅 P2-3：assignment seed 非负（与 sumo_seed 语义一致）
         if any(s < 0 for s in seeds):
             raise ValueError("assignment_seeds must be non-negative")

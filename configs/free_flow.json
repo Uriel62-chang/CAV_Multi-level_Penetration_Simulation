@@ -17,8 +17,6 @@
   ],
   "vehicle_count": 1,
   "loops": 60,
-  "analysis": {
-    "exclude_first_lap": true,
-    "stable_lap_method": "median of laps 2..N"
-  }
+  "simulation_end": 5000,
+  "warmup": 120
 }

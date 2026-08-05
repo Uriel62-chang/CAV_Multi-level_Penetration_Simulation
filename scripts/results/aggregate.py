@@ -1,8 +1,8 @@
 """Step 14: 多种子聚合 —— run-level → aggregated statistics.
 
-    输入：run_level_results.csv（v0.4.2 为 3,888/84 行，每行一个 (assignment_seed, sumo_seed)
+    输入：run_level_results.csv（v0.4.2 U55 为 7,524 行，每行一个 (assignment_seed, sumo_seed)
           组合）
-    输出：aggregated_results.csv（v0.4.2 为 528/84 行，每行一个 scenario×model×vehN×cav_count，
+    输出：aggregated_results.csv（v0.4.2 U55 为 924 行，每行一个 scenario×model×vehN×cav_count，
           含双 seed 组合的等权算术 mean/std/median/min/max/count）
 
     python3 -m scripts.results.aggregate \
@@ -56,18 +56,35 @@ METRIC_COLUMNS = tuple(c for c in METRIC_COLUMNS if c not in _NON_AGGREGATABLE)
 GROUP_KEYS_V4_1 = ["scenario", "model", "vehN", "cav_count"]
 
 
-def _expected_seed_pairs(manifest: dict, vehN: int, cav_count: int) -> set[tuple[int, int]]:
+def _expected_seed_pairs(
+    manifest: dict, scenario: str, vehN: int, cav_count: int
+) -> set[tuple[int, int]]:
     """从实验 manifest（resolved config）推导某 treatment 的期望 (assignment, sumo) 对。
 
     端点（cav=0 或 cav=vehN）assignment_seed 为失活 sentinel 0；interior 为
     treatment.assignment_seeds × sumo_seeds（无显式时回退 [1,2,3]）。
+
+    审阅 P2-2：A 方案下 treatment 按 scenarios 键限定生效场景（per-scenario
+    vehN 轴）——同一 vehN 在不同场景可能分属不同 treatment，匹配必须按
+    (scenario, vehN) 过滤，否则会取到未生效场景的 treatment 而算错 seed 对。
     """
     cfg = manifest.get("resolved_config") or manifest
     treatments = cfg.get("treatments") or []
-    treatment = next((t for t in treatments if int(t.get("vehicle_count", -1)) == vehN), None)
+    treatment = next(
+        (
+            t
+            for t in treatments
+            if int(t.get("vehicle_count", -1)) == vehN
+            and (not t.get("scenarios") or scenario in t["scenarios"])
+        ),
+        None,
+    )
     if treatment is None:
-        raise ValueError(f"manifest missing treatment for vehN={vehN}")
-    aseeds_raw = treatment.get("assignment_seeds") or cfg.get("seeds") or []
+        raise ValueError(
+            f"manifest missing treatment for (scenario={scenario}, vehN={vehN})——"
+            "single_run 产物 manifest 不含 treatments，不支持 aggregate；请使用 batch 产物"
+        )
+    aseeds_raw = treatment.get("assignment_seeds") or cfg.get("assignment_seeds") or []
     aseeds = [int(a) for a in aseeds_raw]
     if not aseeds:
         aseeds = [1] if cav_count in (0, vehN) else [1, 2, 3]
@@ -157,7 +174,7 @@ def aggregate(
                 seen.add(pair)
             # P1-5（新审阅）：期望组合必须与冻结配置完全相等（缺失/多余均 fail-closed）。
             if manifest is not None:
-                expected = _expected_seed_pairs(manifest, int(keys[2]), int(keys[3]))
+                expected = _expected_seed_pairs(manifest, keys[0], int(keys[2]), int(keys[3]))
                 actual = set(seen)
                 missing_pairs = expected - actual
                 extra_pairs = actual - expected
@@ -198,6 +215,7 @@ def aggregate(
         "ssm_warmup_filtered_count": "ssm_warm",
         "ssm_valid_record_count": "ssm_valid",
         "ssm_mirrored_record_count": "ssm_mirr",
+        "ssm_fragment_merged_count": "ssm_frag",
         "ttc_conflict_event_count": "ttc",
         "min_ttc_s": "min_ttc",
         "ttc_affected_vehicle_count": "ttc_veh",
@@ -221,6 +239,7 @@ def aggregate(
         "whole_network_PMx_mg_per_veh_km": "wn_pmx_per_k",
         "whole_network_fuel_g_per_veh_km": "wn_fuel_per_k",
         "total_vehicle_km": "veh_km",
+        "non_internal_edge_vehicle_km": "ni_edge_km",
         "total_time_loss_s": "time_loss",
         "completed_lap_count": "laps",
         "mean_lap_time_s": "lap",
@@ -241,6 +260,7 @@ def aggregate(
     }
 
     new_columns = {}
+    count_columns = {}  # short → count 列名（供 std NaN 规则反查，见下）
     for col in METRIC_COLUMNS:
         if col not in df_ok.columns:
             continue
@@ -248,7 +268,13 @@ def aggregate(
         for stat in ["mean", "std", "median", "min", "max"]:
             new_columns[(col, stat)] = f"{short}_{stat}"
         new_columns[(col, "count")] = f"{short}_count"
+        count_columns[short] = f"{short}_count"
+    # 审阅 P2（收敛审核 Phase 3 加固）：mean_flow_veh_h 的 count 列按契约重命名
+    # 为 n_valid——count_columns 同步记录，否则下方 std NaN 规则反查不到
+    # flow_count 列，mean_flow_veh_h_std 会落入「无条件填 0」分支（count==0 的
+    # 全 NaN 组被错误填 0，破坏「未采集与单样本可区分」的 NaN 规则）。
     new_columns[("mean_flow_veh_h", "count")] = "n_valid"
+    count_columns["flow"] = "n_valid"
 
     grouped.columns = grouped.columns.map(lambda x: new_columns.get(x, f"{x[0]}_{x[1]}"))
     grouped = grouped.reset_index()
@@ -265,6 +291,58 @@ def aggregate(
     # P1-1：输出 seed_scope（设计要求的统计单位说明）
     grouped.insert(5, "seed_scope", "vehicle_type_assignment")
     grouped.insert(6, "flow_valid_run_count", grouped["n_valid"])
+    # 收敛审核 P0（FD 口径）：flow_mean 为车道总和（s2/s3 双车道求和），而 FD
+    # 密度轴为每车道——新增 flow_per_lane（= flow_mean / 场景车道数）作为基本图
+    # 与跨场景容量比较的权威口径；flow_mean 保留（车道总和语义，报告注明）。
+    if "flow_mean" in grouped.columns:
+        # 车道数契约：当前四场景固定（s0/s1 单、s2/s3 双）；未知场景 fail-closed
+        # （不得静默按 1 车道算，导致新增/改车道场景 per-lane 错误）。
+        lane_map = {
+            "scenario_0": 1,
+            "scenario_1": 1,
+            "scenario_2": 2,
+            "scenario_3": 2,
+            "s0": 1,
+            "s1": 1,
+            "s2": 2,
+            "s3": 2,
+        }
+        unknown = sorted(set(grouped["scenario"]) - set(lane_map))
+        if unknown:
+            raise ValueError(f"flow_per_lane: 车道数契约未覆盖场景 {unknown}——请扩展 lane_map")
+        # 审查 P2-4：车道数契约与 manifest 内 network_files 对应 net.json 交叉校验
+        # （未来改车道场景时防静默错误；net.json 不可读时跳过，未知场景仍 fail-closed）。
+        resolved = (manifest or {}).get("resolved_config") or manifest or {}
+        net_files = resolved.get("network_files", {}) if isinstance(resolved, dict) else {}
+        for sc in sorted(set(grouped["scenario"]) & set(net_files)):
+            try:
+                with open(net_files[sc], encoding="utf-8") as nf:
+                    net_lanes = json.load(nf).get("num_lanes")
+            except (OSError, json.JSONDecodeError, TypeError):
+                continue
+            if net_lanes is not None and int(net_lanes) != lane_map[sc]:
+                raise ValueError(
+                    f"flow_per_lane: {sc} net.json num_lanes={net_lanes} "
+                    f"与 lane_map={lane_map[sc]} 不一致——请更新车道数契约"
+                )
+        # P1-1（审查）：FD 横轴密度列（veh/km/道）——口径（vehN/车道数/2km）封闭进
+        # 代码，避免报告期手工按 vehN/车道数推导漂移（须在 flow_per_lane 之后插入）。
+        grouped.insert(
+            grouped.columns.get_loc("flow_mean") + 1,
+            "flow_per_lane",
+            [
+                row_flow / lane_map.get(row_sc, 1)
+                for row_flow, row_sc in zip(grouped["flow_mean"], grouped["scenario"], strict=True)
+            ],
+        )
+        grouped.insert(
+            grouped.columns.get_loc("flow_per_lane") + 1,
+            "density_veh_per_km_lane",
+            [
+                row_veh / lane_map[row_sc] / 2.0
+                for row_veh, row_sc in zip(grouped["vehN"], grouped["scenario"], strict=True)
+            ],
+        )
     # 审阅 P2-2（本轮）：聚合输出保留 experiment_role——单角色时写入首列；
     # 输出层自描述，且可视化角色门禁依赖此列（防止 main/safety 聚合产物混用）
     if "experiment_role" in df_ok.columns:
@@ -289,7 +367,11 @@ def aggregate(
         )
         grouped.insert(8, "assignment_seed_run_count", grouped["seed_pair_combination_count"])
         grouped.insert(9, "sumo_seed_run_count", grouped["sumo_seed_level_count"])
-        grouped.insert(10, "independent_random_replication_count", 0)
+        # 审阅 P2（收敛审核）：双 seed 统计单位下，独立随机复现数 = 有效
+        # (assignment_seed, sumo_seed) 组合数（原硬编码 0，从不填充）。
+        grouped.insert(
+            10, "independent_random_replication_count", grouped["seed_pair_combination_count"]
+        )
     else:
         grouped.insert(6, "assignment_seed_run_count", grouped["n_valid"])
         grouped.insert(7, "independent_random_replication_count", 0)
@@ -303,8 +385,8 @@ def aggregate(
     # 否则无法区分"未采集"与"单样本"。
     std_cols = [c for c in grouped.columns if c.endswith("_std")]
     for c in std_cols:
-        count_col = c[: -len("_std")] + "_count"
-        if count_col in grouped.columns:
+        count_col = count_columns.get(c[: -len("_std")])
+        if count_col is not None and count_col in grouped.columns:
             single = grouped[count_col] == 1
             grouped.loc[single, c] = grouped.loc[single, c].fillna(0.0)
         else:
@@ -345,7 +427,7 @@ def aggregate_subgroup(
         if not isinstance(keys, tuple):
             keys = (keys,)
         actual = set(zip(grp["assignment_seed"], grp["sumo_seed"], strict=True))
-        expected = _expected_seed_pairs(manifest, int(keys[2]), int(keys[3]))
+        expected = _expected_seed_pairs(manifest, keys[0], int(keys[2]), int(keys[3]))
         if actual != expected:
             raise ValueError(
                 f"subgroup seed pair set mismatch for group {keys}: "

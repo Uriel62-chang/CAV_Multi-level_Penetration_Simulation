@@ -1,5 +1,5 @@
 {
-  "config_version": "v0.4.2-main-2",
+  "config_version": "v0.4.2-main-7-U55-v220cap",
   "pipeline_version": "v0.4.2",
   "schema_version": "2",
   "grid_mode": "cav_count",
@@ -292,31 +292,6 @@
       ]
     },
     {
-      "vehicle_count": 120,
-      "cav_counts": [
-        0,
-        12,
-        24,
-        36,
-        48,
-        60,
-        72,
-        84,
-        96,
-        108,
-        120
-      ],
-      "assignment_seeds": [
-        1,
-        2,
-        3
-      ],
-      "scenarios": [
-        "scenario_0",
-        "scenario_1"
-      ]
-    },
-    {
       "vehicle_count": 20,
       "cav_counts": [
         0,
@@ -590,31 +565,6 @@
         "scenario_2",
         "scenario_3"
       ]
-    },
-    {
-      "vehicle_count": 240,
-      "cav_counts": [
-        0,
-        24,
-        48,
-        72,
-        96,
-        120,
-        144,
-        168,
-        192,
-        216,
-        240
-      ],
-      "assignment_seeds": [
-        1,
-        2,
-        3
-      ],
-      "scenarios": [
-        "scenario_2",
-        "scenario_3"
-      ]
     }
   ],
   "sumo_seeds": [
@@ -623,7 +573,7 @@
     103
   ],
   "seed_scope": "vehicle_type_assignment",
-  "simulation_end": 3600,
+  "simulation_end": 1800,
   "warmup": 600,
   "step_length": 0.1,
   "detector_frequency": 120,

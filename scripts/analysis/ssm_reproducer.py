@@ -128,12 +128,20 @@ def _evidence_profile(
 
 
 def _without_ssm_device_options(command: list) -> list:
-    """Remove every SUMO SSM device option and its value from a command."""
+    """Remove every SUMO SSM device option and its value from a command.
+
+    审阅 P2-7：不盲跳 `index += 2`——仅当 option 后确实紧跟一个值（非 `--` 开头
+    的下一个参数）时才跳过；值缺失或下一参数本身是选项时不吞掉它。
+    """
     result = []
     index = 0
     while index < len(command):
         if command[index] in _SSM_DEVICE_OPTIONS:
-            index += 2
+            index += 1
+            # 与 single_run._without_ssm_device_options 同规则：任何 `-` 开头的
+            # 下一参数视为选项而非值（审阅 P2-7）
+            if index < len(command) and not str(command[index]).startswith("-"):
+                index += 1
         else:
             result.append(command[index])
             index += 1
@@ -221,15 +229,29 @@ def _rss_kb(pid: int | None) -> int | None:
 
 
 def summarize_ssm_evidence(
-    ssm_path: str | Path, warmup: float, expected_ttc: str, simulation_end: float | None = None
+    ssm_path: str | Path,
+    warmup: float,
+    expected_ttc: str,
+    simulation_end: float | None = None,
+    ttc_threshold: float = 3.0,
+    drac_threshold: float = 3.0,
 ) -> dict:
     """Summarize the raw SSM output and never substitute a failed positive control.
 
     审阅 P2-1：传入 simulation_end（观测窗 [warmup, simulation_end)），否则窗口外
     SSM 事件会导致 positive/zero control 误判。
+    审阅 P1-2：TTC/DRAC 阈值不再硬编码 3.0——由调用方按 frozen case 的
+    capture 阈值传入（case 的 ssm_capture_* 可为 5.0，见 configs/ssm_reproducer_*.json）；
+    默认 3.0 保持旧调用契约。
     """
     path = Path(ssm_path)
-    parsed = parse_ssm(str(path), warmup, 3.0, 3.0, simulation_end=simulation_end)
+    parsed = parse_ssm(
+        str(path),
+        warmup,
+        ttc_threshold,
+        drac_threshold,
+        simulation_end=simulation_end,
+    )
     ttc_events = parsed["ttc_conflict_event_count"]
     control_status = (
         "pass"
@@ -411,6 +433,10 @@ def run_case(
                 spec.warmup,
                 str(case["expected_ttc"]),
                 simulation_end=spec.simulation_end,
+                # 审阅 P1-2：阈值取 case 的 analysis/capture 配置（与 RunSpec 构造的
+                # fallback 同源），不再硬编码 3.0——case 阈值可为 5.0。
+                ttc_threshold=spec.analysis_ttc_threshold_s,
+                drac_threshold=spec.analysis_drac_threshold_mps2,
             )
             if evidence["control_status"] != "pass":
                 failure_stage = "positive_control"

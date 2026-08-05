@@ -179,7 +179,7 @@ class RunSpec:
 
     # v0.4.2 新增：experiment role 与 SSM 启用状态（P0-1）
     experiment_role: str = "main_factorial"  # main_factorial | safety
-    ssm_enabled: bool = False  # 主 factorial 关闭 SSM，safety 开启；ssm.xml 意图性缺失时 False
+    ssm_enabled: bool = False  # 2026-08 合并设计后主网格 SSM 全开（True）；字段保留 False 默认供单跑/旧兼容；ssm.xml 意图性缺失时 False
     fcd_max_leader_distance_m: float | None = None
 
     def __post_init__(self) -> None:

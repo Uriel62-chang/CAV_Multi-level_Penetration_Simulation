@@ -16,8 +16,20 @@ DEDUP_MAP = {
 }
 
 
-def _dedup_none(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
-    """No dedup: count all valid records directly."""
+def _dedup_none(
+    xml_path,
+    warmup,
+    ttc_th,
+    drac_th,
+    simulation_end=None,
+    fragment_merge_gap_s=0.0,
+    mirror_overlap_ratio=0.8,
+):
+    """No dedup: count all valid records directly.
+
+    审阅 P2-6：统一调用签名携带 fragment_merge_gap_s / mirror_overlap_ratio；
+    none 路径无镜像配对与片段合并语义，两参数不参与统计。
+    """
     import math
     import xml.etree.ElementTree as ET
 
@@ -112,9 +124,27 @@ def _dedup_none(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
     )
 
 
-def _dedup_current(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
+def _dedup_current(
+    xml_path,
+    warmup,
+    ttc_th,
+    drac_th,
+    simulation_end=None,
+    fragment_merge_gap_s=0.0,
+    mirror_overlap_ratio=0.8,
+):
     """Current greedy one-to-one dedup (same as parse_ssm)."""
-    result = parse_ssm(xml_path, warmup, ttc_th, drac_th, simulation_end=simulation_end)
+    # 审阅 P2-6：merge_gap / mirror_overlap 从 RunSpec 转发给 parse_ssm（与主
+    # 解析语义一致），不再使用默认 0.0/0.8 隐式覆盖 run 的实际配置。
+    result = parse_ssm(
+        xml_path,
+        warmup,
+        ttc_th,
+        drac_th,
+        fragment_merge_gap_s=fragment_merge_gap_s,
+        simulation_end=simulation_end,
+        mirror_overlap_ratio=mirror_overlap_ratio,
+    )
     # 审阅 P1-3：解析失败标志必须检查（与 none/sorted_greedy fail-closed 行为一致），
     # 不得基于部分解析的不完整输入产出敏感性结果
     if not result["parse_success"]:
@@ -131,8 +161,20 @@ def _dedup_current(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
     )
 
 
-def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th, simulation_end=None):
-    """Sorted greedy: sort records by (begin,end,ego,foe,minTTC,maxDRAC) before dedup."""
+def _dedup_sorted_greedy(
+    xml_path,
+    warmup,
+    ttc_th,
+    drac_th,
+    simulation_end=None,
+    fragment_merge_gap_s=0.0,
+    mirror_overlap_ratio=0.8,
+):
+    """Sorted greedy: sort records by (begin,end,ego,foe,minTTC,maxDRAC) before dedup.
+
+    审阅 P2-6：镜像重叠率阈值 mirror_overlap_ratio 由调用方传入（原硬编码 0.8）；
+    fragment_merge_gap_s 不参与（本实现无片段合并步骤，与 parse_ssm 的 greedy 路径不同）。
+    """
     import math
     import xml.etree.ElementTree as ET
     from collections import defaultdict
@@ -261,7 +303,7 @@ def _dedup_sorted_greedy(xml_path, warmup, ttc_th, drac_th, simulation_end=None)
                 if not keep[i_rev] or i_rev in matched_reverse:
                     continue
                 ov = _overlap_ratio(r_fwd["begin"], r_fwd["end"], r_rev["begin"], r_rev["end"])
-                if ov >= 0.8:
+                if ov >= mirror_overlap_ratio:
                     keep[i_rev] = False
                     matched_reverse.add(i_rev)
                     if r_rev["min_ttc"] is not None and (
@@ -331,6 +373,12 @@ def run_sensitivity(input_root, output_dir, analysis_config_path):
                 "Use sorted_greedy_80pct or greedy_one_to_one_80pct instead."
             )
 
+    # 审阅 P2-6：分析阈值必须非负（负数阈值无物理意义且会把全部记录计入事件）
+    if any(th < 0 for th in ttc_thresholds):
+        raise ValueError(f"analysis TTC thresholds must be non-negative: {ttc_thresholds}")
+    if any(th < 0 for th in drac_thresholds):
+        raise ValueError(f"analysis DRAC thresholds must be non-negative: {drac_thresholds}")
+
     rows = []
     # 审阅 P1（复审）：遍历全部 run 目录（含 run_spec.json 的目录）——缺 ssm.xml 的 run
     # 纳入失败集合，不得静默过滤；frozen_inputs/ 等非 run 归档目录（无 run_spec.json）
@@ -371,9 +419,17 @@ def run_sensitivity(input_root, output_dir, analysis_config_path):
             if method not in _DEDUP_FUNCS:
                 continue
             func = _DEDUP_FUNCS[method]
+            # 审阅 P2-6：merge_gap / mirror_overlap 按 run 的 RunSpec 配置转发
+            # （与主解析 parse_ssm 语义一致），不使用函数默认值隐式覆盖。
             for th in ttc_thresholds:
                 ttc_cnt, _, min_ttc, _, ttc_veh = func(
-                    ssm_path, spec.warmup, th, 9999, simulation_end=spec.simulation_end
+                    ssm_path,
+                    spec.warmup,
+                    th,
+                    9999,
+                    simulation_end=spec.simulation_end,
+                    fragment_merge_gap_s=spec.ssm_fragment_merge_gap_s,
+                    mirror_overlap_ratio=spec.ssm_mirror_overlap_ratio,
                 )
                 rows.append(
                     {
@@ -390,7 +446,13 @@ def run_sensitivity(input_root, output_dir, analysis_config_path):
                 )
             for th in drac_thresholds:
                 _, drac_cnt, _, max_drac, _ = func(
-                    ssm_path, spec.warmup, 9999, th, simulation_end=spec.simulation_end
+                    ssm_path,
+                    spec.warmup,
+                    9999,
+                    th,
+                    simulation_end=spec.simulation_end,
+                    fragment_merge_gap_s=spec.ssm_fragment_merge_gap_s,
+                    mirror_overlap_ratio=spec.ssm_mirror_overlap_ratio,
                 )
                 rows.append(
                     {

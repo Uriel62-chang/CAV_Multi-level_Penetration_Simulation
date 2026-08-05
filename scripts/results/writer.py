@@ -139,12 +139,16 @@ def _all_lap_stats_missing(summary: dict, pipeline_version: str | None) -> bool:
     )
 
 
-def _build_row_v4_1(summary: dict, parse_status: str, pipeline_version: str | None = None) -> dict:
-    columns = RUN_LEVEL_COLUMNS_V4_2
-    row = {col: summary.get(col, float("nan")) for col in columns}
+def _parser_audit_flags(summary: dict, pipeline_version: str | None = None) -> list:
+    """summary 的全部 parser 审计标志（run-level 与 subgroup 共用同一判定）。
 
-    errors = summary.get("_invariant_errors", [])
-    parser_flags = [
+    任一标志非 True 表示该 run 存在解析质量缺陷（fail-closed 解析器检测到语义
+    损坏记录：缺失/非有限 begin/end/ego/foe、value="nan"、未知车辆 ID 等）：
+    run-level 标 data_quality=parser_warning、subgroup 行被排除，保证两产物一致。
+    未启用采集时解析器 stub 置 True（ssm_not_collected / fcd 未启用 / eb 缺失时
+    默认 True），检查安全。
+    """
+    flags = [
         summary.get(name)
         for name in (
             "ssm_parse_success",
@@ -158,8 +162,20 @@ def _build_row_v4_1(summary: dict, parse_status: str, pipeline_version: str | No
     # 审阅 P2（复核）：emergency braking 解析质量门禁（v0.4.2 重解析后的 summary 含
     # eb_parse_success；旧 summary 缺失时默认 True，不误伤历史 data_quality）
     if pipeline_version == "v0.4.2":
-        parser_flags.append(summary.get("eb_parse_success", True))
-    if parse_status == "SUCCESS" and all(flag is True for flag in parser_flags):
+        flags.append(summary.get("eb_parse_success", True))
+    return flags
+
+
+def _parser_audit_ok(summary: dict, pipeline_version: str | None = None) -> bool:
+    return all(flag is True for flag in _parser_audit_flags(summary, pipeline_version))
+
+
+def _build_row_v4_1(summary: dict, parse_status: str, pipeline_version: str | None = None) -> dict:
+    columns = RUN_LEVEL_COLUMNS_V4_2
+    row = {col: summary.get(col, float("nan")) for col in columns}
+
+    errors = summary.get("_invariant_errors", [])
+    if parse_status == "SUCCESS" and _parser_audit_ok(summary, pipeline_version):
         # P1-2（本轮审查）：all 口径圈数>0 回归保护。vehroute 解析成功时窗内必有完成圈；
         # completed_lap_count<=0 说明 all-level 圈时统计缺失（如 P0-1 变量遮蔽回归——
         # 被 CAV 空子群覆盖时恰好 0 + NaN 通过 SUMMARY_NAN_RULES companion 检查）。
@@ -480,6 +496,37 @@ def _manifest_structure_errors(manifest: dict) -> list[str]:
     return errors
 
 
+def _metadata_error(
+    entry: dict, run_dir: Path, manifest: dict, pipeline_version: str
+) -> str | None:
+    """校验 run 的 simulation/parse 状态元数据与 manifest 匹配；失败返回原因。
+
+    收敛审核 P2：run-level 与 subgroup 共用同一门禁——metadata-failed run
+    （pipeline/schema/config/run_spec/summary SHA 任一不匹配）run-level 走
+    METADATA failed 行，subgroup 行同样排除，保证两产物一致。
+    """
+    try:
+        sim_data = json.loads((run_dir / "simulation_status.json").read_text(encoding="utf-8"))
+        parse_data = json.loads((run_dir / "parse_status.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        sim_data = {}
+        parse_data = {}
+    expected_hash = entry.get("run_spec_sha256")
+    for name, data in (("simulation", sim_data), ("parse", parse_data)):
+        if data.get("pipeline_version") != pipeline_version:
+            return f"{name} pipeline_version mismatch"
+        if data.get("schema_version") != manifest["schema_version"]:
+            return f"{name} schema_version mismatch"
+        if data.get("config_sha256") != manifest["config_sha256"]:
+            return f"{name} config_sha256 mismatch"
+        if data.get("run_spec_sha256") != expected_hash:
+            return f"{name} run_spec_sha256 mismatch"
+    summary_path = run_dir / "summary.json"
+    if summary_path.is_file() and parse_data.get("summary_sha256") != sha256_file(summary_path):
+        return "summary_sha256 mismatch"
+    return None
+
+
 def build_run_level_results(
     input_root: Path,
     output_dir: Path,
@@ -540,34 +587,7 @@ def build_run_level_results(
         sim_status = _read_sim_status(run_dir)
         parse_status = _read_parse_status(run_dir)
 
-        try:
-            sim_data = json.loads((run_dir / "simulation_status.json").read_text(encoding="utf-8"))
-            parse_data = json.loads((run_dir / "parse_status.json").read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            sim_data = {}
-            parse_data = {}
-        expected_hash = entry.get("run_spec_sha256")
-        metadata_error = None
-        for name, data in (("simulation", sim_data), ("parse", parse_data)):
-            if data.get("pipeline_version") != pipeline_version:
-                metadata_error = f"{name} pipeline_version mismatch"
-                break
-            if data.get("schema_version") != manifest["schema_version"]:
-                metadata_error = f"{name} schema_version mismatch"
-                break
-            if data.get("config_sha256") != manifest["config_sha256"]:
-                metadata_error = f"{name} config_sha256 mismatch"
-                break
-            if data.get("run_spec_sha256") != expected_hash:
-                metadata_error = f"{name} run_spec_sha256 mismatch"
-                break
-        summary_path = run_dir / "summary.json"
-        if (
-            metadata_error is None
-            and summary_path.is_file()
-            and parse_data.get("summary_sha256") != sha256_file(summary_path)
-        ):
-            metadata_error = "summary_sha256 mismatch"
+        metadata_error = _metadata_error(entry, run_dir, manifest, pipeline_version)
         if metadata_error:
             failed_rows.append(
                 {
@@ -680,6 +700,12 @@ def build_run_level_results(
             if parse_status != "SUCCESS":
                 subgroup_excluded += 1
                 continue
+            # 收敛审核 P2：subgroup 与 run-level 共用 manifest 元数据门禁——
+            # metadata-failed run（pipeline/schema/config/run_spec/summary SHA
+            # 任一不匹配）run-level 走 METADATA failed 行，subgroup 行同样排除。
+            if _metadata_error(entry, run_dir, manifest, pipeline_version):
+                subgroup_excluded += 1
+                continue
             summary_path = run_dir / "summary.json"
             if summary_path.exists():
                 try:
@@ -694,6 +720,13 @@ def build_run_level_results(
                 # run-level 置 invariant_failed 的 run，subgroup 行同样不得
                 # 进入 subgroup CSV（否则两输出不一致）。
                 if _all_lap_stats_missing(sd, pipeline_version):
+                    subgroup_excluded += 1
+                    continue
+                # P1（收敛审核）：subgroup 与 run-level 共用 parser 审计标志门禁
+                # ——ssm/fcd/eb/lc/ep/ee/vr 任一非 True（fail-closed 解析检测到
+                # 语义损坏记录）→ subgroup 行排除，与 _build_row_v4_1 的
+                # data_quality=parser_warning 判定完全一致，保证两产物一致。
+                if not _parser_audit_ok(sd, pipeline_version):
                     subgroup_excluded += 1
                     continue
 
@@ -815,7 +848,7 @@ def main():
         results = manifest["results"]
         manifest_sim_ok = sum(1 for r in results if r.get("status") == "SUCCESS")
         # 审阅 P2-3：resume 场景下 manifest 含 SKIPPED 记录，仅数 manifest 内 SUCCESS
-        # 会低估磁盘真实终态（如 main manifest 显示 3678 而磁盘实际 3,888）。
+        # 会低估磁盘真实终态（如 U55 main manifest 显示 7,300 而磁盘实际 7,524）。
         # dry-run 追加核验每个 run 目录的 simulation_status.json 终态。
         disk_sim_ok = 0
         disk_checked = 0

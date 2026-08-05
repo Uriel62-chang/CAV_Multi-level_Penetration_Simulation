@@ -1,12 +1,12 @@
 """仿真参数默认值，统一管理。所有可调参数以此文件为单一数据源。"""
 
 # ── 仿真时间 ──
-DEFAULT_SIM_END = 3600  # 仿真结束时间 (s)
+DEFAULT_SIM_END = 1800  # 仿真结束时间 (s)；U55 网格观测窗 [600,1800)（单跑默认与网格一致）
 DEFAULT_WARMUP = 600  # 预热期 (s)
 DEFAULT_STEP_LENGTH = 0.1  # SUMO 仿真步长 (s)，须与 CAV actionStepLength 一致
 
 # ── 检测器 ──
-DEFAULT_DETECTOR_FREQ = 120  # e1 检测器统计频率 (s)；2×单圈耗时避免共振
+DEFAULT_DETECTOR_FREQ = 120  # e1 检测器统计频率 (s)；2×单圈耗时避免共振（对 32 边形场景圈时 ~61 s 成立；s0 方形转角圈时 ~112 s 例外，s0 的转角限速基线单独声明）
 
 # ── 跟驰模型 ──
 CAV_MODELS = ("IDM", "ACC", "CACC")

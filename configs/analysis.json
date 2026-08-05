@@ -1,15 +1,8 @@
 {
-  "analysis_version": "v0.4.1-pilot-analysis-1",
+  "analysis_version": "v0.4.2-analysis-1",
   "ssm": {
-    "analysis_ttc_thresholds_s": [1.5, 3.0, 5.0],
+    "analysis_ttc_thresholds_s": [1.5, 3.0],
     "analysis_drac_thresholds_mps2": [],
-    "dedup_methods": ["none", "greedy_one_to_one_80pct", "maximum_matching_80pct"],
-    "dedup_overlap_ratio": 0.8
-  },
-  "thw": {
-    "min_speed_mps": 0.1,
-    "min_speed_mps_sensitivity": [0.05, 0.1, 0.5],
-    "fcd_sampling_period_s": 1.0,
-    "fcd_sampling_period_sensitivity": [0.1, 0.5, 1.0]
+    "dedup_methods": ["none", "greedy_one_to_one_80pct", "sorted_greedy_80pct"]
   }
 }

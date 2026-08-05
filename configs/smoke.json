@@ -1,5 +1,5 @@
 {
-  "config_version": "v0.4.1-smoke-v4_1",
+  "config_version": "v0.4.2-smoke",
   "pipeline_version": "v0.4.2",
   "schema_version": "2",
   "grid_mode": "cav_count",
@@ -32,7 +32,6 @@
   "loops": 4,
   "ssm_capture_ttc_threshold_s": 5.0,
   "ssm_capture_drac_threshold_mps2": 3.0,
-  "ssm_measures": "TTC DRAC",
   "ssm_range_m": 50.0,
   "ssm_trajectories": false,
   "fcd_profile": "1s",

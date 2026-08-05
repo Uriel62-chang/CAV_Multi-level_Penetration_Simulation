@@ -682,4 +682,16 @@ def _parse_one_run(run_dir, spec, network_file):
 
     errors = _validate_invariants(core) + validate_subgroup_invariants(primitives)
 
+    # 审查 P1-1：插入完整性守卫——vehroute 实际 distinct 车辆数 < 请求 vehN →
+    # fail-closed（历史 P0 departSpeed='max' 缺陷即此形态：type_map 恒满 vehN 但
+    # 实际缩减车队，FD/veh-km/detector flow 静默偏低且无信号）。仅在 vehroute
+    # 解析成功时判定（解析失败已有 parse_success=False 兜底）。
+    if vr.get("all", {}).get("parse_success") is True:
+        observed = vr.get("observed_vehicle_count", 0)
+        if observed < spec.vehicle_count:
+            errors.append(
+                f"vehroute: observed {observed} vehicles < requested {spec.vehicle_count} "
+                "(realized fleet < vehN——插入完整性守卫)"
+            )
+
     return core, subgroup, errors

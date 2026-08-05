@@ -142,6 +142,8 @@ def parse_lap_times_subgroup(
     sim_end_time: float = 3600.0,
 ) -> dict:
     grouped: dict[str, list[float]] = {"all": [], "HV": [], "CAV": []}
+    # 审查 P1-1：实际进入仿真的 distinct 车辆 id（插入完整性守卫原料）
+    seen_ids: set[str] = set()
     # 审阅 P1-2（subgroup）：坏值（非数值/非有限）计数——fail-closed，不得静默跳过
     invalid = 0
 
@@ -160,10 +162,11 @@ def parse_lap_times_subgroup(
                 "lap_times_s": [],
             }
             for label in ("all", "HV", "CAV")
-        }
+        } | {"observed_vehicle_count": 0}
 
     for vehicle in root.findall("vehicle"):
         vehicle_id = vehicle.get("id", "")
+        seen_ids.add(vehicle_id)
         if vehicle_id not in type_map:
             raise ValueError(f"vehicle_id '{vehicle_id}' not found in type_map")
         veh_type = type_map[vehicle_id]
@@ -254,8 +257,11 @@ def parse_lap_times_subgroup(
             "lap_times_s": values,
         }
 
-    return {
+    result = {
         "all": _stats(grouped["all"]),
         "HV": _stats(grouped["HV"]),
         "CAV": _stats(grouped["CAV"]),
     }
+    # 审查 P1-1：实际 distinct 车辆数（runner 与 spec.vehicle_count 比对，不足 fail-closed）
+    result["observed_vehicle_count"] = len(seen_ids)
+    return result

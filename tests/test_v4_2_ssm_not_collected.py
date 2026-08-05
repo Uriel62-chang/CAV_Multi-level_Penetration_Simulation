@@ -64,7 +64,6 @@ def _write_run_dir(tmp_path, spec, ssm_file: bool) -> Path:
         "emissions.xml",
         "emissions_HV.xml",
         "emissions_CAV.xml",
-        "vehroute.xml",
         "lanechange.xml",
         "stderr.log",
         "detector_lane0.xml",
@@ -72,6 +71,13 @@ def _write_run_dir(tmp_path, spec, ssm_file: bool) -> Path:
         "detector_lane0_CAV.xml",
     ):
         (rd / f).write_text("<root/>", encoding="utf-8")
+    # 审查 P1-1（插入完整性守卫）：vehroute 需含全部请求车辆，否则 observed<vehN 触发
+    (rd / "vehroute.xml").write_text(
+        "<vehroute>"
+        + "".join(f'<vehicle id="veh{i}"/>' for i in range(spec.vehicle_count))
+        + "</vehroute>",
+        encoding="utf-8",
+    )
     if ssm_file:
         (rd / "ssm.xml").write_text("<SSMLog/>", encoding="utf-8")
     status = {
@@ -373,3 +379,37 @@ def test_writer_subgroup_gate_accepts_not_collected_nan():
             }
         )
     assert _valid_subgroup_rows(rows, "run-1", spec)
+
+
+def test_insertion_integrity_guard(tmp_path, monkeypatch):
+    """审查 P1-1：vehroute 实际 distinct 车辆数 < 请求 vehN → INVALID_DATA 错误
+    （插入完整性守卫——历史 P0 departSpeed='max' 缩减车队缺陷的回归防线）。"""
+    from scripts.parsing.runner import _parse_one_run
+
+    spec = _spec_v4_2(tmp_path)
+    rd = _write_run_dir(tmp_path, spec, ssm_file=False)
+    # 覆写 vehroute：只含 5 辆车（请求 10）——模拟插入损失
+    (rd / "vehroute.xml").write_text(
+        "<vehroute>" + "".join(f'<vehicle id="veh{i}"/>' for i in range(5)) + "</vehroute>",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "scripts.parsing.runner._load_free_flow_references",
+        lambda spec, run_dir=None: {"HV": 100.0, "IDM": 100.0},
+    )
+    core, subgroup, errors = _parse_one_run(rd, spec, spec.network_file)
+    assert any("observed 5 vehicles < requested 10" in e for e in errors), errors
+
+
+def test_insertion_integrity_guard_full_fleet_passes(tmp_path, monkeypatch):
+    """审查 P1-1：vehroute 含全部车辆 → 守卫不触发。"""
+    from scripts.parsing.runner import _parse_one_run
+
+    spec = _spec_v4_2(tmp_path)
+    rd = _write_run_dir(tmp_path, spec, ssm_file=False)
+    monkeypatch.setattr(
+        "scripts.parsing.runner._load_free_flow_references",
+        lambda spec, run_dir=None: {"HV": 100.0, "IDM": 100.0},
+    )
+    core, subgroup, errors = _parse_one_run(rd, spec, spec.network_file)
+    assert not any("插入完整性守卫" in e or "observed " in e for e in errors), errors

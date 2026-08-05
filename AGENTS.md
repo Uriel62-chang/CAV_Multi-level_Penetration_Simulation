@@ -50,19 +50,20 @@ python3 -m scripts.results.writer \
   --output-dir out \
   --manifest raw/manifest.json
 
-# 多 assignment-seed 聚合
+# 多 assignment-seed 聚合（schema=2 强制；--manifest 必需）
 python3 -m scripts.results.aggregate \
   --input out/run_level_results.csv \
   --output out/aggregated_results.csv \
-  --schema-version 1
+  --schema-version 2 \
+  --manifest raw/manifest.json
 
 # 单次仿真
 python3 -m scripts.simulation.single_run --vehN 30 --pCAV 0.5 --model IDM --net net/scenario_1/loop.net.xml
 
-# v0.4 聚合结果可视化
+# v0.4.2 聚合结果可视化
 python3 -m scripts.results.visualization \
   --aggregated out/aggregated_results.csv \
-  --v4
+  --v4-2
 ```
 
 ## 环境
@@ -85,19 +86,28 @@ python3 -m scripts.results.visualization \
 > 版本状态（2026-08 更新）：v0.4.1 为本地内部里程碑，**未对外发布**（pilot 未过旧资源
 > 门禁），tag 已删，成果并入 v0.4.2 发布说明；已决定**跳号发布**。v0.4.2 主线
 > 「设计 → 实现 → 数据 → 结论」四环节已闭环并获正式 Reviewer 背书：
-> A 线实现（`a8aa09a`）→ 正式网格 main 3,888 + safety 84（热修复
-> `a21e05e`/`6637519`/`439ace6`/`1a6da3c`）→ 结果分析与 release notes（`ef1e536`）。
+> **U55 重设计（2026-08，内存约束修订）落地**——7,524 runs 主网格（基本图方案：
+> 密度轴至 55 veh/km/道；s0/s1 单车道 10–110、s2/s3 双车道 20–220；
+> departSpeed="0" + warmup=600（9 档标定 ≤120 s 稳定）；SSM 全开、合并设计）。
+> 旧 A 方案 8,208 为上一版设计（已取代）。
 > 公开基线为 v0.4.0.post3；**2026-08 数据清空**：v0.4.0 与 v0.4.2 历史数据
 > （raw_v0.4.2/ 34 GB、raw/、results/v0.4.2/、graph/v0.4.2/、docs/report.md）已删
-> （用户拍板，外部备份保留）；仓库为纯工具链 + 未来重跑定义（main 全开 SSM）
-> （aggregated_results.csv、result_handover.json、raw_status_inventory.jsonl、result_analysis.md）
-> + `graph/v0.4.2/` 图（main 3 + Safety 1）。
+> （用户拍板，外部备份保留）；仓库为纯工具链 + 未来重跑定义（main 全开 SSM）。
+> 以下为**外部备份保留**的旧结果清单（仓库内已清空，重跑后按
+> writer/aggregate/handover/inventory 链路重建）：aggregated_results.csv、
+> result_handover.json、raw_status_inventory.jsonl、result_analysis.md、
+> graph/v0.4.2/ 图（main 3 + Safety 1）。
 
-### v0.4.2 正式网格（新）
-- main factorial：3,888 runs（SSM 关闭），关键数值 s2 CACC 全 CAV 网格内最大观测
-  流量 7,128 veh/h、s3 高密度全 CAV 瓶颈反转复现
-- safety experiment：84 runs，s1/s2 零检出（边界声明）；SSM-on 峰值 RSS 按场景
-  s0 6.52 / s1 1.81 / s2 8.91 / s3 1.50 GiB（与 B 线历史观测一致，不作硬预算）
+### v0.4.2 正式网格（新，2026-08 U55 基本图方案）
+- main factorial：**7,524 runs（SSM 全开——安全维度并入主网格，合并设计）**：
+  s0/s1 单车道 10–110、s2/s3 双车道 20–220（统一密度轴 5–55 veh/km/道，
+  上限 55 由 s2 SSM 内存边界（v220=22.67 GiB 实测）约束），cav_count 0.1 步长 11
+  档、每 treatment 171 runs、每场景 1,881；s3 为 v0.3.1 几何（32 边形、e15/e16 单车道 125m 瓶颈，net.json 元数据
+  驱动，报告单独成图标注瓶颈语义）；departSpeed="0" + warmup=600（标定闭环）。
+- 旧网格历史（2026-08 已清空、外部备份保留）：main 3,888（SSM 关闭）关键数值
+  s2 CACC 全 CAV 峰值 7,128 veh/h、s3 高密度全 CAV 瓶颈反转；独立 safety 84 runs
+  s1/s2 零检出；SSM-on 峰值 RSS 按场景 s0 6.52 / s1 1.81 / s2 8.91 / s3 1.50 GiB
+  （与 B 线历史观测一致，不作硬预算——仅历史内存参考）
 - subgroup HV/CAV 分拆、排放双口径（non-internal 主 + 全路网次要）、双 seed 统计单位
 
 ### 阶段 2 交付
@@ -127,12 +137,11 @@ python3 -m scripts.results.visualization \
 - S8 剩余项：PreparedRun.fcd_path（canonical_json_bytes、atomic_write_bytes、--acceptance 已在阶段 2 实现）
 
 ### 测试基线
-- 458 tests passed（纯净分支基线：阶段 1-5 完成后——G1 requested_pcav 网格删除 +
-  G2 v0.4.1 并入 v0.4.2 单管线 + Part 3 requested_pcav 契约列删除 + 阶段 5 迁移/归档
-  （删 pilot 专属测试 459→458）+ 审核修订（single_run P1/P2/P3）；schema=2 主路径
-  零行为变化，RunSpec 内部 requested_pcav 字段保留（D3））
+- 443 tests passed（2026-08 U55 重设计后基线：441 + flow_per_lane 回归
+  测试 2 条 → 443。追溯：459（阶段 3）→ 458（阶段 5）→ 440（合并设计）→
+  441（收敛审核回归）→ 443（FD 口径回归））
 - Ruff / mypy / compileall / format 全通过
-- dry-run: main 8,208（A 方案）/ smoke（configs/smoke.json；v0.4.0 10,080 网格
+- dry-run: main 7,524（U55）/ smoke（configs/smoke.json；v0.4.0 10,080 网格
   数据红线不重跑、本地数据已删（2026-08 用户拍板，外部备份保留）、配置已移除；
   旧独立 safety 84 runs 已随 2026-08 合并设计删除（安全维度并入主网格）；
   v0.4.1 正式实验配置已归档 docs/internal/archive/configs-v0.4.1/）

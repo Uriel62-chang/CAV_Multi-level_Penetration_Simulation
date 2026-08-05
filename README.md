@@ -2,7 +2,7 @@
 
 > A reproducible SUMO experiment platform for evaluating how CAV penetration and car-following control affect **observed flow, safety, emissions, and reference-relative lap time** under different road constraints.
 
-`SUMO 1.27.1` · `Python 3.10+` · `8,208 simulations（A 方案）` · `v0.4.2`
+`SUMO 1.27.1` · `Python 3.10+` · `7,524 simulations（U55 基本图方案）` · `v0.4.2`
 
 [Formal-grid Results](#v042-formal-grid-results) ·
 [Scenario Design](#scenario-design) ·
@@ -46,12 +46,13 @@ The four scenarios support three structured scenario comparisons:
 > 未来重跑（main 全开 SSM 采集）后更新。
 
 v0.4.2 (jump release) ran a formal grid independent of the v0.4.0 historical
-baseline: an **8,208-run main factorial covering all four evaluation dimensions**
-(flow, safety, emissions, efficiency). **2026-08 A 方案（v0.3.1 密度对齐）**：
-vehN 轴按场景密度对齐——s0/s1（单车道 2.0 km）10–120 步 10、s2/s3（双车道
-2.0 km）20–240 步 20（×2 密度对齐，每道 5–60 veh/km/道）；每档 cav_count
-0.1 步长 11 档（全整数）；每 treatment 171 runs（interior 9 档×2 模型×3×3
-=162 + cav=0: 3 + cav=vehN: 6），每场景 2,052、总计 8,208。**2026-08 合并设计**：
+baseline: an **7,524-run main factorial covering all four evaluation dimensions**
+(flow, safety, emissions, efficiency). **2026-08 U55 重设计（内存约束修订）**：
+vehN 轴按场景密度对齐——s0/s1（单车道 2.0 km）10–110 步 10、s2/s3（双车道
+2.0 km）20–220 步 20（每道 5–55 veh/km/道，上限 55 由 s2 SSM 内存边界
+v220=22.67 GiB 实测约束，仍覆盖临界与拥堵区中段以呈现基本图）；每档 cav_count 0.1 步长 11 档（全整数）；每 treatment 171 runs（interior
+9 档×2 模型×3×3 =162 + cav=0: 3 + cav=vehN: 6），每场景 1,881、总计 7,524。
+**2026-08 合并设计**：
 安全维度并入主网格（main 全开 SSM 采集）；旧的独立 safety experiment（84 runs）
 板块已取消。s3 路网为 v0.3.1 几何（32 边形、主线双车道、e15/e16 单车道 125 m
 瓶颈），由 net.json 元数据驱动。
@@ -98,7 +99,7 @@ This project extends the evaluation framework to four dimensions:
 | Emissions | CO₂ g/non-internal-edge veh-km | NOx, PMx and fuel consumption |
 | Efficiency | Mean lap-time difference from fixed reference | P95 reference difference, lap-time variation and time loss |
 
-All safety and emission intensity metrics use `total_vehicle_km` from edgeData over `[600, 3600)`. The historical additional file used SUMO's default `withInternal="false"`: the denominator excludes junction internal edges, while SSM events are not restricted to the same edge subset. Consequently, normalized safety values are **whole-network events divided by non-internal-edge exposure**, not fully space-matched event rates. Emission numerator and denominator are mutually matched but both represent non-internal edges.
+All safety and emission intensity metrics use `total_vehicle_km` from edgeData over `[600, 1800)` (U55 观测窗). The historical additional file used SUMO's default `withInternal="false"`: the denominator excludes junction internal edges, while SSM events are not restricted to the same edge subset. Consequently, normalized safety values are **whole-network events divided by non-internal-edge exposure**, not fully space-matched event rates. Emission numerator and denominator are mutually matched but both represent non-internal edges.
 
 The results indicate that **no single car-following model is globally optimal across road structures**. CACC performs strongly in smooth and unconstrained environments, while its high-throughput regime can deteriorate under forced merging.
 
@@ -163,6 +164,9 @@ Detailed definitions are documented in the source (see `scripts/schema.py` for f
 
 ## Reproducible Pipeline
 
+> 管线架构示意；规模数字为 v0.4.0 历史网格（10,080 runs / 6 workers / 17 h）锚点。
+> v0.4.2 U55 为 7,524 runs（架构相同，预计 ~24 h / 3 workers——内存约束下固定并发最优）。
+
 ```text
 10,080 RunSpec
         │
@@ -225,15 +229,15 @@ The parser pipeline provides:
 ```text
 3,888 / 3,888  main-factorial simulations completed (SUCCESS)   ← 历史观测
 528 / 528      main aggregated groups                           ← 历史观测
-440            automated tests passed（当前门禁基线）
+441            automated tests passed（当前门禁基线）
 0              duplicate run IDs
 0              parser failures
 0              invariant violations
 ```
 
 > 前三行为 v0.4.2 旧网格（3,888）历史数据质量记录（数据已清空）；当前设计为
-> A 方案 8,208 runs（s0/s1 单车道 10–120、s2/s3 双车道 20–240 密度对齐，main
-> 全开 SSM——合并设计）。当前仓库以 440 tests 门禁为基线；未来重跑后按相同
+> U55 7,524 runs（s0/s1 单车道 10–110、s2/s3 双车道 20–220 统一密度轴，main
+> 全开 SSM——合并设计）。当前仓库以 441 tests 门禁为基线；未来重跑后按相同
 > 链路重新记录。
 
 The testing strategy contains three levels:
@@ -296,7 +300,7 @@ python -m compileall -q scripts tests
 Expected result:
 
 ```text
-458 passed
+441 passed
 ```
 
 ### Run one simulation
@@ -329,7 +333,7 @@ python3 -m scripts.results.visualization \
 # Stage 1: parallel SUMO simulation
 python3 -m scripts.simulation.batch_run \
   --config configs/v0.4.2/main.json \
-  --sumo-processes 6 \
+  --sumo-processes 3 \
   --resume \
   --output-root /path/to/raw
 
@@ -385,7 +389,7 @@ Always run with `--resume` from the first launch—it costs nothing on a clean s
 > `raw_v0.4.2/`（33 GB raw + 解析产物）、`results/v0.4.2/`（聚合/证据链/分析）、
 > `graph/v0.4.2/`（图）、`docs/report.md`（v0.4.0 报告）、`raw/`（v0.4.1 pilot）、
 > `routes/`（生成物）均已移除。仓库当前为纯工具链 + 未来重跑定义：
-> `configs/v0.4.2/main.json`（8,208 runs，A 方案密度对齐，含 SSM 采集——2026-08
+> `configs/v0.4.2/main.json`（7,524 runs，U90 近阻塞密度轴，含 SSM 采集——2026-08
 > 合并设计）为未来重跑的实验定义；`artifacts/free_flow/` 自由流参考保留（解析
 > 输入依赖）。未来重跑后，数据将按既有 writer / aggregate / handover / inventory
 > 链路重新产生并归档。
@@ -476,7 +480,7 @@ docs/
 - Automated tests cover parsers, experiment configuration, RunSpec integrity,
   provenance, simulation state transitions, resume validation, result writing,
   aggregation, network metadata and representative SUMO pipelines. Regular CI
-  does not rerun the complete formal grid (8,208 runs).
+  does not rerun the complete formal grid (7,524 runs).
 
 ---
 
@@ -486,7 +490,7 @@ docs/
 |---|---|
 | v0.4.0.post3 | Unified observation-window reanalysis of the frozen 10,080-run grid (historical public release; head no longer ships v0.4.0~post3 code support) |
 | v0.4.1 | Measurement and experimental-design upgrade: HV/CAV subgroup metrics, physical THW, compact FCD/TraCI validation, TTC threshold sensitivity, space-matched exposure, independent SUMO/assignment seeds, model-specific free-flow references, and a bounded pilot (internal milestone, **not released**; engineering outcomes folded into v0.4.2) |
-| v0.4.2 | Formal grid (jump release): main factorial **8,208 runs**（A 方案
+| v0.4.2 | Formal grid (jump release): main factorial **7,524 runs**（U90
   v0.3.1 密度对齐，s0/s1 10–120 + s2/s3 20–240；main 全开 SSM——2026-08
   合并设计） |
 | v0.5.0 | Real-trajectory-driven car-following model calibration and simulation validation |
@@ -496,9 +500,13 @@ docs/
 v0.4.1 delivered the measurement toolchain; its micro-pilot Level 1 (10 runs)
 passed, and Level 2 bounded factorial pilot (162 runs) was completed but failed
 the original resource gate (SSM memory exceeded 2 GiB at high density). The
-v0.4.0 10,080-run grid was not re-run. v0.4.2 (jump release) ran the formal
-grid: a 3,888-run main factorial with SSM disabled and an independent 84-run
-safety experiment with space-matched exposure (see [Data Availability](#data-availability)).
+v0.4.0 10,080-run grid was not re-run. v0.4.2 (jump release) formal grid is the
+**7,524-run U90 main factorial (2026-08, near-jam-density axis) with SSM
+enabled for the full grid** — safety dimension merged into the main grid (2026-08
+merge decision); s0/s1 single-lane 10–180, s2/s3 dual-lane 20–360 (5–90 veh/km/lane,
+cap 90 ≈ 68% jam density to render the capacity fundamental diagram),
+cav_count 11 levels at 0.1 step, 171 runs/treatment, 1,881 runs/scenario
+(see [Data Availability](#data-availability)).
 
 ---
 

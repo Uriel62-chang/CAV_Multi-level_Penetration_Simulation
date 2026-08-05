@@ -19,7 +19,10 @@
 - [ ] `ruff format --check .`
 - [ ] `pytest -q`
 - [ ] `python -m scripts.simulation.batch_run --config configs/smoke.json --dry-run`
-- [ ] The complete pytest count matches the README release baseline (v0.4.2 pure branch: 458).
+      （smoke 配置 ssm_enabled=false / capture TTC=5.0 与 main（true / 3.0）不同——
+      **仅冒烟用，勿作比照**；dry-run 不校验该口径）
+- [ ] The complete pytest count matches the README release baseline (v0.4.2 pure branch: 441).
+- [ ] free-flow artifact 门禁（收敛审核 P2）：`runner.py` 对 `sumo_version` 多行字节精确匹配——**升级/重编译 SUMO 会整批解析失败，需重生成 free-flow artifact**（fail-closed 设计，防跨版本错误复用参考；勿强行绕过）。
 - [ ] `python -m compileall -q scripts tests`
 - [ ] `mypy scripts/run_spec.py scripts/experiment_config.py scripts/provenance.py`
 - [ ] GitHub Actions `python-quality` succeeds.
@@ -31,13 +34,13 @@
 
 ## v0.4.2 release gates
 
-- [ ] **网格与配置**：`configs/v0.4.2/main.json`（3,888，含 SSM 采集——2026-08
-      合并设计，安全维度并入主网格）dry-run 通过；端点 assignment 失活、
-      cav_count 全整数。（旧独立 safety.json 已随合并设计删除）
-- [ ] **数据闭包**：main 3,888 simulation/parse 全 SUCCESS；
-      聚合 main 528 组；writer `complete=true`、零排除；
-      `raw_status_inventory.jsonl`（3,888 条目）与 `result_handover.json`
-      的产物 SHA 与外部 raw/CSV 匹配。（旧 safety 84 runs 已随合并设计删除）
+- [ ] **网格与配置**：`configs/v0.4.2/main.json`（**7,524**，U55 统一密度轴；SSM 全开——合并设计）dry-run 通过；端点 assignment 失活、cav_count
+      全整数。（旧独立 safety.json 已随合并设计删除；旧 7,524/3,888 网格为历史）
+- [ ] **数据闭包**：main 7,524 simulation/parse 全 SUCCESS（U55 正式重跑后）；
+      聚合 main 840 组（4 场景 × 10 vehN × 21 组/vehN：cav=0 单模型 + 10 档 ×
+      2 模型）；writer `complete=true`、零排除；`raw_status_inventory.jsonl`
+      （7,524 条目）与 `result_handover.json` 的产物 SHA 与外部 raw/CSV 匹配。
+      （旧 7,524/3,888 + safety 84 历史数据已清空）
 - [ ] **provenance（如实记录，不声称 clean）**：main simulation manifest
       记录 `git_dirty=true`，不得表述为 runtime clean（porcelain 证据不能
       证明零 tracked diff）；parsing/writer 在未提交工作树修复后分别提交为

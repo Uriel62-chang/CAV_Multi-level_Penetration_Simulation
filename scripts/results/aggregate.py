@@ -70,15 +70,20 @@ def _expected_seed_pairs(
     """
     cfg = manifest.get("resolved_config") or manifest
     treatments = cfg.get("treatments") or []
-    treatment = next(
-        (
-            t
-            for t in treatments
-            if int(t.get("vehicle_count", -1)) == vehN
-            and (not t.get("scenarios") or scenario in t["scenarios"])
-        ),
-        None,
-    )
+    # 审查 P2-5：同 vehN 重叠场景组校验——首匹配可能错配（当前 main.json 无重叠，
+    # 未来出现即 fail-closed 提示修配置）。
+    matches = [
+        t
+        for t in treatments
+        if int(t.get("vehicle_count", -1)) == vehN
+        and (not t.get("scenarios") or scenario in t["scenarios"])
+    ]
+    if len(matches) > 1:
+        raise ValueError(
+            f"manifest 存在重叠场景组：vehN={vehN} 在场景 {scenario} 匹配 {len(matches)} "
+            "个 treatment——请检查 treatments.scenarios 配置"
+        )
+    treatment = matches[0] if matches else None
     if treatment is None:
         raise ValueError(
             f"manifest missing treatment for (scenario={scenario}, vehN={vehN})——"

@@ -293,6 +293,8 @@ def chart_co2_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
     print(f"[OK] {path}")
 
 
+# 审查 P2-3：网格 cav_count 实为 0.1 步长 11 档，此处取 6 个代表档显示（0.2 步长）
+# 避免 22 条线不可读；p=0.0 时仅 IDM 有线（cav=0 为全 HV 运行、model=IDM sentinel）。
 _PENETRATION_LEVELS = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
 _PENETRATION_CMAP = "viridis"
 

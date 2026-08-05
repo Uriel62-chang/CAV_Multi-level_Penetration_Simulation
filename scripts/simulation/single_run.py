@@ -753,6 +753,12 @@ def main():
         model=args.model,
         network_file=args.net,
     )
+    # 审查 P2-6：single_run 产物 manifest 不含 treatments，不支持 aggregate——
+    # CLI 层提示，避免用户误喂 aggregate 后报晦涩错误。
+    print(
+        "\n提示：single_run 产物为独立工具格式（manifest 无 treatments），"
+        "不支持 aggregate 聚合；请使用 batch_run 正式网格产物。"
+    )
 
 
 if __name__ == "__main__":

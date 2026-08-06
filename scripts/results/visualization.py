@@ -302,14 +302,37 @@ _PENETRATION_CMAP = "viridis"
 def _fd_panel(ax, d: pd.DataFrame, flow_col: str, with_legend: bool = True) -> None:
     """FD 单场景面板：每条线 = (model, 渗透率档)——渗透率用颜色渐变（viridis
     0→1.0 浅→深）、模型用线型区分；设计声明"FD 峰位随 cav_count 连续移动
-    （HV kc≈17.4 → CACC kc≈39.2）"由分线直接可读。"""
+    （HV kc≈17.4 → CACC kc≈39.2）"由分线直接可读。
+
+    审查修正（2026-08）：
+    - 渗透率取聚合输出的权威 realized_pcav 列（回退 pCAV），不再用 cav_count/vehN
+      浮点精确比较（脆弱）；
+    - 同一 density 多行先按 mean 收敛再连线（每 density 唯一点，杜绝"栅栏式竖线"；
+      当前聚合 CSV 已验证无重复，此为未来多 seed/重复试验的防御）；
+    - CACC p=0.0 无物理意义（cav=0 为全 HV 运行、model=IDM sentinel），显式跳过；
+    - 检测到同 density 多行时打印警告与最大重复数。
+    """
     cmap = plt.get_cmap(_PENETRATION_CMAP)
+    pen_col = "realized_pcav" if "realized_pcav" in d.columns else "pCAV"
     for model in ["IDM", "CACC"]:
         for p_idx, p in enumerate(_PENETRATION_LEVELS):
-            dm = d[(d["model"] == model) & (d["cav_count"] / d["vehN"] - p).abs() < 1e-9]
-            dm = dm.sort_values("density_veh_per_km_lane")
+            if p == 0.0 and model == "CACC":
+                continue  # p=0 全 HV 运行，无 CACC 线（cav=0 model=IDM sentinel）
+            dm = d[(d["model"] == model) & ((d[pen_col] - p).abs() < 1e-6)]
             if len(dm) == 0:
                 continue
+            # 同 density 多行收敛（防御：当前聚合 CSV 无重复，未来多 seed 时防竖线）
+            if len(dm) != dm["density_veh_per_km_lane"].nunique():
+                dup_max = dm.groupby("density_veh_per_km_lane").size().max()
+                print(
+                    f"[WARN] _fd_panel {model} p={p:.1f}: 同一 density 多行"
+                    f"（最大 {dup_max} 行），已按 mean 收敛后再连线"
+                )
+            dm = (
+                dm.groupby("density_veh_per_km_lane", as_index=False)
+                .agg(**{flow_col: (flow_col, "mean")})
+                .sort_values("density_veh_per_km_lane")
+            )
             style = MODEL_STYLES[model]
             ax.plot(
                 dm["density_veh_per_km_lane"],
@@ -365,8 +388,8 @@ def chart_fundamental_diagram_v4(df: pd.DataFrame, out_dir: Path) -> None:
     ax3.text(
         0.5,
         -0.18,
-        "s3：e15/e16 单车道 125 m 瓶颈，FD 为瓶颈排队–吞吐关系（非主线基本图），"
-        "与 s0/s1/s2 不可直接比较",
+        "s3: e15/e16 single-lane 125 m bottleneck; FD is queue-throughput relation "
+        "(not mainline fundamental diagram), not directly comparable to s0/s1/s2",
         transform=ax3.transAxes,
         ha="center",
         fontsize=9,

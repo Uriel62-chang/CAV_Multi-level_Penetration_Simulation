@@ -520,8 +520,8 @@ docs/
 | v0.4.0.post3 | Unified observation-window reanalysis of the frozen 10,080-run grid (historical public release; head no longer ships v0.4.0~post3 code support) |
 | v0.4.1 | Measurement and experimental-design upgrade: HV/CAV subgroup metrics, physical THW, compact FCD/TraCI validation, TTC threshold sensitivity, space-matched exposure, independent SUMO/assignment seeds, model-specific free-flow references, and a bounded pilot (internal milestone, **not released**; engineering outcomes folded into v0.4.2) |
 | **v0.4.2** | **Formal grid (jump release, current): 7,524-run U55 main factorial — unified density axis 5–55 veh/km/lane, SSM enabled for the full grid, departSpeed="0", 3×3 dual seeds, observation window [600, 1800); results shipped in `results/v0.4.2/main/`** |
-| v0.5.0 | Real-trajectory-driven car-following model calibration and simulation validation |
-| v0.6.0 | TraCI-based dynamic traffic control |
+| v0.5.0 | Real-trajectory-driven **HV** car-following calibration and validation (NGSIM/HighD highway-following segments; CAV parameters stay at literature/set values, so the calibrated HV forms a realistic baseline vs model-set CAV) |
+| v0.6.0 | **TraCI dynamic control with a single-intersection adaptive signal control framework as the first application** (intersection network + OD flow + efficiency-metric migration from closed-loop lap time to travel/queue delay; fixed → actuated/adaptive → CAV×signal interaction) |
 | v0.7.0 | CACC communication degradation, including packet loss and latency |
 
 ---

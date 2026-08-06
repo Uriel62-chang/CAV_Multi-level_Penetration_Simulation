@@ -82,7 +82,7 @@ jobs:
           import json
           from pathlib import Path
 
-          from scripts.schema import RUN_LEVEL_COLUMNS
+          from scripts.schema import RUN_LEVEL_COLUMNS_V4_2
 
           raw = Path("/tmp/cav-smoke")
           results = Path("/tmp/cav-smoke-results")
@@ -95,19 +95,6 @@ jobs:
           assert manifest["status_counts"].get("NOT_STARTED") == 0
           assert report["complete"] is True
           assert report["quality_ok"] == 1
-          assert reader.fieldnames == RUN_LEVEL_COLUMNS
+          assert reader.fieldnames == RUN_LEVEL_COLUMNS_V4_2
           assert len(rows) == 1 and rows[0]["data_quality"] == "ok"
           PY
-      - name: Show parse diagnostics
-        if: always()
-        run: |
-          echo "=== failed_runs.csv ==="
-          cat /tmp/cav-smoke-results/failed_runs.csv 2>/dev/null || echo "(无)"
-          echo "=== parse_status.json ==="
-          cat /tmp/cav-smoke/s0_IDM_v010_c005_as01_ss101/parse_status.json 2>/dev/null | head -30 || echo "(无)"
-          echo "=== summary.json (error 相关) ==="
-          .venv/bin/python3 -c "
-          import json
-          s = json.load(open('/tmp/cav-smoke/s0_IDM_v010_c005_as01_ss101/summary.json'))
-          print(json.dumps({k: s[k] for k in s if 'error' in k.lower() or 'warn' in k.lower() or 'success' in k.lower()}, ensure_ascii=False))
-          " 2>/dev/null || echo "(无 summary)"

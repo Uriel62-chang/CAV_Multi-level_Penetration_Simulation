@@ -328,7 +328,7 @@ python3 -m scripts.results.writer \
   --output-dir /path/to/results \
   --manifest /path/to/raw/manifest.json
 
-# Aggregate across seeds (mean / std / median / min / max)
+# Stage 4: aggregate across seeds (mean / std / median / min / max)
 python3 -m scripts.results.aggregate \
   --input /path/to/results/run_level_results.csv \
   --output /path/to/results/aggregated_results.csv \

@@ -514,7 +514,9 @@ def run_simulation(
     net_meta = load_network_meta(network_file)
     net_scenario = net_meta["scenario"]
     # 纯净分支：build_run_id 仅 cav_count 格式（cav_count 从请求渗透率取整推导）
-    cav_count = round(vehicle_count * cav_ratio)
+    # 审查 P2-2：round() 银行家舍入（x.5 取偶）与直觉不符（--pCAV 0.15 --vehN 10
+    # →2、--pCAV 0.35 --vehN 30→10）；改四舍五入 int(x+0.5)，realized 在下方打印。
+    cav_count = int(vehicle_count * cav_ratio + 0.5)
     run_id = build_run_id(
         net_scenario,
         model,
@@ -629,6 +631,7 @@ def run_simulation(
     print(f"  model       = {model}")
     print(f"  vehN        = {vehicle_count}")
     print(f"  pCAV        = {cav_ratio}")
+    print(f"  cav_count   = {cav_count} (realized pCAV = {realized_pcav:.3f})")
     print(f"  seed        = {seed}")
     print(f"  freq        = {detector_frequency}")
     print(f"  warmup      = {warmup_period}\n")

@@ -5,7 +5,8 @@ from scripts.run_spec import SimulationResult
 from scripts.simulation.single_run import run_simulation
 
 
-def test_single_run_reuses_batch_parser_and_writer(monkeypatch, tmp_path):
+def _run_with_fakes(monkeypatch, tmp_path, vehicle_count, cav_ratio):
+    """构造 run_simulation 的 fake 依赖链，返回捕获的 simulation spec 与 manifest。"""
     calls = {}
 
     async def fake_run_sumo_process(**kwargs):
@@ -45,9 +46,9 @@ def test_single_run_reuses_batch_parser_and_writer(monkeypatch, tmp_path):
     (network_dir / "net.json").write_text(source_metadata.read_text(encoding="utf-8"))
 
     output_csv = tmp_path / "single.csv"
-    result = run_simulation(
-        vehicle_count=10,
-        cav_ratio=0.5,
+    run_simulation(
+        vehicle_count=vehicle_count,
+        cav_ratio=cav_ratio,
         seed=1,
         loops=2,
         sim_end_time=10,
@@ -56,6 +57,11 @@ def test_single_run_reuses_batch_parser_and_writer(monkeypatch, tmp_path):
         output_csv=str(output_csv),
         network_file=str(network_path),
     )
+    return calls
+
+
+def test_single_run_reuses_batch_parser_and_writer(monkeypatch, tmp_path):
+    calls = _run_with_fakes(monkeypatch, tmp_path, vehicle_count=10, cav_ratio=0.5)
 
     manifest_path = tmp_path / "single_raw" / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -63,5 +69,17 @@ def test_single_run_reuses_batch_parser_and_writer(monkeypatch, tmp_path):
     assert manifest["results"][0]["status"] == "SUCCESS"
     assert calls["simulation"]["spec"].seed_scope == "vehicle_type_assignment"
     assert calls["writer"]["results_filename"] == "single.csv"
-    assert result["simulation_status"] == "SUCCESS"
-    assert result["parse_status"] == "SUCCESS"
+    assert calls["simulation"]["spec"].cav_count == 5
+
+
+def test_single_run_cav_count_rounds_half_up_not_banker(monkeypatch, tmp_path):
+    """审查 P2-2：cav_count 四舍五入（int(x+0.5)）而非 round() 银行家舍入。
+
+    --pCAV 0.35 --vehN 30 → 10.5：round() 取偶得 10（realized 0.333），
+    四舍五入得 11（realized 0.367）——后者更接近请求值 0.35。
+    """
+    calls = _run_with_fakes(monkeypatch, tmp_path, vehicle_count=30, cav_ratio=0.35)
+
+    spec = calls["simulation"]["spec"]
+    assert spec.cav_count == 11
+    assert spec.run_id.endswith("_c011_as01_ss000")

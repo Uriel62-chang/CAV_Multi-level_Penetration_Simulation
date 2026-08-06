@@ -82,12 +82,16 @@ def parse_detector(
             f"detector: no interval in window [{warmup_period}, {simulation_end}) in {xml_path}"
         )
 
+    # 审查 P2-3（防御）：上游已强制窗内 interval>0，此分支当前不可达；若未来重构
+    # 使其可达，mean_speed 须报 NaN（与 P2-1 的 0-vs-NaN 契约一致），不得回 0.0
     if len(flow_values) == 0:
-        return 0.0, 0.0, 0.0, float("nan"), 0
+        return 0.0, 0.0, float("nan"), float("nan"), 0
 
     mean_flow = sum(flow_values) / len(flow_values)
     max_flow = max(flow_values)
-    mean_speed = sum(speed_values) / len(speed_values) if speed_values else 0.0
+    # 审查 P2-1：空子群（全程零流量）mean_speed 报 NaN 而非 0.0——0=已解析且无事件、
+    # NaN=不适用；flow=0 有语义，speed=0.0 误导（暗示"车速为 0"而非"无数据"）。
+    mean_speed = sum(speed_values) / len(speed_values) if speed_values else float("nan")
     speed_variance = _compute_speed_variance(speed_values)
     # 另（本轮审查）：window_count 实为「非零流量窗口数」（speed 只在 flow>0 时
     # 采样，:75-76）——作为 mean_speed/方差 companion 语义正确（速度仅在有流量时
@@ -180,8 +184,10 @@ def parse_detector_multi(
             f"(first={sorted(first_set)}, differs from expected consistent set)"
         )
 
+    # 审查 P2-3（防御，multi 分支同款）：上游已强制窗内 interval>0 且车道集一致，
+    # 此分支当前不可达；mean_speed 须报 NaN（0-vs-NaN 契约），不得回 0.0
     if not lane_data:
-        return 0.0, 0.0, 0.0, float("nan"), 0
+        return 0.0, 0.0, float("nan"), float("nan"), 0
 
     flow_values, speed_values = [], []
     for begin in sorted(lane_data):
@@ -192,7 +198,8 @@ def parse_detector_multi(
 
     mean_flow = sum(flow_values) / len(flow_values)
     max_flow = max(flow_values)
-    mean_speed = sum(speed_values) / len(speed_values) if speed_values else 0.0
+    # 审查 P2-1：空子群（全程零流量）mean_speed 报 NaN 而非 0.0（与 parse_detector 单文件分支一致）
+    mean_speed = sum(speed_values) / len(speed_values) if speed_values else float("nan")
     speed_variance = _compute_speed_variance(speed_values)
     return mean_flow, max_flow, mean_speed, speed_variance, len(speed_values)
 

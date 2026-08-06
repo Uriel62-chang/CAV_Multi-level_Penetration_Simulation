@@ -73,9 +73,11 @@ Key grid-observed results at the corresponding operating points:
 
 - **安全维度随主网格采集**（合并设计 2026-08）；旧的独立 safety 板块（84 runs、
   单 seed pair）已取消——每格安全指标将获得与流量/排放同等的 3×3 seed 统计强度；
-- **s1 and s2 show zero detected TTC events** — limited to the current
-  `TTC < 3.0 s` threshold, SUMO 1.27.1, the safety grid and the configured SSM
-  parameters; this is not a claim of "no conflict";
+- **s1/s2 TTC 检出（U55 实测，2026-08）**：s1 161/1,881、s2 333/1,881 runs
+  检出 TTC 事件，且**仅集中在高密度档（k≥35）**——旧网格 "s1/s2 zero detected
+  TTC" 仅适用于已清空的 v0.4.2 早期网格（单 seed、密度轴未达高密度区）；
+  检出受 `TTC < 3.0 s` 阈值、SUMO 1.27.1 与配置的 SSM 参数限制，不是
+  "no conflict" 断言；
 - SSM-on sampled peak RSS by scenario: s0 6.52 / s1 1.81 / s2 8.91 /
   s3 1.50 GiB (global peak 9,342,124 KiB @ s2_CACC_v120_c120) — historical
   observation context, not a hard budget;
@@ -465,7 +467,7 @@ docs/
 - The v0.4.2 formal grid provides HV/CAV subgroup results (run-level subgroup
   long table + aggregated subgroup metrics, detector/edgeData/SSM/vehroute/
   lanechange/stderr + FCD physical THW).
-- The absence of detected TTC conflicts in s2 applies only to the current `TTC < 3.0 s` threshold and tested parameter grid.
+- The absence of detected TTC conflicts in s2 applies only to the current `TTC < 3.0 s` threshold and tested parameter grid; the U55 grid (2026-08) does detect TTC in s1/s2 at high densities (k≥35), so the earlier "zero detected" statement is superseded for the formal grid.
 - ACC is supported by earlier project versions but is not part of the formal
   comparison.
 - TTC events have not yet been independently reproduced from FCD or TraCI trajectories; v0.4.1 provides the trajectory-validation tooling (FCD physical THW), and the v0.4.2 grid provides SSM-based event rates (merged into the main grid), but independent FCD/TraCI reproduction is still outstanding.

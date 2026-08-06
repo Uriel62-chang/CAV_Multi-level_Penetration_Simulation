@@ -161,8 +161,9 @@ MODEL_STYLES = {
 
 # v0.4.2 withInternal=true 下空间配对列：全路网 TTC 事件 / 全路网 veh-km
 _PAIRED_TTC_METRIC = "ttc_per_k_mean"
-# 审阅 P0-1（Safety 设计）：DRAC 空间配对事件率（全路网 DRAC 事件 / 全路网 veh-km）
-_PAIRED_DRAC_METRIC = "drac_per_k_mean"
+# 管线审查 P2-5：DRAC 空间配对事件率（drac_per_k_mean）由 aggregate 输出，但当前
+# 无图表消费该列——DRAC 报告图属报告层待办（合并设计后安全维度已并入主网格，
+# 报告层补充 DRAC 图或标注覆盖缺口），此处不再保留未使用常量。
 
 
 def _ttc_metric_column(df: pd.DataFrame) -> str:
@@ -299,7 +300,9 @@ _PENETRATION_LEVELS = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
 _PENETRATION_CMAP = "viridis"
 
 
-def _fd_panel(ax, d: pd.DataFrame, flow_col: str, with_legend: bool = True) -> None:
+def _fd_panel(
+    ax, d: pd.DataFrame, flow_col: str, with_legend: bool = True, show_reference: bool = True
+) -> None:
     """FD 单场景面板：每条线 = (model, 渗透率档)——渗透率用颜色渐变（viridis
     0→1.0 浅→深）、模型用线型区分；设计声明"FD 峰位随 cav_count 连续移动
     （HV kc≈17.4 → CACC kc≈39.2）"由分线直接可读。
@@ -310,7 +313,10 @@ def _fd_panel(ax, d: pd.DataFrame, flow_col: str, with_legend: bool = True) -> N
     - 同一 density 多行先按 mean 收敛再连线（每 density 唯一点，杜绝"栅栏式竖线"；
       当前聚合 CSV 已验证无重复，此为未来多 seed/重复试验的防御）；
     - CACC p=0.0 无物理意义（cav=0 为全 HV 运行、model=IDM sentinel），显式跳过；
-    - 检测到同 density 多行时打印警告与最大重复数。
+    - 检测到同 density 多行时打印警告与最大重复数；
+    - show_reference：HV 主线理论参考线（q_max≈2400 veh/h/道、kc≈17.4）仅用于
+      主线基本图（s0/s1/s2）；s3 为瓶颈排队–吞吐语义，不可比，画参考线会误导
+      （管线审查 P2-2，s3 面板传 False）。
     """
     cmap = plt.get_cmap(_PENETRATION_CMAP)
     pen_col = "realized_pcav" if "realized_pcav" in d.columns else "pCAV"
@@ -345,8 +351,11 @@ def _fd_panel(ax, d: pd.DataFrame, flow_col: str, with_legend: bool = True) -> N
                 alpha=0.85,
                 label=f"{model} p={p:.1f}" if with_legend else None,
             )
-    ax.axhline(2400, color="gray", linestyle=":", linewidth=1, alpha=0.7)
-    ax.axvline(17.4, color="gray", linestyle=":", linewidth=1, alpha=0.7)
+    # 审查 P2-2：HV 主线理论参考线仅对主线基本图有意义（q_max≈2400/kc≈17.4）；
+    # s3 面板 show_reference=False 跳过（瓶颈排队–吞吐与主线不可比）
+    if show_reference:
+        ax.axhline(2400, color="gray", linestyle=":", linewidth=1, alpha=0.7)
+        ax.axvline(17.4, color="gray", linestyle=":", linewidth=1, alpha=0.7)
     ax.set_xlabel("Density (veh/km/lane)", fontsize=10)
     ax.set_ylabel("Flow per Lane (veh/h/lane)", fontsize=10)
     ax.grid(True, alpha=0.3)
@@ -384,7 +393,8 @@ def chart_fundamental_diagram_v4(df: pd.DataFrame, out_dir: Path) -> None:
     # s3 单独成图（设计 §三.5：瓶颈排队–吞吐关系，标注瓶颈语义）
     fig3, ax3 = plt.subplots(figsize=(9, 6), constrained_layout=True)
     ax3.set_title(f"{SCENARIO_LABELS['scenario_3']} (bottleneck queue-throughput)", fontsize=12)
-    _fd_panel(ax3, df[df["scenario"] == "scenario_3"], flow_col)
+    # 审查 P2-2：s3 面板不画 HV 主线理论参考线（瓶颈语义与主线基本图不可比）
+    _fd_panel(ax3, df[df["scenario"] == "scenario_3"], flow_col, show_reference=False)
     ax3.text(
         0.5,
         -0.18,
@@ -449,7 +459,8 @@ def chart_delay_v4(
     axes[2].set_xlabel("CAV Penetration Rate", fontsize=11)
     axes[3].set_xlabel("CAV Penetration Rate", fontsize=11)
     fig.suptitle(
-        f"Lap-Time Difference From Fixed Reference vs CAV Penetration (vehN={vehN})",
+        f"Lap-Time Difference From Fixed Reference vs CAV Penetration "
+        f"(vehN={vehN or 'density-aligned'})",
         fontsize=14,
     )
     path = out_dir / "chart_delay.png"

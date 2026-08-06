@@ -102,6 +102,10 @@ python3 -m scripts.results.visualization \
 > writer/aggregate/handover/inventory 链路重建）：aggregated_results.csv、
 > result_handover.json、raw_status_inventory.jsonl、result_analysis.md、
 > graph/v0.4.2/ 图（main 3 + Safety 1）。
+> 时间线说明（管线审查第四轮，消除歧义）：上两行"graph/v0.4.2/ 已删"指 2026-08
+> 清空**历史旧网格**产物；U55 正式重跑后 5 图已重新生成并随 commit 233ddff
+> **重新入库**（跟踪文件，见上"产物"行）——"清空 → 重跑重建 → 重新入库"为同一
+> 时间线的先后节点，二者不冲突。
 
 ### v0.4.2 正式网格（新，2026-08 U55 基本图方案）
 - main factorial：**7,524 runs（SSM 全开——安全维度并入主网格，合并设计）**：
@@ -142,9 +146,9 @@ python3 -m scripts.results.visualization \
 - S8 剩余项：PreparedRun.fcd_path（canonical_json_bytes、atomic_write_bytes、--acceptance 已在阶段 2 实现）
 
 ### 测试基线
-- 443 tests passed（2026-08 U55 重设计后基线：441 + flow_per_lane 回归
-  测试 2 条 → 443。追溯：459（阶段 3）→ 458（阶段 5）→ 440（合并设计）→
-  441（收敛审核回归）→ 443（FD 口径回归））
+- 447 tests passed（当前基线：pipeline.md 第一轮审查记 445（pipeline.md 第一轮
+  §五），第一轮修订新增 P2-1/P2-2 回归测试 2 条 → 447；早前追溯：459（阶段 3）
+  → 458（阶段 5）→ 440（合并设计）→ 441（收敛审核回归）→ 443（FD 口径回归））
 - Ruff / mypy / compileall / format 全通过
 - dry-run: main 7,524（U55）/ smoke（configs/smoke.json；v0.4.0 10,080 网格
   数据红线不重跑、本地数据已删（2026-08 用户拍板，外部备份保留）、配置已移除；

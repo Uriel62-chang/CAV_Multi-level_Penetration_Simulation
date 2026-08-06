@@ -4,16 +4,48 @@
 
 `SUMO 1.27.1` · `Python 3.10+` · `7,524 simulations · 3×3 dual seeds` · `v0.4.2`
 
-[Key Findings](#key-findings-v042) ·
-[Relation to v0.4.0.post3](#relation-to-v040post3) ·
-[Scenario Design](#scenario-design) ·
+[What Changed vs v0.4.0.post3](#v042-what-changed-vs-v040post3) ·
+[Key Findings](#key-findings) ·
+[Core Results](#core-results) ·
+[Experiment Design](#experiment-design) ·
 [Metric Methodology](#metric-methodology) ·
 [Quick Start](#quick-start) ·
 [Report (中文)](docs/report.cn.md) ·
 [Report (English)](docs/report.en.md) ·
 [Engineering Audit](docs/engineering/audit.md) ·
-[Migration](docs/engineering/migration.md) ·
 [Release Checklist](docs/engineering/release-checklist.md)
+
+---
+
+## v0.4.2: What Changed vs v0.4.0.post3
+
+v0.4.2 is the first public release after v0.4.0.post3 (the frozen 10,080-run reanalysis). v0.4.1 was an internal milestone and was **not released**; its engineering outcomes are folded into v0.4.2. The evaluation framework (four dimensions: flow / safety / emissions / efficiency) and the s0→s1→s2→s3 scenario chain carry over; the experiment itself was redesigned and re-run.
+
+### Improvements over v0.4.0.post3
+
+- **Exact `cav_count` grid** — repairs the v0.4.0 requested-pCAV discretization defect (integer CAV counts at 0.1-step penetration levels).
+- **Space-matched safety exposure** — `withInternal="true"` edgeData: whole-network TTC events over whole-network veh-km (v0.4.0 safety events were not matched to their exposure scope).
+- **HV/CAV subgroup decomposition** — detector/edgeData/SSM/vehroute/lanechange/stderr + FCD physical time headway, delivered as a run-level subgroup long table.
+- **Independent 3×3 dual seeds** — vehicle-type assignment seeds and SUMO stochastic seeds are separated and both recorded.
+- **P0 insertion-defect fix** — `departSpeed="0"` (stationary insertion) eliminates the high-density insertion loss of `departSpeed="max"`; a hard insertion-integrity guard (`vehicles < vehN` → `INVALID_DATA`) prevents silent recurrence.
+- **Safety merged into the main grid** — SSM acquisition runs for all 7,524 runs (previously a separate 84-run safety sub-grid).
+- **Dual emission scopes** — non-internal primary estimand (definition-level comparable to v0.4.0) plus a whole-network secondary intensity.
+- **Fundamental-diagram scheme** — the density axis spans free-flow → critical → congested (up to 37.5% of jam density, "limited high-density reach"), producing capacity FDs per scenario instead of isolated operating points.
+
+### Redesigned experiment parameters (core differences)
+
+| Aspect | v0.4.0.post3 | v0.4.2 (U55) |
+|---|---|---|
+| Grid | 10,080 runs, requested-pCAV levels | **7,524 runs**, exact `cav_count` grid |
+| Density axis | 5–60 veh/km/lane nominal | **5–55 veh/km/lane** unified (s0/s1 10–110, s2/s3 20–220) |
+| Seeds | 5 assignment seeds | **3×3 dual seeds** |
+| Exposure scope | Non-internal edges | Whole-network (space-matched) |
+| Simulation window | `[600, 3600)` | **[600, 1800)** (warmup 600 s, calibrated stable ≤120 s) |
+| Insertion | `departSpeed="max"` | `departSpeed="0"` (defect fixed) |
+| Safety acquisition | Separate sub-grid | Merged into the main grid (SSM on) |
+| Subgroups | Model-level only | HV/CAV long table + FCD THW |
+
+**Definition-level comparability.** The primary CO₂ estimand keeps the same definition, so the two versions are comparable at the definition level. However, the acquisition pipeline, `withInternal` handling, seed design and simulation window differ — the two grids are **not numerically interchangeable**, and no cross-version numeric-consistency or change-rate inference is drawn.
 
 ---
 
@@ -24,60 +56,6 @@
 The project compares **IDM** and **CACC** across four progressively constrained road structures. Rather than asking which model is universally better, it asks:
 
 > **Which control strategy performs better under which road structure and traffic density?**
-
----
-
-## Key Findings (v0.4.2)
-
-The v0.4.2 formal grid (**7,524 runs**, U55 fundamental-diagram design, SSM enabled across the whole grid) was fully completed in 2026-08: 3 workers / 21.86 h / 0 failures. Results below are computed from the shipped aggregate (`results/v0.4.2/main/aggregated_results.csv`, 924 groups × 329 columns); see [`docs/report.cn.md`](docs/report.cn.md) / [`docs/report.en.md`](docs/report.en.md) for the full analysis.
-
-**Flow.** Per-lane grid-observed peaks move with CAV penetration as designed:
-
-| Scenario | IDM peak (veh/h/lane) | @vehN / density | CACC peak (veh/h/lane) | @vehN / density |
-|---|---|---|---|---|
-| s0 (square single-lane) | 1,794 | 80 / k40 | 1,857 | 80 / k40 |
-| s1 (32-gon single-lane) | 3,918 | 100 / k50 | 4,689 | 80 / k40 |
-| s2 (dual-lane) | 3,916 (both lanes 7,833) | 200 / k50 | 4,694 (both lanes 9,387) | 160 / k40 |
-| s3 (merge bottleneck) | 1,952 (both lanes 3,903) | 80 / k20 | 1,292 (both lanes 2,583) | 60 / k15 |
-
-The FD peak shifts with penetration (s1/s2): HV-only peaks at k≈20 and CACC p=1.0 at k≈40, consistent in direction with the theoretical critical densities (HV 17.4 / CAV 39.2); the IDM p=1.0 branch rises to k≈50 then plateaus — k≈50 is the grid-observed maximum (axis cap 55 = 37.5% of jam density), not a measured capacity peak. s0 is a corner-limited baseline: HV-only flattens at ≈940 veh/h/lane for k≥20 (the 90° turns cap throughput below the 2,400 veh/h/lane τ limit), while full-CAV reaches 1,794 (IDM) / 1,857 (CACC) at k40.
-
-**Merge-bottleneck reversal (s3).** At the top density (k=55, vehN=220, full CAV), IDM sustains 1,620 veh/h/lane with delay 182 s and CO₂ 339 g/veh-km, whereas CACC drops to 756 veh/h/lane with delay 442 s and CO₂ 633 g/veh-km — the high-density forced-merge reversal holds (TTC rate 1,328 vs 2,026 per 1,000 veh-km).
-
-**Safety.** TTC-conflict runs detected: s0 1,875/1,881 (≈100%), s1 161/1,881 (9%), s2 333/1,881 (18%), s3 1,807/1,881 (96%). s1/s2 detections concentrate at k≥35, with CACC rates above IDM (s2 CACC up to ≈2,475 vs IDM ≈2 events/1,000 veh-km). Emergency braking concentrates in s3 (14,989 events, max 44/run).
-
-**Emissions.** CO₂ intensity (non-internal-edge estimand): s0 337–462, s1 144–330, s2 146–305, s3 176–661 g/veh-km; at high densities CACC exceeds IDM on s2/s3.
-
-**Efficiency.** At the k=30 operating point (density-aligned): s0 full-CAV ≈22–25 s reference-relative lap difference, s1/s2 ≈0–8 s; s3 full-CAV IDM 72 s vs CACC 203 s (bottleneck congestion).
-
-![Capacity](graph/v0.4.2/chart_capacity.png)
-![CO2 vs flow](graph/v0.4.2/chart_co2_flow.png)
-![Fundamental diagram (main scenarios)](graph/v0.4.2/chart_fundamental_diagram.png)
-![Fundamental diagram (s3 bottleneck)](graph/v0.4.2/chart_fundamental_diagram_s3.png)
-![Lap-time delay](graph/v0.4.2/chart_delay.png)
-
----
-
-## Relation to v0.4.0.post3
-
-v0.4.2 is the first public release after v0.4.0.post3 (the frozen 10,080-run v0.4.0 reanalysis). v0.4.1 was an internal milestone and was **not released**; its engineering outcomes are folded into v0.4.2.
-
-| Aspect | v0.4.0.post3 | v0.4.2 (U55) |
-|---|---|---|
-| Grid | 10,080 runs, requested-pCAV levels | 7,524 runs, exact `cav_count` grid (0.1 step, 11 levels) |
-| Density axis | 5–60 veh/km/lane nominal | 5–55 veh/km/lane unified (s0/s1 10–110, s2/s3 20–220) |
-| Seeds | 5 assignment seeds | 3×3 dual seeds (`assignment_seed`, `sumo_seed`) |
-| Exposure scope | Non-internal edges (safety not space-matched) | `withInternal="true"`: whole-network, space-matched safety exposure |
-| Subgroups | Model-level only | HV/CAV subgroup long table (detector/edgeData/SSM/vehroute/lanechange/stderr + FCD THW) |
-| Simulation window | `[600, 3600)` | `[600, 1800)` (warmup 600 s, validated ≤120 s stable) |
-| Insertion | `departSpeed="max"` (P0 defect: insertion loss at saturation) | `departSpeed="0"` (defect fixed; 100% insertion) |
-| Safety acquisition | Separate safety sub-grid | Merged into the main grid (SSM on for all 7,524 runs) |
-
-**Continuity.** The four-dimension evaluation framework, the s0→s1→s2→s3 scenario chain, and the core conclusions — *no globally optimal model, CACC advantage is scenario-dependent, high-density merge-bottleneck reversal* — carry over.
-
-**Definition-level comparability.** The primary CO₂ estimand (non-internal-edge CO₂ per non-internal-edge veh-km) keeps the same definition, so the two versions are comparable at the definition level. However, the acquisition pipeline, `withInternal` handling, seed design and simulation window differ — the two grids are **not numerically interchangeable**, and no cross-version numeric-consistency or change-rate inference is drawn.
-
-**Design fixes vs v0.4.0.** The exact `cav_count` grid repairs the v0.4.0 requested-pCAV discretization defect; safety exposure is now space-matched (whole-network events over whole-network veh-km); HV/CAV subgroups add penetration-level decomposition.
 
 ---
 
@@ -94,6 +72,49 @@ The four scenarios support three structured scenario comparisons:
 *From left to right, the scenarios progressively change geometry, lane count/lateral freedom, and merge constraints. These comparisons do not isolate a single causal factor.*
 
 s0/s1 are single-lane 2.0 km loops, s2/s3 dual-lane 2.0 km loops. vehN axes are density-aligned (s0/s1 10–110 step 10; s2/s3 20–220 step 20 → 5–55 veh/km/lane per lane). s3 uses the v0.3.1 geometry (32-gon, single-lane 125 m bottleneck on e15/e16) driven by `net.json` metadata; its fundamental diagram is a **bottleneck queue–throughput relation**, not a mainline fundamental diagram, and is charted separately.
+
+---
+
+## Key Findings
+
+### 1. CACC raises the observed peak flow in unconstrained networks
+
+In smooth, unconstrained networks, CACC reaches higher per-lane grid-observed maxima at full penetration: s1 **4,689 veh/h/lane** (vs IDM 3,918, both at upper density cells) and s2 **4,694 veh/h/lane** (vs IDM 3,916; both-lane totals 9,387 vs 7,833). The FD peak shifts with penetration as designed: HV-only peaks at k≈20, CACC p=1.0 at k≈40, IDM p=1.0 at k≈50 (grid-observed maximum — the IDM branch shows no falling edge inside the axis cap of 55 = 37.5% of jam density).
+
+> This benefit is scenario-dependent and does not persist under the merge constraint in s3.
+
+### 2. The advantage reverses at a high-density merge bottleneck
+
+In scenario **s3** at the top density (k=55, vehN=220, full CAV):
+
+| Model | Flow (veh/h/lane) | Mean lap-time difference from reference | CO₂ intensity | TTC rate (/1,000 veh-km) |
+|---|---:|---:|---:|---:|
+| IDM | **1,620** | **182 s** | 339 g/veh-km | 1,328 |
+| CACC | 756 | 442 s | 633 g/veh-km | 2,026 |
+
+At this fixed high-density operating point, IDM carries approximately **2.1 times** the flow of CACC while producing a much smaller reference-relative lap-time difference, lower CO₂ intensity and lower TTC rate — the high-density forced-merge reversal holds.
+
+> These values describe the k=55 operating point. Within the tested grid, s3 peak total flows are 3,903 veh/h (IDM, k20) and 2,583 veh/h (CACC, k15); s3 efficiency metrics at k≥40 are subject to a lap-count selection bias and are used directionally only (see Limitations).
+
+### 3. TTC conflicts concentrate around geometric and topological constraints
+
+Under the current `TTC < 3.0 s` SSM configuration:
+
+- s0 contains frequent conflicts associated with periodic sharp-turn braking (≈100% of runs);
+- s1 contains relatively few conflicts (161/1,881 runs, 9%), s2 333/1,881 (18%) — both concentrated at k≥35, with CACC rates above IDM at high density;
+- s3 contains dense conflict activity around forced merging (96% of runs, 14,989 emergency-braking events).
+
+The observed distribution is consistent with road geometry and loss of lateral freedom being major contributors to conflict formation.
+
+> This interpretation is limited to the current SSM threshold, model parameters, and experiment grid. TTC events have not yet been independently reproduced from FCD or TraCI trajectories.
+
+---
+
+## Core Trade-off
+
+![Fundamental diagram across scenarios](graph/v0.4.2/chart_fundamental_diagram.png)
+
+*CACC achieves higher throughput in smooth, unconstrained networks, but the same advantage does not transfer to a dense merge bottleneck — and high-density CACC operation carries higher safety and emission costs where it does not help.*
 
 ---
 
@@ -114,11 +135,73 @@ The results indicate that **no single car-following model is globally optimal ac
 
 ---
 
+## Core Results
+
+### Maximum Observed Flow Within the Tested Grid
+
+Per-lane grid-observed maxima (veh/h/lane):
+
+| Scenario | IDM | @vehN/k | CACC | @vehN/k |
+|---|---:|---|---:|---|
+| s0 | 1,794 | 80 / k40 | 1,857 | 80 / k40 |
+| s1 | 3,918 | 100 / k50 | 4,689 | 80 / k40 |
+| s2 | 3,916 (both lanes 7,833) | 200 / k50 | 4,694 (both lanes 9,387) | 160 / k40 |
+| s3 | 1,952 (both lanes 3,903) | 80 / k20 | 1,292 (both lanes 2,583) | 60 / k15 |
+
+CACC has higher observed maxima in s1 and s2 under high CAV penetration. s0 is a corner-limited baseline: HV-only flattens at ≈940 veh/h/lane for k≥20 (the 90° turns cap throughput below the 2,400 veh/h/lane τ limit), while full-CAV reaches 1,794 (IDM) / 1,857 (CACC) at k40. The s3 bottleneck reduces the grid-observed maximum relative to s2, and IDM performs better than CACC at the highest tested density.
+
+![Maximum observed flow within the tested grid across four scenarios](graph/v0.4.2/chart_capacity.png)
+
+### Safety–Flow Trade-off
+
+The main safety metric is:
+
+```text
+whole-network TTC conflict events / 1,000 whole-network vehicle-km
+```
+
+This exposure-normalized value is space-matched (numerator and denominator share the whole-network scope). TTC-detected runs: s0 1,875/1,881 (≈100%), s1 161/1,881 (9%), s2 333/1,881 (18%), s3 1,807/1,881 (96%); s1/s2 detections concentrate at k≥35, with CACC exceeding IDM at high densities (s2 CACC up to ≈2,475 vs IDM ≈2 events/1,000 veh-km). Emergency braking concentrates in s3 (14,989 events, max 44/run). SSM mirror deduplication is an analysis heuristic (one-to-one at ≥80% overlap) — absolute counts are not exact physical conflict totals.
+
+### CO₂–Flow Trade-off
+
+CO₂ intensity (non-internal estimand): s0 337–462, s1 144–330, s2 146–305, s3 176–661 g/veh-km. At high densities CACC exceeds IDM on s2/s3 — the emission cost of the bottleneck-reversal regime.
+
+![CO₂ versus flow](graph/v0.4.2/chart_co2_flow.png)
+
+### Lap-Time Difference From the Fixed Reference
+
+At the density-aligned k=30 operating point, reference-relative lap differences: s0 full-CAV ≈22–25 s, s1/s2 ≈0–8 s; s3 full-CAV IDM 72 s vs CACC 203 s (bottleneck congestion).
+
+![Lap-time difference from fixed reference](graph/v0.4.2/chart_delay.png)
+
+### Scenario-Dependent Summary
+
+The FD peak shifts with penetration (s1/s2): HV-only k≈20 → CACC p=1.0 k≈40, consistent in direction with the theoretical critical densities (HV 17.4 / CAV 39.2 veh/km/lane); the IDM p=1.0 branch rises to k≈50 then plateaus (grid-observed maximum, axis cap 55 = 37.5% of jam density). s3 is charted separately as a bottleneck queue–throughput relation (reference lines omitted — not comparable to mainline FDs).
+
+![Fundamental diagram (main scenarios)](graph/v0.4.2/chart_fundamental_diagram.png)
+![Fundamental diagram (s3 bottleneck)](graph/v0.4.2/chart_fundamental_diagram_s3.png)
+
+---
+
+## Experiment Design
+
+- **Grid**: 7,524 runs — 4 scenarios × 11 vehN levels × 171 runs/treatment.
+- **Density axis**: unified 5–55 veh/km/lane (s0/s1 single-lane vehN 10–110 step 10; s2/s3 dual-lane 20–220 step 20); cap 55 = 37.5% of jam density, set by the measured s2 SSM memory boundary (v220 probe 22.67 GiB).
+- **Penetration**: cav_count 0.1 step, 11 levels (all integers); endpoint assignment deactivated by sentinel.
+- **Seeds**: 3 × 3 dual seeds (assignment_seed × sumo_seed; interior n=9, endpoint n=3).
+- **Simulation window**: warmup=600 s (9-cell calibration stable ≤120 s), simulation_end=1800 s, observation window [600, 1800).
+- **Insertion**: `departSpeed="0"` (stationary insertion; fixes the P0 high-density insertion loss).
+- **SSM enabled for the whole grid** (merged design): TTC=3.0 s, DRAC=3.0 m/s², range=50 m, greedy mirror dedup 80%, withInternal=true.
+- **FCD**: 1 s profile with leader attributes (physical THW).
+- Detailed measurement scope and report boundaries: [`EXPERIMENT_DESIGN.md`](EXPERIMENT_DESIGN.md).
+
+---
+
 ## Metric Methodology
 
 ### v0.4.2 measurement scope
 
-The v0.4.2 grid uses `withInternal="true"` edgeData, so the safety event numerator and the vehicle-kilometre denominator share the same spatial scope (whole network including junction internal edges). Emissions are accumulated under two paired scopes: the primary intensity is non-internal-edge CO₂ g / non-internal-edge veh-km (the same estimand definition as v0.4.0, so the two versions are intended to be comparable at the definition level), and a secondary whole-network intensity is reported alongside (`whole_network_*` columns). Because the acquisition pipeline, `withInternal` handling and seed design differ, the v0.4.0 and v0.4.2 grids are **not numerically interchangeable** (see [Relation to v0.4.0.post3](#relation-to-v040post3)).
+The v0.4.2 grid uses `withInternal="true"` edgeData, so the safety event numerator and the vehicle-kilometre denominator share the same spatial scope (whole network including junction internal edges). Emissions are accumulated under two paired scopes: the primary intensity is non-internal-edge CO₂ g / non-internal-edge veh-km (the same estimand definition as v0.4.0, so the two versions are intended to be comparable at the definition level), and a secondary whole-network intensity is reported alongside (`whole_network_*` columns).
 
 ### Why use SUMO SSM for TTC?
 
@@ -127,17 +210,6 @@ SUMO already knows the road topology, lane relationships and conflict participan
 ### Why normalize by vehicle-kilometres?
 
 Different vehicle counts and congestion states produce different total travelled distances. Raw event or emission totals are therefore not directly comparable.
-
-```text
-TTC event rate
-= whole-network TTC conflict count
-  / whole-network vehicle-km × 1,000
-```
-
-```text
-CO₂ intensity (primary)
-= non-internal-edge CO₂ / non-internal-edge vehicle-km
-```
 
 ### Why use `vehroute exitTimes` for lap time?
 
@@ -209,7 +281,7 @@ The parser pipeline provides:
 - atomic `summary.json` and `parse_status.json`;
 - resume support;
 - explicit parser failure semantics (fail-closed);
-- cross-metric invariant checks, including the insertion-integrity guard (actual vehicles < `vehN` → `INVALID_DATA`).
+- cross-metric invariant checks, including the insertion-integrity guard.
 
 ---
 
@@ -422,18 +494,19 @@ docs/
 ## Limitations
 
 - **FD density is nominal, flow is measured** (report boundary): the FD x-axis uses the nominal density (`vehN / lanes / 2 km`) against measured detector flow. On a closed loop with finite ring length — and on the non-uniform s0/s3 rings — this pair does not satisfy q = k·v (measured s0 k=20: q=946 vs k·v=1,980 veh/h/lane); report figures must state the dual calibration.
+- **IDM full-CAV FD high-density branch is axis-truncated**: it rises to k≈50 then plateaus — k≈50 is the grid-observed maximum (axis cap 55 = 37.5% of jam density), not a measured capacity peak.
 - **s3 efficiency metrics at k≥40 are selection-biased** (measurement-inherent): lap-time statistics only count laps with `lap_start ∈ [600, 1800−T)`; slow vehicles queued at the bottleneck tail cannot start a lap inside the window and are systematically excluded (s3 coverage k=10–30 100%, k=40 93%, k=50 68%, k=55 75% vs s2 100%). `mean/p95_lap_delay_s` are therefore systematically low at k≥40; the bottleneck-reversal conclusion relies on the robust detector flow, not on lap-efficiency numbers alone. Report quantitatively only up to k≤35 for s3 efficiency, and treat k≥40 as directional.
 - **s3 FD is a bottleneck queue–throughput relation**, not a mainline fundamental diagram; it is not directly comparable to s0/s1/s2 (chart reference lines are omitted on the s3 panel).
 - **THW is a conditioned sample** (report boundary): FCD samples without a leader (U55 endpoint 3-seed measured ≈7% at s0 v10, the largest-gap samples) are excluded from THW — `mean_thw_s` is systematically low and the `thw_lt_1s_ratio` denominator is reduced.
 - **SUMO integration mode**: the HV `actionStepLength=1.0` triggers SUMO's automatic `step-method.ballistic` (per-run stderr warning), silently changing the global integration scheme; the reference baseline was measured under the same condition.
 - **Detector speed semantics** (report boundary): detector `mean_speed` is an arithmetic mean (not harmonic) over non-zero-flow windows only; `detector_speed_window_count` is actually the non-zero-flow window count.
 - **TTC detection is threshold- and grid-limited**: s1/s2 detect TTC only at k≥35 (s1 161/1,881, s2 333/1,881 runs) under `TTC < 3.0 s`; this supersedes the earlier "zero detected" statement of the retired early grid.
+- **ACC** is supported as a third car-following model on equal footing with IDM/CACC (configuration whitelist, parsing, metrics and visualization are all ACC-aware since 2026-08; its free-flow reference is included in the artifact), but it is **not part of the formal comparison** — the v0.4.2 grid and its conclusions cover IDM vs CACC only.
 - The formal CSV carries the explicit penetration/identity columns (`realized_pcav`, `cav_count`, `hv_count`) and space-matched event-rate aliases; the historical v0.4.0~post3 legacy columns and the `requested_pcav` contract column are no longer produced on head (see the `v0.4.0.post3` tag for the archived schema).
 - The `(assignment_seed, sumo_seed)` pairs are vehicle-type assignment and SUMO stochastic realizations; endpoint penetrations deactivate the assignment dimension (sentinel 0) and keep the SUMO seed active, so endpoint replication counts do not represent independent assignment realizations.
 - Across-seed means and standard deviations are equal-weight descriptive summaries of assignment runs, not pooled exposure ratios, confidence intervals or significance tests.
 - TTC events have not yet been independently reproduced from FCD or TraCI trajectories; v0.4.1 provides the trajectory-validation tooling (FCD physical THW), and the v0.4.2 grid provides SSM-based event rates (merged into the main grid), but independent FCD/TraCI reproduction is still outstanding.
 - SSM mirror deduplication is an analysis heuristic: opposite-direction records for the same vehicle pair are matched one-to-one when their encounter intervals overlap by at least 80% of the shorter duration. SUMO provides no shared event ID for deterministic pairing, so dense consecutive encounters may still be over- or under-deduplicated; absolute event counts should not be interpreted as exact physical conflict totals.
-- ACC is supported as a third car-following model on equal footing with IDM/CACC (configuration whitelist, parsing, metrics and visualization are all ACC-aware since 2026-08; its free-flow reference is included in the artifact), but it is **not part of the formal comparison** — the v0.4.2 grid and its conclusions cover IDM vs CACC only.
 - Automated tests cover parsers, experiment configuration, RunSpec integrity, provenance, simulation state transitions, resume validation, result writing, aggregation, network metadata and representative SUMO pipelines. Regular CI does not rerun the complete formal grid (7,524 runs).
 
 ---
@@ -457,6 +530,7 @@ docs/
 |---|---|
 | [Report (中文)](docs/report.cn.md) | v0.4.2 正式实验报告（设计、管线质量、结果、综合分析、局限） |
 | [Report (English)](docs/report.en.md) | v0.4.2 formal experiment report (English) |
+| [Design baseline](EXPERIMENT_DESIGN.md) | Measurement scope, density axis, warmup calibration, memory boundary, report boundaries |
 | [Documentation index](docs/README.md) | Engineering audit, migration and release checklist |
 | `scripts/` source | Inline docstrings; see Repository Structure for module map |
 

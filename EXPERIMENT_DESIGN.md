@@ -1,10 +1,11 @@
 # 实验设计：v0.4.2 重设计（基本图方案 U55）
 
-> 状态：**配置已落地（2026-08，待正式重跑授权）**。经 P0 插入缺陷终审
-> （departSpeed="max" 致高密度插入损失）+ 交通流理论评估后，对 A 方案实验参数做
-> 重设计。设计口径已由用户确认；warmup 已由 9 档 SUMO 标定闭环（§四）；
-> `configs/v0.4.2/main.json` 已按本设计落地（7,524 runs，dry-run 通过）。
-> 正式重跑前需多轮审核（时间成本高）。
+> 状态：**正式重跑完成（2026-08，全链路产出）**。经 P0 插入缺陷终审
+> （departSpeed="max" 致高密度插入损失）+ 交通流理论评估后重设计；warmup 由
+> 9 档 SUMO 标定闭环（§四）；`configs/v0.4.2/main.json` 落地 U55（7,524 runs）。
+> **7,524 runs 全 SUCCESS**（仿真 0 失败 → 解析 0 INVALID + 插入完整性守卫通过 →
+> writer 0 排除 → 聚合 924 组 → 可视化 5 图），FD 峰位/HV→CACC 移动/s0 转角基线/
+> s3 瓶颈语义全部符合设计。
 >
 > 关联：`docs/development/v0.4.2-grid-design.md`（旧 A 方案冻结记录）、
 > `docs/development/v0.4.2-split-design.md`（合并设计）、CHANGELOG。
@@ -190,8 +191,10 @@ s3 瓶颈段（e15/e16，125 m 单车道）阻塞容量仅 ~17 辆、通行能�
 3. [x] 测试断言更新（planned_run_count=7,524 / endpoint=396 / dry-run）
 4. [x] 文档同步（grid-design / split-design / handover / README / CHANGELOG /
       AGENTS / release-checklist / DEVELOPMENT）
-5. [ ] 正式重跑 7,524 runs（红线，另行授权；重跑前多轮审核）
-6. [ ] 重跑后按 writer/aggregate/handover/inventory 链路重建结果
+5. [x] 正式重跑 7,524 runs（2026-08 完成：3 workers / 21.86 h / 0 失败，见 §六 实测）
+6. [x] 全链路重建完成：run-level（7,524×80）/ subgroup（782,496 行）/ 聚合
+      （924 组）/ 可视化（5 图）→ out/ + graph/v0.4.2/；解析产物 raw/（76 GB，
+      外部备份待用户处置）
 
 ## 九、决策记录
 

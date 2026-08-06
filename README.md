@@ -2,12 +2,15 @@
 
 > A reproducible SUMO experiment platform for evaluating how CAV penetration and car-following control affect **observed flow, safety, emissions, and reference-relative lap time** under different road constraints.
 
-`SUMO 1.27.1` · `Python 3.10+` · `7,524 simulations（U55 基本图方案）` · `v0.4.2`
+`SUMO 1.27.1` · `Python 3.10+` · `7,524 simulations · 3×3 dual seeds` · `v0.4.2`
 
-[Formal-grid Results](#v042-formal-grid-results) ·
+[Key Findings](#key-findings-v042) ·
+[Relation to v0.4.0.post3](#relation-to-v040post3) ·
 [Scenario Design](#scenario-design) ·
 [Metric Methodology](#metric-methodology) ·
 [Quick Start](#quick-start) ·
+[Report (中文)](docs/report.md) ·
+[Report (English)](docs/report.en.md) ·
 [Engineering Audit](docs/engineering/audit.md) ·
 [Migration](docs/engineering/migration.md) ·
 [Release Checklist](docs/engineering/release-checklist.md)
@@ -24,6 +27,60 @@ The project compares **IDM** and **CACC** across four progressively constrained 
 
 ---
 
+## Key Findings (v0.4.2)
+
+The v0.4.2 formal grid (**7,524 runs**, U55 fundamental-diagram design, SSM enabled across the whole grid) was fully completed in 2026-08: 3 workers / 21.86 h / 0 failures. Results below are computed from the shipped aggregate (`results/v0.4.2/main/aggregated_results.csv`, 924 groups × 329 columns); see [`docs/report.md`](docs/report.md) / [`docs/report.en.md`](docs/report.en.md) for the full analysis.
+
+**Flow.** Per-lane grid-observed peaks move with CAV penetration as designed:
+
+| Scenario | IDM peak (veh/h/lane) | @vehN / density | CACC peak (veh/h/lane) | @vehN / density |
+|---|---|---|---|---|
+| s0 (square single-lane) | 1,794 | 80 / k40 | 1,857 | 80 / k40 |
+| s1 (32-gon single-lane) | 3,918 | 100 / k50 | 4,689 | 80 / k40 |
+| s2 (dual-lane) | 3,916 (both lanes 7,833) | 200 / k50 | 4,694 (both lanes 9,387) | 160 / k40 |
+| s3 (merge bottleneck) | 1,952 (both lanes 3,903) | 80 / k20 | 1,292 (both lanes 2,583) | 60 / k15 |
+
+The FD peak shifts with penetration (s1/s2): HV-only peaks at k≈20, IDM p=1.0 at k≈50, CACC p=1.0 at k≈40 — consistent in direction with the theoretical critical densities (HV 17.4 / CAV 39.2 veh/km/lane). s0 is a corner-limited baseline: HV-only flattens at ≈940 veh/h/lane for k≥20 (the 90° turns cap throughput below the 2,400 veh/h/lane τ limit), while full-CAV reaches 1,794 (IDM) / 1,857 (CACC) at k40.
+
+**Merge-bottleneck reversal (s3).** At the top density (k=55, vehN=220, full CAV), IDM sustains 1,620 veh/h/lane with delay 182 s and CO₂ 339 g/veh-km, whereas CACC drops to 756 veh/h/lane with delay 442 s and CO₂ 633 g/veh-km — the high-density forced-merge reversal holds (TTC rate 1,328 vs 2,026 per 1,000 veh-km).
+
+**Safety.** TTC-conflict runs detected: s0 1,875/1,881 (≈100%), s1 161/1,881 (9%), s2 333/1,881 (18%), s3 1,807/1,881 (96%). s1/s2 detections concentrate at k≥35, with CACC rates above IDM (s2 CACC up to ≈2,475 vs IDM ≈2 events/1,000 veh-km). Emergency braking concentrates in s3 (14,989 events, max 44/run).
+
+**Emissions.** CO₂ intensity (non-internal-edge estimand): s0 337–462, s1 144–330, s2 146–305, s3 176–661 g/veh-km; at high densities CACC exceeds IDM on s2/s3.
+
+**Efficiency.** At the k=30 operating point (density-aligned): s0 full-CAV ≈22–25 s reference-relative lap difference, s1/s2 ≈0–8 s; s3 full-CAV IDM 72 s vs CACC 203 s (bottleneck congestion).
+
+![Capacity](graph/v0.4.2/chart_capacity.png)
+![CO2 vs flow](graph/v0.4.2/chart_co2_flow.png)
+![Fundamental diagram (main scenarios)](graph/v0.4.2/chart_fundamental_diagram.png)
+![Fundamental diagram (s3 bottleneck)](graph/v0.4.2/chart_fundamental_diagram_s3.png)
+![Lap-time delay](graph/v0.4.2/chart_delay.png)
+
+---
+
+## Relation to v0.4.0.post3
+
+v0.4.2 is the first public release after v0.4.0.post3 (the frozen 10,080-run v0.4.0 reanalysis). v0.4.1 was an internal milestone and was **not released**; its engineering outcomes are folded into v0.4.2.
+
+| Aspect | v0.4.0.post3 | v0.4.2 (U55) |
+|---|---|---|
+| Grid | 10,080 runs, requested-pCAV levels | 7,524 runs, exact `cav_count` grid (0.1 step, 11 levels) |
+| Density axis | 5–60 veh/km/lane nominal | 5–55 veh/km/lane unified (s0/s1 10–110, s2/s3 20–220) |
+| Seeds | 5 assignment seeds | 3×3 dual seeds (`assignment_seed`, `sumo_seed`) |
+| Exposure scope | Non-internal edges (safety not space-matched) | `withInternal="true"`: whole-network, space-matched safety exposure |
+| Subgroups | Model-level only | HV/CAV subgroup long table (detector/edgeData/SSM/vehroute/lanechange/stderr + FCD THW) |
+| Simulation window | `[600, 3600)` | `[600, 1800)` (warmup 600 s, validated ≤120 s stable) |
+| Insertion | `departSpeed="max"` (P0 defect: insertion loss at saturation) | `departSpeed="0"` (defect fixed; 100% insertion) |
+| Safety acquisition | Separate safety sub-grid | Merged into the main grid (SSM on for all 7,524 runs) |
+
+**Continuity.** The four-dimension evaluation framework, the s0→s1→s2→s3 scenario chain, and the core conclusions — *no globally optimal model, CACC advantage is scenario-dependent, high-density merge-bottleneck reversal* — carry over.
+
+**Definition-level comparability.** The primary CO₂ estimand (non-internal-edge CO₂ per non-internal-edge veh-km) keeps the same definition, so the two versions are comparable at the definition level. However, the acquisition pipeline, `withInternal` handling, seed design and simulation window differ — the two grids are **not numerically interchangeable**, and no cross-version numeric-consistency or change-rate inference is drawn.
+
+**Design fixes vs v0.4.0.** The exact `cav_count` grid repairs the v0.4.0 requested-pCAV discretization defect; safety exposure is now space-matched (whole-network events over whole-network veh-km); HV/CAV subgroups add penetration-level decomposition.
+
+---
+
 ## Scenario Design
 
 The four scenarios support three structured scenario comparisons:
@@ -36,57 +93,9 @@ The four scenarios support three structured scenario comparisons:
 
 *From left to right, the scenarios progressively change geometry, lane count/lateral freedom, and merge constraints. These comparisons do not isolate a single causal factor.*
 
----
-
-## v0.4.2 Formal-grid Results（历史观测记录）
-
-> **2026-08 数据状态**：v0.4.0 与 v0.4.2 历史数据已全部清空（用户拍板，外部备份
-> 保留）——`raw_v0.4.2/`（33 GB）、`results/v0.4.2/`、`graph/v0.4.2/`、`docs/report.md`
-> 已删除；仓库为纯工具链 + 未来重跑定义。下文数值为历史观测记录，供设计参考，
-> 未来重跑（main 全开 SSM 采集）后更新。
-
-v0.4.2 (jump release) ran a formal grid independent of the v0.4.0 historical
-baseline: an **7,524-run main factorial covering all four evaluation dimensions**
-(flow, safety, emissions, efficiency). **2026-08 U55 重设计（内存约束修订）**：
-vehN 轴按场景密度对齐——s0/s1（单车道 2.0 km）10–110 步 10、s2/s3（双车道
-2.0 km）20–220 步 20（每道 5–55 veh/km/道，上限 55 由 s2 SSM 内存边界
-v220=22.67 GiB 实测约束，仍覆盖临界与拥堵区中段以呈现基本图）；每档 cav_count 0.1 步长 11 档（全整数）；每 treatment 171 runs（interior
-9 档×2 模型×3×3 =162 + cav=0: 3 + cav=vehN: 6），每场景 1,881、总计 7,524。
-**2026-08 合并设计**：
-安全维度并入主网格（main 全开 SSM 采集）；旧的独立 safety experiment（84 runs）
-板块已取消。s3 路网为 v0.3.1 几何（32 边形、主线双车道、e15/e16 单车道 125 m
-瓶颈），由 net.json 元数据驱动。
-
-### Main factorial
-
-Key grid-observed results at the corresponding operating points:
-
-- **s2, CACC, pCAV=1.0, vehN=120**: grid-observed maximum flow **7,128 veh/h**
-  (IDM 6,276 veh/h, +13.6%);
-- **s3, vehN=120, pCAV=1.0**: IDM **3,204 veh/h** / CACC 1,536 veh/h — the
-  high-density merge-bottleneck reversal holds (IDM ≈ 2.1× CACC flow and
-  a much smaller reference-relative lap time);
-- scenario grid-observed peaks: s0 1,856.4, s1 4,178.4 (CACC, vehN=70),
-  s2 7,128, s3 3,902.4 veh/h.
-
-### Safety dimension (merged into the main grid)
-
-- **安全维度随主网格采集**（合并设计 2026-08）；旧的独立 safety 板块（84 runs、
-  单 seed pair）已取消——每格安全指标将获得与流量/排放同等的 3×3 seed 统计强度；
-- **s1/s2 TTC 检出（U55 实测，2026-08）**：s1 161/1,881、s2 333/1,881 runs
-  检出 TTC 事件，且**仅集中在高密度档（k≥35）**——旧网格 "s1/s2 zero detected
-  TTC" 仅适用于已清空的 v0.4.2 早期网格（单 seed、密度轴未达高密度区）；
-  检出受 `TTC < 3.0 s` 阈值、SUMO 1.27.1 与配置的 SSM 参数限制，不是
-  "no conflict" 断言；
-- SSM-on sampled peak RSS by scenario: s0 6.52 / s1 1.81 / s2 8.91 /
-  s3 1.50 GiB (global peak 9,342,124 KiB @ s2_CACC_v120_c120) — historical
-  observation context, not a hard budget;
-- the subgroup table (HV/CAV) is a single-point (vehN=120, cav=96)
-  descriptive summary and cannot decompose model-difference causes.
+s0/s1 are single-lane 2.0 km loops, s2/s3 dual-lane 2.0 km loops. vehN axes are density-aligned (s0/s1 10–110 step 10; s2/s3 20–220 step 20 → 5–55 veh/km/lane per lane). s3 uses the v0.3.1 geometry (32-gon, single-lane 125 m bottleneck on e15/e16) driven by `net.json` metadata; its fundamental diagram is a **bottleneck queue–throughput relation**, not a mainline fundamental diagram, and is charted separately.
 
 ---
-
-
 
 ## Why This Matters
 
@@ -97,33 +106,19 @@ This project extends the evaluation framework to four dimensions:
 | Dimension | Primary metric | Supporting metrics |
 |---|---|---|
 | Flow performance | Traffic flow and maximum observed flow within the tested grid | Mean speed and temporal speed variance |
-| Safety | TTC conflicts per 1,000 non-internal-edge veh-km | Minimum TTC, DRAC, emergency braking and lane-change gaps |
+| Safety | TTC conflicts per 1,000 whole-network veh-km | Minimum TTC, DRAC, emergency braking and lane-change gaps |
 | Emissions | CO₂ g/non-internal-edge veh-km | NOx, PMx and fuel consumption |
 | Efficiency | Mean lap-time difference from fixed reference | P95 reference difference, lap-time variation and time loss |
-
-All safety and emission intensity metrics use `total_vehicle_km` from edgeData over `[600, 1800)` (U55 观测窗). The historical additional file used SUMO's default `withInternal="false"`: the denominator excludes junction internal edges, while SSM events are not restricted to the same edge subset. Consequently, normalized safety values are **whole-network events divided by non-internal-edge exposure**, not fully space-matched event rates. Emission numerator and denominator are mutually matched but both represent non-internal edges.
 
 The results indicate that **no single car-following model is globally optimal across road structures**. CACC performs strongly in smooth and unconstrained environments, while its high-throughput regime can deteriorate under forced merging.
 
 ---
 
-
-
 ## Metric Methodology
 
 ### v0.4.2 measurement scope
 
-The v0.4.2 grid uses `withInternal="true"` edgeData, so the safety event
-numerator and the vehicle-kilometre denominator share the same spatial scope
-(whole network including junction internal edges). Emissions are accumulated
-under two paired scopes: the primary intensity is non-internal-edge
-CO₂ g / non-internal-edge veh-km (the same estimand definition as v0.4.0, so
-the two versions are intended to be comparable at the definition level), and
-a secondary whole-network intensity is reported alongside (`whole_network_*`
-columns in the run-level and aggregated CSVs). Because the acquisition
-pipeline, `withInternal` handling and seed design differ, the v0.4.0 and
-v0.4.2 grids are **not numerically interchangeable**: no cross-version
-numeric-consistency or change-rate inference is drawn between them.
+The v0.4.2 grid uses `withInternal="true"` edgeData, so the safety event numerator and the vehicle-kilometre denominator share the same spatial scope (whole network including junction internal edges). Emissions are accumulated under two paired scopes: the primary intensity is non-internal-edge CO₂ g / non-internal-edge veh-km (the same estimand definition as v0.4.0, so the two versions are intended to be comparable at the definition level), and a secondary whole-network intensity is reported alongside (`whole_network_*` columns). Because the acquisition pipeline, `withInternal` handling and seed design differ, the v0.4.0 and v0.4.2 grids are **not numerically interchangeable** (see [Relation to v0.4.0.post3](#relation-to-v040post3)).
 
 ### Why use SUMO SSM for TTC?
 
@@ -136,22 +131,17 @@ Different vehicle counts and congestion states produce different total travelled
 ```text
 TTC event rate
 = whole-network TTC conflict count
-  / non-internal-edge vehicle-km × 1,000
+  / whole-network vehicle-km × 1,000
 ```
 
-This is the historical post3 normalization label, not a fully space-matched
-full-network risk rate.
-
 ```text
-CO₂ intensity
+CO₂ intensity (primary)
 = non-internal-edge CO₂ / non-internal-edge vehicle-km
 ```
 
 ### Why use `vehroute exitTimes` for lap time?
 
-In a closed-loop network, unfinished trip duration represents the time a vehicle exists in the simulation, not the duration of one completed lap.
-
-Lap times are reconstructed from successive route-edge exit times.
+In a closed-loop network, unfinished trip duration represents the time a vehicle exists in the simulation, not the duration of one completed lap. Lap times are reconstructed from successive route-edge exit times.
 
 ### Why distinguish `0` and `NaN`?
 
@@ -166,14 +156,11 @@ Detailed definitions are documented in the source (see `scripts/schema.py` for f
 
 ## Reproducible Pipeline
 
-> 管线架构示意；规模数字为 v0.4.0 历史网格（10,080 runs / 6 workers / 17 h）锚点。
-> v0.4.2 U55 为 7,524 runs（架构相同，预计 ~24 h / 3 workers——内存约束下固定并发最优）。
-
 ```text
-10,080 RunSpec
+7,524 RunSpec
         │
         ▼
-6-worker parallel SUMO
+3-worker parallel SUMO (staggered memory scheduling)
         │
         ▼
 independent run directories
@@ -182,7 +169,7 @@ independent run directories
 serial seven-parser pipeline
         │
         ▼
-summary.json × 10,080
+summary.json × 7,524
         │
         ▼
 single result writer
@@ -191,7 +178,7 @@ single result writer
 run_level_results.csv
         │
         ▼
-five-seed aggregation
+nine-seed-pair aggregation
         │
         ▼
 aggregated_results.csv
@@ -202,45 +189,44 @@ publication figures
 
 | Stage | Main function | Wall time |
 |---|---|---:|
-| Parallel simulation | Six concurrent SUMO processes | ~17 h |
-| Serial parsing | Seven parsers and invariant validation | 13.5 min |
-| Result writer | 10,080 summaries → run-level CSV | ~2 s |
-| Five-seed aggregation | 10,080 rows → 2,016 groups | ~1 s |
+| Parallel simulation | Three concurrent SUMO processes (3 workers fixed under the memory constraint) | 21.86 h (SUMO cumulative 65.53 h, parallel efficiency 3.00) |
+| Serial parsing | Seven parsers and invariant validation (insertion-integrity guard) | — |
+| Result writer | 7,524 summaries → run-level CSV | — |
+| Aggregation | 924 groups (interior n=9, endpoint n=3) | — |
 
 The simulation scheduler provides:
 
 - deterministic `run_id` generation;
 - isolated output directories;
-- resume support;
+- resume support with input SHA-256 integrity checks;
 - atomic status files;
-- timeout and cancellation handling;
-- heavy-task-first scheduling.
+- timeout and cancellation handling (SIGINT → CANCELLED);
+- staggered heavy-task-first scheduling (memory-aware, prevents OOM batches).
 
 The parser pipeline provides:
 
 - serial low-memory XML parsing;
 - atomic `summary.json` and `parse_status.json`;
 - resume support;
-- explicit parser failure semantics;
-- seven cross-metric invariant checks.
+- explicit parser failure semantics (fail-closed);
+- cross-metric invariant checks, including the insertion-integrity guard (actual vehicles < `vehN` → `INVALID_DATA`).
 
 ---
 
-## Data Quality（历史观测，2026-08 数据已清空）
+## Data Quality
 
 ```text
-3,888 / 3,888  main-factorial simulations completed (SUCCESS)   ← 历史观测
-528 / 528      main aggregated groups                           ← 历史观测
-441            automated tests passed（当前门禁基线）
+7,524 / 7,524  main-factorial simulations completed (SUCCESS)
+3 / 21.86 h    3 workers / 21.86 h wall clock, 0 failures
+0              INVALID parses (insertion-integrity guard passed)
+0              writer exclusions
+924            aggregated groups (4 scenarios × 11 vehN × 21 per-vehN)
+447            automated tests passed (current gate baseline)
 0              duplicate run IDs
-0              parser failures
 0              invariant violations
 ```
 
-> 前三行为 v0.4.2 旧网格（3,888）历史数据质量记录（数据已清空）；当前设计为
-> U55 7,524 runs（s0/s1 单车道 10–110、s2/s3 双车道 20–220 统一密度轴，main
-> 全开 SSM——合并设计）。当前仓库以 441 tests 门禁为基线；未来重跑后按相同
-> 链路重新记录。
+Peak SSM memory (worst cell, s2 v220 full CAV): **13.64 GiB** under the 1,200 s observation window; raw output 76 GB (≈10.1 GB per 1,000 runs). Measured on a 32 GB host with WSL2 `memory=24GB, processors=16, swap=8GB`, SUMO 1.27.1.
 
 The testing strategy contains three levels:
 
@@ -277,17 +263,13 @@ python -m pip install --no-deps -e .
 
 SUMO remains a system dependency and is not part of the Python lock file.
 
-Compile the four ignored/generated SUMO network files from the tracked
-node/edge sources before running a simulation:
+Compile the four ignored/generated SUMO network files from the tracked node/edge sources before running a simulation:
 
 ```bash
 python3 -m scripts.simulation.network_generator --build-all
 ```
 
-With SUMO/netconvert 1.27.1, this reproduces the network XML used by the
-v0.4.2 experiment apart from generation metadata such as timestamp and output
-path. Scenario 3 is built from its tracked bottleneck-specific edge source; it
-is not reconstructed from an undocumented manual edit.
+With SUMO/netconvert 1.27.1, this reproduces the network XML used by the v0.4.2 experiment apart from generation metadata such as timestamp and output path. Scenario 3 is built from its tracked bottleneck-specific edge source.
 
 ### Run the quality gates
 
@@ -302,7 +284,7 @@ python -m compileall -q scripts tests
 Expected result:
 
 ```text
-441 passed
+447 passed
 ```
 
 ### Run one simulation
@@ -315,14 +297,10 @@ python3 -m scripts.simulation.single_run \
   --net net/scenario_2/loop.net.xml
 ```
 
-### Regenerate the v0.4.2 figures
-
-Two separate commands (option spelling is case-sensitive `--outDir`); output
-directories are written to `/tmp` by default below so the Git-tracked figures
-under `graph/v0.4.2/` are not overwritten:
+### Inspect or regenerate the v0.4.2 figures
 
 ```bash
-# main-factorial figures (capacity / CO2-flow / delay)
+# regenerate all five main-factorial figures to /tmp (option spelling is case-sensitive --outDir)
 python3 -m scripts.results.visualization \
   --aggregated results/v0.4.2/main/aggregated_results.csv \
   --v4-2 --outDir /tmp/v042-figs/main
@@ -332,7 +310,7 @@ python3 -m scripts.results.visualization \
 <summary><strong>Full formal-grid reproduction workflow</strong></summary>
 
 ```bash
-# Stage 1: parallel SUMO simulation
+# Stage 1: parallel SUMO simulation (3 workers = memory-optimal concurrency)
 python3 -m scripts.simulation.batch_run \
   --config configs/v0.4.2/main.json \
   --sumo-processes 3 \
@@ -359,43 +337,26 @@ python3 -m scripts.results.aggregate \
 
 </details>
 
-> 纯净分支说明：`reanalyze_post3.py`（v0.4.0.post3 重分析工具）已随
-> v0.4.0~post3 兼容支持移除。历史 post3 数据的复现/重分析需 checkout
-> `v0.4.0.post3` tag（该 tag 保留完整工具链）。
-
-**Hardware guidance for `--sumo-processes`.** SUMO processes are CPU-bound and memory-hungry—each loads the network independently and writes raw XML output. RAM is the binding constraint; s3 at vehN=120 is the worst case per process. Before launching a full grid, check your machine:
+**Hardware guidance for `--sumo-processes` (measured on the 2026-08 U55 run).** SUMO processes are CPU-bound and memory-hungry — each loads the network independently and writes raw XML output. RAM is the binding constraint; the worst cell (s2 v220 full CAV) peaks at **13.64 GiB** per process under the 1,200 s observation window. Before launching a full grid, check your machine:
 
 | Resource | Rule of thumb | Check |
 |---|---|---|
-| RAM | Budget **2 GB per SUMO process** for headroom (s3 vehN=120 can spike); total SUMO memory must fit within *available* RAM | `free -h` (look at the `available` column) |
+| RAM | Budget **≥14 GB per SSM-on SUMO process at the highest density** (13.64 GiB measured peak); total must fit within *available* RAM | `free -h` (look at the `available` column) |
 | CPU | `--sumo-processes ≤ nproc − 2` (reserve at least two logical cores for the OS and the Python parent) | `nproc` |
-| Disk | ~6 GB per 1,000 runs with the default compact SSM output (`--device.ssm.trajectories=false`); the v0.4.0 experiment previously produced 423 GB in total (~42 GB per 1,000 runs) when full SSM trajectories were explicitly enabled | `df -h <output-root>` |
+| Disk | ≈10.1 GB per 1,000 runs with SSM on + FCD 1s (`--device.ssm.trajectories=false`); the v0.4.2 grid produced 76 GB total | `df -h <output-root>` |
 | I/O | Run directories are independent (no file conflicts), but a spinning disk may bottleneck at high concurrency | SSD strongly recommended |
 
-**Pick your concurrency from available RAM** (CPU is rarely the bottleneck first):
-
-| Available RAM | Safe `--sumo-processes` | Example machine |
-|---|---|---|
-| 8 GB | 1–2 | lightweight laptop |
-| 12–16 GB | 2–4 | typical dev laptop / small desktop |
-| 24–32 GB | 4–8 | workstation |
-| 48+ GB | 8–12 | server |
-
-Always run with `--resume` from the first launch—it costs nothing on a clean start and lets you recover from OOM kills or power loss without repeating completed work. If SUMO processes exit with non-zero codes at high vehicle counts (typically s3 vehN ≥ 100), cut `--sumo-processes` in half and resume; the offending runs will be re-attempted with less memory pressure.
+Always run with `--resume` from the first launch—it costs nothing on a clean start and lets you recover from OOM kills or power loss without repeating completed work. If a batch of SUMO processes exits with non-zero codes (typically s2 high-density cells on a memory-constrained host), cut `--sumo-processes` and resume; the offending runs are re-attempted with less memory pressure (v220-class cells may need single-worker completion).
 
 ---
 
-## Data Availability（2026-08 数据已清空）
+## Data Availability
 
-> v0.4.0 与 v0.4.2 历史数据已全部删除（用户拍板，外部备份保留）：
-> `raw_v0.4.2/`（33 GB raw + 解析产物）、`results/v0.4.2/`（聚合/证据链/分析）、
-> `graph/v0.4.2/`（图）、`docs/report.md`（v0.4.0 报告）、`raw/`（v0.4.1 pilot）、
-> `routes/`（生成物）均已移除。仓库当前为纯工具链 + 未来重跑定义：
-> `configs/v0.4.2/main.json`（7,524 runs，U90 近阻塞密度轴，含 SSM 采集——2026-08
-> 合并设计）为未来重跑的实验定义；`artifacts/free_flow/` 自由流参考保留（解析
-> 输入依赖）。未来重跑后，数据将按既有 writer / aggregate / handover / inventory
-> 链路重新产生并归档。
-
+- **Shipped in the repository**: `results/v0.4.2/main/aggregated_results.csv` (924 groups × 329 columns; 3.1 MB) — the publication-level aggregate of the 7,524-run U55 grid.
+- **External backup** (not in Git): `raw/` (76 GB, per-run simulation + parse artifacts), run-level and subgroup CSVs, and the full per-run evidence chain. Regenerate run-level/subgroup outputs from `raw/` via the writer/aggregate pipeline shown in the [full reproduction workflow](#quick-start).
+- **Figures**: `graph/v0.4.2/` (5 charts, tracked).
+- **Reports**: [`docs/report.md`](docs/report.md) (中文) and [`docs/report.en.md`](docs/report.en.md) (English).
+- The 2026-08 cleanup deleted historical v0.4.0 and earlier-v0.4.2 data (external backup retained); the U55 grid is the current sole formal grid.
 
 ---
 
@@ -434,13 +395,22 @@ tests/
 ├── test_edge_emissions_parser.py
 └── run_tests.py
 
-results/          （2026-08 数据清空后为空；未来重跑后由 writer/aggregate 重建）
+results/
+└── v0.4.2/main/aggregated_results.csv
 
 graph/
-└── scenario_overview.png
+├── scenario_overview.png
+└── v0.4.2/
+    ├── chart_capacity.png
+    ├── chart_co2_flow.png
+    ├── chart_fundamental_diagram.png
+    ├── chart_fundamental_diagram_s3.png
+    └── chart_delay.png
 
 docs/
 ├── README.md
+├── report.md
+├── report.en.md
 └── engineering/
     ├── audit.md
     ├── migration.md
@@ -451,38 +421,20 @@ docs/
 
 ## Limitations
 
-- The formal CSV carries the explicit penetration/identity columns
-  (`realized_pcav`, `cav_count`, `hv_count`) and space-matched
-  event-rate aliases; the historical v0.4.0~post3 legacy columns and the
-  `requested_pcav` contract column are no longer produced on head (see the
-  `v0.4.0.post3` tag for the archived schema; `requested_pcav` remains only
-  as an internal `RunSpec` field for re-parsing archived raw runs).
-- The `(assignment_seed, sumo_seed)` pairs are vehicle-type assignment and
-  SUMO stochastic realizations; endpoint penetrations deactivate the
-  assignment dimension (sentinel 0) and keep the SUMO seed active, so endpoint
-  replication counts do not represent independent assignment realizations.
-- Across-seed means and standard deviations are equal-weight descriptive
-  summaries of assignment runs, not pooled exposure ratios, confidence
-  intervals or significance tests.
-- The v0.4.2 formal grid provides HV/CAV subgroup results (run-level subgroup
-  long table + aggregated subgroup metrics, detector/edgeData/SSM/vehroute/
-  lanechange/stderr + FCD physical THW).
-- The absence of detected TTC conflicts in s2 applies only to the current `TTC < 3.0 s` threshold and tested parameter grid; the U55 grid (2026-08) does detect TTC in s1/s2 at high densities (k≥35), so the earlier "zero detected" statement is superseded for the formal grid.
-- ACC is supported by earlier project versions but is not part of the formal
-  comparison.
+- **FD density is nominal, flow is measured** (report boundary): the FD x-axis uses the nominal density (`vehN / lanes / 2 km`) against measured detector flow. On a closed loop with finite ring length — and on the non-uniform s0/s3 rings — this pair does not satisfy q = k·v (measured s0 k=20: q=946 vs k·v=1,980 veh/h/lane); report figures must state the dual calibration.
+- **s3 efficiency metrics at k≥40 are selection-biased** (measurement-inherent): lap-time statistics only count laps with `lap_start ∈ [600, 1800−T)`; slow vehicles queued at the bottleneck tail cannot start a lap inside the window and are systematically excluded (s3 coverage k=10–30 100%, k=40 93%, k=50 68%, k=55 75% vs s2 100%). `mean/p95_lap_delay_s` are therefore systematically low at k≥40; the bottleneck-reversal conclusion relies on the robust detector flow, not on lap-efficiency numbers alone. Report quantitatively only up to k≤35 for s3 efficiency, and treat k≥40 as directional.
+- **s3 FD is a bottleneck queue–throughput relation**, not a mainline fundamental diagram; it is not directly comparable to s0/s1/s2 (chart reference lines are omitted on the s3 panel).
+- **THW is a conditioned sample** (report boundary): FCD samples without a leader (measured ≈19% at s0 v10, the largest-gap samples) are excluded from THW — `mean_thw_s` is systematically low and the `thw_lt_1s_ratio` denominator is reduced.
+- **SUMO integration mode**: the HV `actionStepLength=1.0` triggers SUMO's automatic `step-method.ballistic` (per-run stderr warning), silently changing the global integration scheme; the reference baseline was measured under the same condition.
+- **Detector speed semantics** (report boundary): detector `mean_speed` is an arithmetic mean (not harmonic) over non-zero-flow windows only; `detector_speed_window_count` is actually the non-zero-flow window count.
+- **TTC detection is threshold- and grid-limited**: s1/s2 detect TTC only at k≥35 (s1 161/1,881, s2 333/1,881 runs) under `TTC < 3.0 s`; this supersedes the earlier "zero detected" statement of the retired early grid.
+- The formal CSV carries the explicit penetration/identity columns (`realized_pcav`, `cav_count`, `hv_count`) and space-matched event-rate aliases; the historical v0.4.0~post3 legacy columns and the `requested_pcav` contract column are no longer produced on head (see the `v0.4.0.post3` tag for the archived schema).
+- The `(assignment_seed, sumo_seed)` pairs are vehicle-type assignment and SUMO stochastic realizations; endpoint penetrations deactivate the assignment dimension (sentinel 0) and keep the SUMO seed active, so endpoint replication counts do not represent independent assignment realizations.
+- Across-seed means and standard deviations are equal-weight descriptive summaries of assignment runs, not pooled exposure ratios, confidence intervals or significance tests.
 - TTC events have not yet been independently reproduced from FCD or TraCI trajectories; v0.4.1 provides the trajectory-validation tooling (FCD physical THW), and the v0.4.2 grid provides SSM-based event rates (merged into the main grid), but independent FCD/TraCI reproduction is still outstanding.
-- SSM mirror deduplication is an analysis heuristic: opposite-direction records
-  for the same vehicle pair are matched one-to-one when their encounter
-  intervals overlap by at least 80% of the shorter duration. SUMO provides no
-  shared event ID for deterministic pairing, so dense consecutive encounters
-  may still be over- or under-deduplicated; absolute event counts should not be
-  interpreted as exact physical conflict totals.
-- v0.4.1 adds model-specific free-flow references (HV/IDM/CACC) as validated
-  artifacts (D-008); the reference table itself remains as published.
-- Automated tests cover parsers, experiment configuration, RunSpec integrity,
-  provenance, simulation state transitions, resume validation, result writing,
-  aggregation, network metadata and representative SUMO pipelines. Regular CI
-  does not rerun the complete formal grid (7,524 runs).
+- SSM mirror deduplication is an analysis heuristic: opposite-direction records for the same vehicle pair are matched one-to-one when their encounter intervals overlap by at least 80% of the shorter duration. SUMO provides no shared event ID for deterministic pairing, so dense consecutive encounters may still be over- or under-deduplicated; absolute event counts should not be interpreted as exact physical conflict totals.
+- ACC is supported by earlier project versions but is not part of the formal comparison.
+- Automated tests cover parsers, experiment configuration, RunSpec integrity, provenance, simulation state transitions, resume validation, result writing, aggregation, network metadata and representative SUMO pipelines. Regular CI does not rerun the complete formal grid (7,524 runs).
 
 ---
 
@@ -492,23 +444,10 @@ docs/
 |---|---|
 | v0.4.0.post3 | Unified observation-window reanalysis of the frozen 10,080-run grid (historical public release; head no longer ships v0.4.0~post3 code support) |
 | v0.4.1 | Measurement and experimental-design upgrade: HV/CAV subgroup metrics, physical THW, compact FCD/TraCI validation, TTC threshold sensitivity, space-matched exposure, independent SUMO/assignment seeds, model-specific free-flow references, and a bounded pilot (internal milestone, **not released**; engineering outcomes folded into v0.4.2) |
-| v0.4.2 | Formal grid (jump release): main factorial **7,524 runs**（U90
-  v0.3.1 密度对齐，s0/s1 10–120 + s2/s3 20–240；main 全开 SSM——2026-08
-  合并设计） |
+| **v0.4.2** | **Formal grid (jump release, current): 7,524-run U55 main factorial — unified density axis 5–55 veh/km/lane, SSM enabled for the full grid, departSpeed="0", 3×3 dual seeds, observation window [600, 1800); results shipped in `results/v0.4.2/main/`** |
 | v0.5.0 | Real-trajectory-driven car-following model calibration and simulation validation |
 | v0.6.0 | TraCI-based dynamic traffic control |
 | v0.7.0 | CACC communication degradation, including packet loss and latency |
-
-v0.4.1 delivered the measurement toolchain; its micro-pilot Level 1 (10 runs)
-passed, and Level 2 bounded factorial pilot (162 runs) was completed but failed
-the original resource gate (SSM memory exceeded 2 GiB at high density). The
-v0.4.0 10,080-run grid was not re-run. v0.4.2 (jump release) formal grid is the
-**7,524-run U90 main factorial (2026-08, near-jam-density axis) with SSM
-enabled for the full grid** — safety dimension merged into the main grid (2026-08
-merge decision); s0/s1 single-lane 10–180, s2/s3 dual-lane 20–360 (5–90 veh/km/lane,
-cap 90 ≈ 68% jam density to render the capacity fundamental diagram),
-cav_count 11 levels at 0.1 step, 171 runs/treatment, 1,881 runs/scenario
-(see [Data Availability](#data-availability)).
 
 ---
 
@@ -516,8 +455,10 @@ cav_count 11 levels at 0.1 step, 171 runs/treatment, 1,881 runs/scenario
 
 | Document | Purpose |
 |---|---|
+| [Report (中文)](docs/report.md) | v0.4.2 正式实验报告（设计、管线质量、结果、综合分析、局限） |
+| [Report (English)](docs/report.en.md) | v0.4.2 formal experiment report (English) |
 | [Documentation index](docs/README.md) | Engineering audit, migration and release checklist |
-| `scripts/` source | Inline docstrings; see § Repository Structure below for module map |
+| `scripts/` source | Inline docstrings; see Repository Structure for module map |
 
 ---
 

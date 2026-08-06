@@ -94,6 +94,9 @@ python3 -m scripts.results.visualization \
 > ——FD 峰位/HV→CACC 移动/s0 转角基线/s3 瓶颈语义全部符合设计）。产物：
 > out/（run-level 7,524×80、subgroup 782,496 行、aggregated 924 组）、
 > graph/v0.4.2/（5 图）、raw/（76 GB，外部备份待处置）。
+> **2026-08 发布承接完成（管线审查第五轮）**：aggregated CSV 已 ship 至
+> `results/v0.4.2/main/`（924 组 × 329 列，跟踪文件）；报告 `docs/report.md`
+> （中文）+ `docs/report.en.md`（英文）；README 重写为 U55 正式口径。
 > 旧 A 方案 8,208 为上一版设计（已取代）。
 > 公开基线为 v0.4.0.post3；**2026-08 数据清空**：v0.4.0 与 v0.4.2 历史数据
 > （raw_v0.4.2/ 34 GB、raw/、results/v0.4.2/、graph/v0.4.2/、docs/report.md）已删

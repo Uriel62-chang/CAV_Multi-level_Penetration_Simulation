@@ -6,6 +6,17 @@
 > 门禁；D-012–D-015 技术证据已闭合、治理状态未闭合，本地 tag 已删）。其全部工程成果
 > 并入本版发布说明。本版为 v0.4.0.post3 之后的下一公开版本。
 
+### 发布状态（2026-08，正式发布完成）
+
+- **结果 ship**：`results/v0.4.2/main/aggregated_results.csv`（924 组 × 329 列）
+  纳入公开仓库；raw 76 GB / run-level / subgroup 留外部备份。
+- **报告**：`docs/report.md`（中文）+ `docs/report.en.md`（英文）正式实验报告；
+  README 重写为 U55 正式口径（英文），挂 `graph/v0.4.2/` 5 图。
+- **管线审查四轮收敛**：无 P0/P1 代码逻辑缺陷（2 项 P2 已修复；遗留 P1 为 s3 k≥40
+  效率指标测量固有限制，已量化 + 报告层强制指令文档化闭环）。
+- **发布动作（用户手动）**：tag v0.4.2、push main + tag、GitHub release——按
+  `docs/engineering/release-checklist.md` 执行。
+
 ### 2026-08 U55 重设计 + 正式重跑完成（基本图方案，全链路产出）
 
 - **实验参数重设计**（P0 插入缺陷终审 + 交通流理论评估驱动，内存约束修订）：
@@ -65,8 +76,10 @@
 
 ### 测试与门禁
 
-- **441 tests（2026-08 合并设计 + A 方案后基线 440；收敛审核 Phase 2 增补 subgroup
-  解析质量门禁回归测试 → 441）**；Ruff / mypy / compileall / format 全通过
+- **447 tests（当前基线）：441（2026-08 合并设计 + A 方案后基线 440；收敛审核
+  Phase 2 增补 subgroup 解析质量门禁回归测试 → 441）→ 445（管线审查基线）→
+  447（管线审查 P2-1/P2-2 回归测试 2 条）**；Ruff / mypy / compileall / format
+  全通过
 - 纯净分支重构（draft/pure-v042）：移除 v0.4.0~post3 兼容支持——schema=1 契约
   （RUN_LEVEL_COLUMNS/SUMMARY_REQUIRED_KEYS/_build_row_legacy）、PIPELINE_V4_0_POST1
   （_from_dict_legacy/默认值/白名单）、reanalyze_post3.py、FREE_FLOW_LAP_TIME_S

@@ -60,6 +60,16 @@ jobs:
             --config configs/smoke.json \
             --output-root /tmp/cav-smoke \
             --sumo-processes 1
+      - name: Diagnose smoke failure
+        if: failure()
+        run: |
+          RUN_DIR=/tmp/cav-smoke/s0_IDM_v010_c005_as01_ss101
+          echo "=== simulation_status.json ==="
+          cat "$RUN_DIR/simulation_status.json"
+          echo "=== stderr.log (tail 40) ==="
+          tail -40 "$RUN_DIR/stderr.log"
+          echo "=== sumo version ==="
+          sumo --version | head -2
       - name: Verify smoke artifacts
         run: |
           python -m scripts.parsing.batch --input-root /tmp/cav-smoke

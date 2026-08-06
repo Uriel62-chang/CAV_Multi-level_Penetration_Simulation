@@ -193,7 +193,7 @@ The FD peak shifts with penetration (s1/s2): HV-only k≈20 → CACC p=1.0 k≈4
 - **Insertion**: `departSpeed="0"` (stationary insertion; fixes the P0 high-density insertion loss).
 - **SSM enabled for the whole grid** (merged design): TTC=3.0 s, DRAC=3.0 m/s², range=50 m, greedy mirror dedup 80%, withInternal=true.
 - **FCD**: 1 s profile with leader attributes (physical THW).
-- Detailed measurement scope and report boundaries: [`EXPERIMENT_DESIGN.md`](EXPERIMENT_DESIGN.md).
+- Detailed design rationale, measurement scope and report boundaries: see Report §2 / §8 ([中文](docs/report.cn.md) / [English](docs/report.en.md)).
 
 ---
 
@@ -532,7 +532,6 @@ docs/
 |---|---|
 | [Report (中文)](docs/report.cn.md) | v0.4.2 正式实验报告（设计、管线质量、结果、综合分析、局限） |
 | [Report (English)](docs/report.en.md) | v0.4.2 formal experiment report (English) |
-| [Design baseline](EXPERIMENT_DESIGN.md) | Measurement scope, density axis, warmup calibration, memory boundary, report boundaries |
 | [Documentation index](docs/README.md) | Engineering audit, migration and release checklist |
 | `scripts/` source | Inline docstrings; see Repository Structure for module map |
 

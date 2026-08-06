@@ -35,7 +35,17 @@ v0.4.1 completed the measurement-chain upgrade (HV/CAV subgroups, FCD physical t
 
 ## 2. Experimental Design
 
-### 2.1 Scenario chain
+### 2.1 Design rationale (user-confirmed, 2026-08)
+
+1. **Density cap at near-jam density (not full blockage)** — to render the
+   fundamental-diagram shape (mountain + right-skewed tail) without measuring the
+   fully stalled regime.
+2. **`departSpeed="0"`** — stationary insertion so a stable flow forms before
+   warmup ends; the closed-loop network mirrors real high-grade roads.
+3. **Warmup duration set jointly with ②** — determined by SUMO measurement
+   (§2.3), not by formula.
+
+### 2.2 Scenario chain
 
 | Scenario | Geometry | Lanes | Ring | Design contrast |
 |---|---|---|---|---|
@@ -49,7 +59,25 @@ v0.4.1 completed the measurement-chain upgrade (HV/CAV subgroups, FCD physical t
 - **Density axis**: unified 5–55 veh/km/lane (s0/s1 single-lane vehN 10–110 step 10; s2/s3 dual-lane vehN 20–220 step 20); the cap of 55 is set by the measured s2 SSM memory boundary (v220 probe 22.67 GiB).
 - **Penetration**: cav_count 0.1 step, 11 levels (all integers; endpoint assignment deactivated by sentinel).
 - **Seeds**: 3 × 3 dual seeds (assignment_seed × sumo_seed; interior n=9, endpoint n=3).
-- **Simulation window**: warmup=600 s (9-cell calibration stable ≤120 s), simulation_end=1800 s, observation window [600, 1800).
+- **Simulation window**: warmup=600 s (9-cell measured calibration stable ≤120 s,
+  see table below), simulation_end=1800 s, observation window [600, 1800).
+
+**Warmup calibration (2026-08, 9 cells measured under `departSpeed="0"`, FCD 1 s)**:
+
+| Cell | Density / composition | Steady-state mean speed | Stable by |
+|---|---|---|---|
+| s0 v20 | 10 veh/km/lane, HV free-flow | 16.1 m/s (14–18 spread) | ≤120 s |
+| s2 v160 | 40, HV mid-density | 10.3 m/s (very stable) | ≤120 s |
+| s2 v240 | 60, HV | 5.2 m/s | ≤120 s |
+| s2 v240 c0.5 | 60, HV/CAV mixed | 8.9 m/s | ≤120 s |
+| s2 v360 | 90, HV | 1.9 m/s | ≤120 s |
+| s3 v240 | 60, HV bottleneck | 2.7 m/s (1.6–3.0 spread) | ≤120 s |
+| s3 v360 | 90, HV bottleneck | 1.6 m/s (spread) | ≤120 s |
+| s0/s1 v180 | 90, HV | 1.9 m/s | ≤120 s |
+
+(All ≤120 s to steady state, 120 s sampling; warmup=600 s gives 5× headroom; the
+"mid-density is slower" hypothesis was refuted — s2 v160 is the most stable;
+CAV mixing stabilizes no slower than pure HV.)
 - **Insertion**: `departSpeed="0"` (stationary insertion, cold start absorbed by warmup; fixes the P0 high-density insertion loss).
 - **SSM enabled for the whole grid** (merged design): TTC=3.0 s, DRAC=3.0 m/s², range=50 m, greedy mirror dedup 80%, withInternal=true.
 - **Total**: 4 scenarios × 11 vehN levels × 171 runs/treatment = **7,524 runs**.
@@ -77,6 +105,25 @@ v0.4.1 completed the measurement-chain upgrade (HV/CAV subgroups, FCD physical t
 | Data consistency | detector flow = lap-time-derived flow (deviation <0.5%); aggregate recompute 0 diff; HV+CAV additivity holds |
 
 Formal input byte anchoring: `net/*/net.json` matches the formal run; `artifacts/free_flow/` is a parsing input dependency with versioned SHA gates.
+
+**Design rationale (merged from EXPERIMENT_DESIGN; the original moves to
+`docs/internal/` for local maintenance)**:
+
+- **Memory constraint on the density cap (measured 2026-08)**: s2 full-CAV peaks
+  v160=9.51 GiB, v200=22.69 / v220=22.67 GiB (both SUCCESS, at the 24 GB+swap
+  edge), v230+ >22.7 GiB (OOM) — SSM per-vehicle-pair tracking overhead grows
+  with density; hence the unified cap of 55 veh/km/lane (v220 dual-lane / v110
+  single-lane), shrinking the FD right end from the former U90 68% of jam density
+  to 37.5% (still covering the critical 17.4 and mid-congestion; "near-jam"
+  semantics becomes "limited high-density reach", declared in the report).
+- **3 workers decision**: fixed optimal concurrency under the memory constraint —
+  event-driven simulation 3w 5.6% failures/24h vs 6w 50%/32h (2–3 concurrent
+  saturate the s2 high-memory segment); measured 0 failures / 21.86 h.
+- **Design decision log (2026-08)**: ① rationale near-jam density (non-blocked) +
+  departSpeed=0 + measured warmup — user-confirmed; ② U90 (68% kj) selected then
+  shrunk to U55 (37.5% kj) by memory measurement; ③ s3 on the same axis, charted
+  separately with bottleneck semantics; ④ warmup=600 finalized; ⑤ main.json lands
+  U55 (7,524 runs, config_version=v0.4.2-main-7-U55-v220cap).
 
 ---
 

@@ -42,8 +42,9 @@
   产物：out/（run-level/subgroup/aggregated）、graph/v0.4.2/、raw/（76 GB）。
 - **插入完整性守卫（审查 P1-1）**：vehroute 实际车辆数 < vehN → INVALID_DATA，
   结构性封死历史 P0 缩减车队缺陷复发。
-- **设计文档**：根目录 `EXPERIMENT_DESIGN.md`（口径、密度轴、标定、内存边界、
-  报告边界、正式重跑实测）。
+- **设计文档**：设计口径/密度轴/warmup 标定/内存边界/报告边界已并入正式报告
+  （report §2/§3/§8）与 README；完整设计基线留本地维护
+  （`docs/internal/experiment-design-v042.md`，gitignored）。
 - A 方案 8,208 为上一版设计（已取代，见下条历史记录）。
 
 ### 正式实验（历史：A 方案 v0.3.1 密度对齐版，已取代）

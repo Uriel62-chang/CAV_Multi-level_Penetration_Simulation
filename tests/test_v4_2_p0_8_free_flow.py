@@ -67,6 +67,19 @@ def test_delay_cav_uses_model_specific_ref():
     assert s["mean_lap_delay_s"] == pytest.approx(expected)
 
 
+def test_delay_cav_uses_acc_ref():
+    """ACC 兼容（2026-08）：CAV delay 用 ACC 参考（与 IDM/CACC 同权，无白名单）。
+
+    回归防 metrics.py:88 白名单复活——若 ACC 落到 NaN，CAV 贡献被静默丢弃，
+    mean_lap_delay_s 只算 HV 侧（10.0）而非混合期望（6.75）。
+    """
+    refs = {"HV": 60.0, "ACC": 57.0}
+    prim = _primitives(hv_mean=70.0, cav_mean=65.0, n_hv=10, n_cav=10)
+    s = compute_core_summary(prim, _spec("ACC"), refs)
+    expected = ((70.0 - 60.0) * 10 + (65.0 - 57.0) * 10) / 20
+    assert s["mean_lap_delay_s"] == pytest.approx(expected)
+
+
 def test_delay_all_hv_no_cav():
     refs = {"HV": 60.0, "IDM": 58.0}
     prim = _primitives(hv_mean=70.0, cav_mean=0.0, n_hv=20, n_cav=0)
@@ -136,6 +149,7 @@ def test_free_flow_artifact_covers_all_scenarios():
         assert "HV" in refs
         assert "CAV_IDM" in refs
         assert "CAV_CACC" in refs
+        assert "CAV_ACC" in refs  # ACC 兼容（2026-08）：四模型同权
 
 
 def test_run_free_flow_passes_cav_count_to_generate_flow(monkeypatch, tmp_path):

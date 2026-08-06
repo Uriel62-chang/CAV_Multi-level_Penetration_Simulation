@@ -13,6 +13,7 @@
   ],
   "models": [
     "IDM",
+    "ACC",
     "CACC"
   ],
   "vehicle_count": 1,

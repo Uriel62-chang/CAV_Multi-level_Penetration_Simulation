@@ -152,12 +152,27 @@ SCENARIO_LABELS = {
     "scenario_2": "s2 (dual-lane)",
     "scenario_3": "s3 (bottleneck)",
 }
-# 模型配色：同面板内两模型需一眼可辨，使用高对比色
-MODEL_COLORS = {"IDM": "#2166ac", "CACC": "#b2182b"}  # 蓝 vs 红
+# 模型配色：同面板内多模型需一眼可辨，使用高对比色
+# ACC 兼容（2026-08）：IDM/CACC/ACC 同权绘图；顺序固定保证图例稳定，
+# 实际绘制由 _plot_model_list 按数据中存在性过滤（数据驱动，未知模型不崩溃）。
+MODEL_COLORS = {
+    "IDM": "#2166ac",  # 蓝
+    "CACC": "#b2182b",  # 红
+    "ACC": "#1a9641",  # 绿
+}
 MODEL_STYLES = {
     "IDM": {"marker": "o", "linestyle": "-", "linewidth": 1.5},
     "CACC": {"marker": "s", "linestyle": "--", "linewidth": 1.5},
+    "ACC": {"marker": "^", "linestyle": "-.", "linewidth": 1.5},
 }
+_PLOT_MODELS = ("IDM", "ACC", "CACC")
+
+
+def _plot_model_list(df: pd.DataFrame) -> list[str]:
+    """按数据中实际存在的模型返回绘图顺序（数据驱动，兼容任意模型子集）。"""
+    present = set(df["model"].dropna().unique())
+    return [m for m in _PLOT_MODELS if m in present]
+
 
 # v0.4.2 withInternal=true 下空间配对列：全路网 TTC 事件 / 全路网 veh-km
 _PAIRED_TTC_METRIC = "ttc_per_k_mean"
@@ -222,7 +237,7 @@ def chart_observed_peak_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
     axes = axes.flatten()
     for ax, (sc, label) in zip(axes, SCENARIO_LABELS.items(), strict=True):
         sub = observed_peaks[observed_peaks["scenario"] == sc]
-        for model in ["IDM", "CACC"]:
+        for model in _plot_model_list(sub):
             d = sub[sub["model"] == model].sort_values(penetration_column)
             if len(d) == 0:
                 continue
@@ -265,7 +280,7 @@ def chart_co2_flow_v4(df: pd.DataFrame, out_dir: Path) -> None:
     axes = axes.flatten()
     for ax, (sc, label) in zip(axes, SCENARIO_LABELS.items(), strict=True):
         sub = df[df["scenario"] == sc]
-        for model in ["IDM", "CACC"]:
+        for model in _plot_model_list(sub):
             d = sub[sub["model"] == model]
             if len(d) == 0:
                 continue
@@ -320,10 +335,10 @@ def _fd_panel(
     """
     cmap = plt.get_cmap(_PENETRATION_CMAP)
     pen_col = "realized_pcav" if "realized_pcav" in d.columns else "pCAV"
-    for model in ["IDM", "CACC"]:
+    for model in _plot_model_list(d):
         for p_idx, p in enumerate(_PENETRATION_LEVELS):
-            if p == 0.0 and model == "CACC":
-                continue  # p=0 全 HV 运行，无 CACC 线（cav=0 model=IDM sentinel）
+            if p == 0.0 and model != "IDM":
+                continue  # p=0 全 HV 运行，无 CAV 线（cav=0 model=IDM sentinel）
             dm = d[(d["model"] == model) & ((d[pen_col] - p).abs() < 1e-6)]
             if len(dm) == 0:
                 continue
@@ -433,7 +448,7 @@ def chart_delay_v4(
     for ax, (sc, label) in zip(axes, SCENARIO_LABELS.items(), strict=True):
         eff_vehN = vehN if vehN is not None else int(target_density * lane_map[sc] * 2)
         d = df[(df["scenario"] == sc) & (df["vehN"] == eff_vehN)]
-        for model in ["IDM", "CACC"]:
+        for model in _plot_model_list(d):
             dm = d[d["model"] == model].sort_values(penetration_column)
             if len(dm) == 0:
                 continue

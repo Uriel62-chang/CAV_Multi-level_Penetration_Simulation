@@ -82,12 +82,11 @@ def compute_core_summary(primitives, spec, free_flow_refs):
     # mean/p95 全部基于 pooled delay 样本直接计算，不得用 subgroup 分位数
     # 加权近似（分位数不满足加权线性关系，加权 subgroup p95 ≠ pooled p95）。
     # 键契约（与 runner._load_free_flow_references 一致）：{"HV", spec.model}
+    # ACC 兼容（2026-08）：与 IDM/CACC 同权，无白名单——CAV delay 参考直接按
+    # spec.model 取（与 subgroup 侧 metrics 口径对齐；白名单会使 ACC 的 CAV 贡献
+    # 静默丢弃、run-level 与 subgroup 不一致）。
     hv_ref = free_flow_refs.get("HV", float("nan"))
-    cav_ref = (
-        free_flow_refs.get(spec.model, float("nan"))
-        if spec.model in ("IDM", "CACC")
-        else float("nan")
-    )
+    cav_ref = free_flow_refs.get(spec.model, float("nan"))
 
     from scripts.parsing.vehroute import _quantile_higher
 

@@ -230,13 +230,12 @@ class ExperimentConfig:
         return hashlib.sha256(canonical_json(self.to_dict()).encode("utf-8")).hexdigest()
 
     def _allowed_models(self) -> set[str]:
-        """pipeline 模型白名单（P1-1 审阅）。
+        """pipeline 模型白名单（P1-1 审阅 + ACC 兼容拓展）。
 
-        v0.4.1/v0.4.2 阶段二解析要求自由流基准（D-008），仅 IDM/CACC 有 artifact；
-        ACC 需补充基准后才开放，避免「通过校验 → 跑完昂贵仿真 → 批量解析失败」。
-        纯净分支：v0.4.0.post1 全模型分支已移除。
+        v0.4.1/v0.4.2 阶段二解析要求自由流基准（D-008），IDM/CACC/ACC 均已有
+        artifact（ACC 于 2026-08 补齐 CAV_ACC 参考）；三个模型同权处理。
         """
-        return {"IDM", "CACC"}
+        return {"IDM", "ACC", "CACC"}
 
     def validate(self) -> None:
         # pipeline/schema 版本配对（纯净分支：仅 v0.4.2）

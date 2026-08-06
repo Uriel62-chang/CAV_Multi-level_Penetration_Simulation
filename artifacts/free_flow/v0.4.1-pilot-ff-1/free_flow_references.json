@@ -23,6 +23,10 @@
         "HV": {
           "lap_time_s": 111.80000000000013,
           "source_run_id": "ff_scenario_0_HV"
+        },
+        "CAV_ACC": {
+          "lap_time_s": 91.59999999999991,
+          "source_run_id": "ff_scenario_0_CAV_ACC"
         }
       }
     },
@@ -46,6 +50,10 @@
         "HV": {
           "lap_time_s": 61.200000000000045,
           "source_run_id": "ff_scenario_1_HV"
+        },
+        "CAV_ACC": {
+          "lap_time_s": 60.299999999999976,
+          "source_run_id": "ff_scenario_1_CAV_ACC"
         }
       }
     },
@@ -69,6 +77,10 @@
         "HV": {
           "lap_time_s": 61.5,
           "source_run_id": "ff_scenario_2_HV"
+        },
+        "CAV_ACC": {
+          "lap_time_s": 60.59999999999991,
+          "source_run_id": "ff_scenario_2_CAV_ACC"
         }
       }
     },
@@ -92,6 +104,10 @@
         "HV": {
           "lap_time_s": 61.5,
           "source_run_id": "ff_scenario_3_HV"
+        },
+        "CAV_ACC": {
+          "lap_time_s": 60.59999999999991,
+          "source_run_id": "ff_scenario_3_CAV_ACC"
         }
       }
     }

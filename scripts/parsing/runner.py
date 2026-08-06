@@ -495,8 +495,6 @@ def _load_free_flow_references(spec, run_dir=None):
     key = f"CAV_{spec.model}"
 
     if key not in refs:
-        if spec.model == "ACC":
-            raise ValueError("ACC free-flow reference not available; add to artifact first")
         raise ValueError(f"model {spec.model} not in free-flow artifact")
     model_lap = refs[key]["lap_time_s"]
     if (

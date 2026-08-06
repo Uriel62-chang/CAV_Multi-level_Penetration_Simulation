@@ -12,6 +12,10 @@ DEFAULT_DETECTOR_FREQ = 120  # e1 检测器统计频率 (s)；2×单圈耗时避
 CAV_MODELS = ("IDM", "ACC", "CACC")
 
 CAV_TAU = {  # CAV 期望车头时距 (s)
+    # ACC 兼容（2026-08）：tau 沿用 v0.3.0 起的经验值 1.1 s——与 Milanés et al.
+    # (2014, IEEE T-ITS) 实车 ACC 固定时距 1.1 s 一致；SUMO 内置 carFollowModel
+    # "ACC" 基于 Kesting et al. (2008, TRC 16(6))。accel/decel 等物理参数与
+    # IDM/CACC 共用 CAV 公共值（三个模型同权处理，无 ACC 专属参数面）。
     "IDM": 0.6,
     "ACC": 1.1,
     "CACC": 0.6,

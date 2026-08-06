@@ -105,3 +105,15 @@ def test_batch_validation_rejects_detector_window_misalignment():
             treatments=list(config.treatments),
             sumo_seeds=list(config.sumo_seeds),
         )
+
+
+def test_acc_model_allowed_in_whitelist():
+    """ACC 兼容（2026-08）：_allowed_models 含 ACC，与 IDM/CACC 同权。
+
+    ACC 自由流参考（CAV_ACC）已补齐，白名单不再拒绝 ACC——回归防
+    D-008 门禁误拒（「通过校验→跑完昂贵仿真→批量解析失败」已不存在）。
+    """
+    base = load_experiment_config("configs/v0.4.2/main.json")
+    config = replace(base, models=("IDM", "ACC", "CACC"))
+    config.validate()  # 不抛 unsupported models
+    assert config.models == ("IDM", "ACC", "CACC")

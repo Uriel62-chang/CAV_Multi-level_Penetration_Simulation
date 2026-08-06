@@ -433,7 +433,7 @@ docs/
 - Across-seed means and standard deviations are equal-weight descriptive summaries of assignment runs, not pooled exposure ratios, confidence intervals or significance tests.
 - TTC events have not yet been independently reproduced from FCD or TraCI trajectories; v0.4.1 provides the trajectory-validation tooling (FCD physical THW), and the v0.4.2 grid provides SSM-based event rates (merged into the main grid), but independent FCD/TraCI reproduction is still outstanding.
 - SSM mirror deduplication is an analysis heuristic: opposite-direction records for the same vehicle pair are matched one-to-one when their encounter intervals overlap by at least 80% of the shorter duration. SUMO provides no shared event ID for deterministic pairing, so dense consecutive encounters may still be over- or under-deduplicated; absolute event counts should not be interpreted as exact physical conflict totals.
-- ACC is supported by earlier project versions but is not part of the formal comparison.
+- ACC is supported as a third car-following model on equal footing with IDM/CACC (configuration whitelist, parsing, metrics and visualization are all ACC-aware since 2026-08; its free-flow reference is included in the artifact), but it is **not part of the formal comparison** — the v0.4.2 grid and its conclusions cover IDM vs CACC only.
 - Automated tests cover parsers, experiment configuration, RunSpec integrity, provenance, simulation state transitions, resume validation, result writing, aggregation, network metadata and representative SUMO pipelines. Regular CI does not rerun the complete formal grid (7,524 runs).
 
 ---

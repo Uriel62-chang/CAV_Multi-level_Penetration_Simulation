@@ -102,7 +102,7 @@
 
 ### D-008：v0.4.1 不接受 ACC 自由流参考
 
-- **状态**：Active
+- **状态**：Active（**2026-08 ACC 兼容已解除约束**——见下）
 - **决策提交**：`460f0e6`；实现提交：`8b13dbe`、`34534a5`、`f0dd97f`
 - **适用范围**：v0.4.1 pilot、free-flow artifact 生成与加载
 - **重新评估触发条件**：正式实验把 ACC 纳入模型集合并生成对应单车参考时
@@ -110,6 +110,12 @@
 - **决定**：ACC 在自由流 reference selection 中 hard reject；artifact 必须匹配 SUMO 完整版本字符串和每场景 net SHA，且 HV/当前 CAV model 圈时均为有限正数。
 - **原因**：用 IDM/CACC 或硬编码值代替 ACC 会产生无 provenance 的 delay。
 - **当前代价**：ACC 配置在补充参考 artifact 前不能进入 schema=2 正式解析。
+- **2026-08 更新（ACC 兼容，commit 27186a9）**：重新评估触发条件已达成——ACC
+  纳入模型集（`_allowed_models`={IDM,ACC,CACC}）且 `CAV_ACC` 单车参考已生成
+  （4 场景，只追加零漂移）；ACC 现可进入 schema=2 正式解析，与 IDM/CACC 同权
+  （metrics/可视化/白名单全链路 ACC-aware）。D-008 的"无 provenance delay"
+  顾虑由 CAV_ACC artifact 消除；正式网格结论仍仅覆盖 IDM vs CACC（ACC 非正式
+  比较对象）。
 
 ### D-009：schema=2 detector 预期输出由 net.json.num_lanes 决定并 fail-closed
 

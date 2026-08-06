@@ -21,6 +21,13 @@ jobs:
         run: ruff check .
       - name: Ruff format
         run: ruff format --check .
+      - name: Build test networks
+        # loop.net.xml 为 gitignored 生成物；单测（resume 闭包等）依赖真实网络
+        # 文件哈希——CI 需先编译（与 README 快速开始一致）
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sumo
+          python -m scripts.simulation.network_generator --build-all
       - name: Unit tests
         run: pytest -q -m "not sumo"
       - name: Compile modules
@@ -44,18 +51,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes sumo
-      - name: Build smoke-test network
+      - name: Build test networks
         run: |
-          netconvert \
-            --node-files net/scenario_0/nodes.nod.xml \
-            --edge-files net/scenario_0/edges.edg.xml \
-            --output-file net/scenario_0/loop.net.xml
-      - name: Run SUMO-marked integration tests
-        run: pytest -q -m sumo
+          python -m scripts.simulation.network_generator --build-all
       - name: Run minimal simulation
         run: |
           timeout 120 python -m scripts.simulation.batch_run \
-            --config configs/v0.4.1/smoke_v4_1.json \
+            --config configs/smoke.json \
             --output-root /tmp/cav-smoke \
             --sumo-processes 1
       - name: Verify smoke artifacts

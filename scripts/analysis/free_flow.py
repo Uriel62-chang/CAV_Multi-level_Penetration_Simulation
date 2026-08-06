@@ -140,6 +140,10 @@ def _run_free_flow(run_id, spec, network_file, net_meta, cfg):
         spec.seed,
         str(run_dir / "routes.rou.xml"),
         spec.model,
+        # 审查 P1-1（第九轮）：纯净分支 cav_count 必填（flow_generator 对 None
+        # 直接 raise）——free_flow 两臂（HV arm=0、CAV arm=1）由 spec.cav_count
+        # 携带，此处必须显式传入，否则工具不可用（无法再生参考 artifact）。
+        cav_count=spec.cav_count,
         edge_count=len(edge_ids),
         edge_length=net_meta["edge_length_m"],
         scenario=spec.scenario,

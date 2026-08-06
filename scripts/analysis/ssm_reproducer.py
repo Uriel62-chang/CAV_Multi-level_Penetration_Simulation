@@ -107,7 +107,7 @@ def _utc_now() -> str:
 
 
 def _evidence_profile(
-    root: Path, run_dir: Path, ssm_enabled: bool
+    root: Path, run_dir: Path, ssm_enabled: bool, fcd_enabled: bool = True
 ) -> tuple[list[Path], list[Path]]:
     """List required evidence and explicit intentional absences for one A/B arm."""
     expected = [
@@ -115,16 +115,24 @@ def _evidence_profile(
         root / "raw" / "ab_descriptor.json",
         run_dir / "run_spec.json",
         run_dir / "routes.rou.xml",
-        run_dir / "fcd.xml.gz",
         run_dir / "stderr.log",
         run_dir / "stdout.log",
         root / "raw" / "rss_samples.jsonl",
     ]
+    absent = []
     ssm_path = run_dir / "ssm.xml"
     if ssm_enabled:
         expected.insert(3, ssm_path)
-        return expected, []
-    return expected, [ssm_path]
+    else:
+        absent.append(ssm_path)
+    # 审查 P2-2（第九轮）：FCD 仅在 spec.fcd_profile 非 None 时输出——证据清单须
+    # 按 fcd_enabled 条件插入，否则 fcd_profile=None 的冻结 case 必然 FileNotFoundError。
+    fcd_path = run_dir / "fcd.xml.gz"
+    if fcd_enabled:
+        expected.append(fcd_path)
+    else:
+        absent.append(fcd_path)
+    return expected, absent
 
 
 def _without_ssm_device_options(command: list) -> list:
@@ -294,7 +302,9 @@ def run_case(
     network_file = str(case["network_file"])
     process = None
     run_dir = raw_dir / "run"
-    expected, intentionally_absent = _evidence_profile(root, run_dir, ssm_enabled)
+    expected, intentionally_absent = _evidence_profile(
+        root, run_dir, ssm_enabled, fcd_enabled=bool(case.get("fcd_profile"))
+    )
     terminal_status = "FAILED"
     failure_stage = "setup"
     evidence: dict | None = None

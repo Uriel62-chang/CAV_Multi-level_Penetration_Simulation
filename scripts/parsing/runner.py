@@ -409,6 +409,9 @@ def _load_free_flow_references(spec, run_dir=None):
     from scripts.provenance import sha256_file as _sha256_file
 
     net_meta = load_network_meta(spec.network_file)
+    # P2-1（第九轮，记录为已知，不改代码）：net.json 字节锚定冻结（铁律）禁止补
+    # free_flow_reference_path 键；runner 保留该分支作 artifact 迁移的显式配置钩子，
+    # 当前回退正式路径（功能正确，测试依赖其隔离能力）。契约以硬编码路径为准。
     artifact_rel = net_meta.get("free_flow_reference_path")
     if artifact_rel:
         artifact_path = _Path(artifact_rel)

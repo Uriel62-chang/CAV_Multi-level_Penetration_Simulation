@@ -136,3 +136,92 @@ def test_free_flow_artifact_covers_all_scenarios():
         assert "HV" in refs
         assert "CAV_IDM" in refs
         assert "CAV_CACC" in refs
+
+
+def test_run_free_flow_passes_cav_count_to_generate_flow(monkeypatch, tmp_path):
+    """审查 P1-1（第九轮）：_run_free_flow 必须向 generate_flow 显式传 cav_count。
+
+    纯净分支 flow_generator 对 cav_count=None 直接 raise（无 round fallback），
+    缺失时 free_flow 参考测量工具完全不可用（无法再生 artifact）。
+    """
+    import types
+    from pathlib import Path
+
+    import scripts.analysis.free_flow as ff
+
+    captured = {}
+
+    def fake_generate_flow(vehicle_count, cav_ratio, loops, seed, route_path, model, **kwargs):
+        captured.update(kwargs)
+        Path(route_path).write_text("<routes/>", encoding="utf-8")
+
+    monkeypatch.setattr(ff, "generate_flow", fake_generate_flow)
+    monkeypatch.setattr(
+        ff.subprocess,
+        "run",
+        lambda *a, **k: types.SimpleNamespace(returncode=0, stderr="", stdout=""),
+    )
+    monkeypatch.setattr(ff, "parse_lap_times", lambda *a, **k: {"median_lap_time_s": 111.8})
+    monkeypatch.setattr(ff, "write_run_spec", lambda *a, **k: None)
+
+    net_meta = {
+        "edge_ids": [f"e{i}" for i in range(4)],
+        "edge_length_m": 500.0,
+        "num_lanes": 1,
+    }
+    for model, cav_count in [("IDM", 0), ("CACC", 1)]:
+        spec = RunSpec(
+            scenario="scenario_0",
+            model=model,
+            pcav=0.0 if cav_count == 0 else 1.0,
+            vehicle_count=1,
+            seed=1,
+            run_id=f"ff_scenario_0_{model}",
+            simulation_end=5000,
+            warmup=120,
+            step_length=0.1,
+            detector_frequency=60,
+            edge_data_frequency=60,
+            loops=60,
+            network_file="net/scenario_0/loop.net.xml",
+            pipeline_version=PIPELINE_V4_2,
+            schema_version="2",
+            sumo_seed=1,
+            cav_count=cav_count,
+            requested_pcav=None,
+            with_internal=False,
+            experiment_role="main_factorial",
+            ssm_enabled=False,
+        )
+        captured.clear()
+        lap = ff._run_free_flow("ff_x", spec, "net/scenario_0/loop.net.xml", net_meta, {})
+        assert captured["cav_count"] == cav_count, f"{model} arm 未传 cav_count={cav_count}"
+        assert lap == 111.8
+
+
+def test_evidence_profile_fcd_conditional():
+    """审查 P2-2（第九轮）：_evidence_profile 按 fcd_enabled 条件插入 fcd.xml.gz。
+
+    fcd_profile=None（FCD 关闭）时 fcd.xml.gz 必须进入有意缺失清单而非 expected，
+    否则冻结 case 证据校验必然 FileNotFoundError。
+    """
+    from pathlib import Path
+
+    from scripts.analysis.ssm_reproducer import _evidence_profile
+
+    root = Path("/x")
+    run_dir = Path("/x/raw/run")
+    # FCD 开 + SSM 开
+    exp, absent = _evidence_profile(root, run_dir, ssm_enabled=True, fcd_enabled=True)
+    assert run_dir / "fcd.xml.gz" in exp
+    assert run_dir / "fcd.xml.gz" not in absent
+    assert run_dir / "ssm.xml" in exp
+    # FCD 关 + SSM 开：fcd 进 absent，ssm 仍在 expected
+    exp, absent = _evidence_profile(root, run_dir, ssm_enabled=True, fcd_enabled=False)
+    assert run_dir / "fcd.xml.gz" not in exp
+    assert run_dir / "fcd.xml.gz" in absent
+    assert run_dir / "ssm.xml" in exp
+    # FCD 关 + SSM 关：两者都在 absent
+    exp, absent = _evidence_profile(root, run_dir, ssm_enabled=False, fcd_enabled=False)
+    assert run_dir / "ssm.xml" in absent
+    assert run_dir / "fcd.xml.gz" in absent

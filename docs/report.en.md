@@ -99,10 +99,13 @@ Per-lane grid-observed peaks (veh/h/lane):
 ![FD s3 bottleneck](../graph/v0.4.2/chart_fundamental_diagram_s3.png)
 
 - **s3 bottleneck semantics**: the FD is a bottleneck queue–throughput relation (not a
-  mainline FD); HV throughput ≈500 veh/h/lane class; **IDM full-CAV bottleneck
-  throughput ≈3,200–3,900** (peak 3,903 @k20, k30–55 3,168–3,285), **above the
-  τ-limited 2,400**; CACC full-CAV drops to **≈1,500–2,600** (peak 2,583 @k15,
-  k30–55 only ≈1,450–1,520) — the **2→1 merge conflict** dominates.
+  mainline FD). s3 is a closed loop with no inflow/outflow, so flow is conserved
+  across cross-sections — the single-lane bottleneck throughput equals the ring
+  total. HV throughput is **≈1,000–1,150 veh/h** (measured 976–1,111; per-lane
+  ≈520); **IDM full-CAV ≈3,200–3,900** (peak 3,903 @k20, k30–55 3,168–3,285,
+  per-lane ≈1,950), **above the τ-limited 2,400**; CACC full-CAV drops to
+  **≈1,500–2,600** (peak 2,583 @k15, k30–55 only ≈1,450–1,520, per-lane ≈1,290) —
+  the **2→1 merge conflict** dominates.
 
 ![Capacity](../graph/v0.4.2/chart_capacity.png)
 

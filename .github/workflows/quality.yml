@@ -47,8 +47,14 @@ jobs:
         run: python -m pip install -r requirements-lock.txt
       - name: Install project
         run: python -m pip install -e . --no-deps
-      - name: Install SUMO
+      - name: Install SUMO 1.27.1 (official PPA)
+        # 项目要求 SUMO >= 1.27.1；apt 源仅 1.18（FCD attribute 断言 bug：
+        # MSDevice_FCD.cpp:172 attr<=63 不支持 leaderID/leaderGap）。
+        # 与本地一致使用官方 PPA ppa:sumo/stable（1.27.1）。
         run: |
+          sudo apt-get update
+          sudo apt-get install --yes software-properties-common
+          sudo add-apt-repository --yes ppa:sumo/stable
           sudo apt-get update
           sudo apt-get install --yes sumo
       - name: Build test networks
@@ -60,18 +66,6 @@ jobs:
             --config configs/smoke.json \
             --output-root /tmp/cav-smoke \
             --sumo-processes 1
-      - name: Diagnose smoke failure
-        # batch_run 对 run FAILED 返回 exit 0（RUN 级失败非进程级）——Verify 步骤
-        # 才真正失败，故此处不能用 if: failure()，须 always() 无条件执行
-        if: always()
-        run: |
-          RUN_DIR=/tmp/cav-smoke/s0_IDM_v010_c005_as01_ss101
-          echo "=== simulation_status.json ==="
-          cat "$RUN_DIR/simulation_status.json" 2>/dev/null || echo "(run 目录不存在)"
-          echo "=== stderr.log (tail 40) ==="
-          tail -40 "$RUN_DIR/stderr.log" 2>/dev/null || echo "(无 stderr)"
-          echo "=== sumo version ==="
-          sumo --version | head -2
       - name: Verify smoke artifacts
         run: |
           python -m scripts.parsing.batch --input-root /tmp/cav-smoke

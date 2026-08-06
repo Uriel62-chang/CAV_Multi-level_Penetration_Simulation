@@ -93,13 +93,16 @@ Per-lane grid-observed peaks (veh/h/lane):
   p=1.0 k≈40, consistent in direction with the theoretical kc (17.4 / 39.2); CACC
   peaks higher and closer to its theoretical kc.
 - **s0 corner baseline**: HV-only flattens at ≈940 veh/h/lane (k≥20) — corner
-  throughput (below ~1,400) rather than the τ limit; full-CAV peaks 1,794 / 1,857 @ k40.
+  speed limit rather than the τ limit; full-CAV peaks 1,794 (IDM) / 1,857 (CACC) @ k40,
+  both below the τ-limited 2,400.
 
 ![FD s3 bottleneck](../graph/v0.4.2/chart_fundamental_diagram_s3.png)
 
 - **s3 bottleneck semantics**: the FD is a bottleneck queue–throughput relation (not a
-  mainline FD); HV throughput ≈500 veh/h/lane class, CACC full-CAV ≈3,200 — dominated
-  by the **2→1 merge conflict**, not the τ-limited 2,400.
+  mainline FD); HV throughput ≈500 veh/h/lane class; **IDM full-CAV bottleneck
+  throughput ≈3,200–3,900** (peak 3,903 @k20, k30–55 3,168–3,285), **above the
+  τ-limited 2,400**; CACC full-CAV drops to **≈1,500–2,600** (peak 2,583 @k15,
+  k30–55 only ≈1,450–1,520) — the **2→1 merge conflict** dominates.
 
 ![Capacity](../graph/v0.4.2/chart_capacity.png)
 
@@ -138,10 +141,11 @@ Per-lane grid-observed peaks (veh/h/lane):
 - **FD shape and peak shift**: the right-skewed capacity mountain holds in every
   scenario; higher penetration moves the peak toward the theoretical kc and raises
   peak flow — CACC (smaller τ) extends the free-flow–critical branch.
-- **s0 corner baseline**: corner speed limits cap capacity below ~1,400–1,900
-  (measured ≈940 plateau) — a designed-in independent variable of the s0→s1 geometry
-  smoothing contrast, not a defect; s0 emissions/TTC/delay are amplified by repeated
-  corner acceleration–deceleration.
+- **s0 corner baseline**: corner speed limits cap capacity below the τ-limited 2,400 —
+  HV-only plateau ≈940 veh/h/lane (k≥20), full-CAV peaks 1,794/1,857 @ k40 — a
+  designed-in independent variable of the s0→s1 geometry smoothing contrast, not a
+  defect; s0 emissions/TTC/delay are amplified by repeated corner
+  acceleration–deceleration.
 - **s3 bottleneck reversal**: under high-density forced merging, CACC throughput
   degrades (1,620→756 veh/h/lane) while delay (72→442 s) and emissions
   (339→633 g/veh-km) worsen — "high throughput is efficient" does not hold at merges.
@@ -179,8 +183,8 @@ Per-lane grid-observed peaks (veh/h/lane):
    (s0 k=20: q=946 vs k·v=1,980); report FD figures state the nominal-density basis.
 2. **Finite-ring effects**: low-density free-flow cells can show spontaneous jams
    (phantom jam); the free-flow branch is systematically underestimated across all
-   scenarios (s1 k=10 is 28% below theory, the peak is only 71% of theory) — not an
-   s0-only artifact.
+   scenarios (U55 measured: s1 k=10 flow 955 is 18% below the theoretical 1,170, the
+   peak 1,809 @ k20 is 75% of the theoretical 2,400) — not an s0-only artifact.
 3. **s0 corner speed limit (designed-in)**: free-flow speed pinned at ≈17.9 m/s,
    capacity capped by corner throughput; s0 emissions/TTC/delay amplified by corner
    transients — baseline declared per scenario.
@@ -192,8 +196,9 @@ Per-lane grid-observed peaks (veh/h/lane):
    k=50 68% / k=55 75% (s2 control 100%) — mean/p95_lap_delay_s are systematically
    low; s3 efficiency is quantitative only up to k≤35; the reversal conclusion relies
    on the robust flow metric.
-7. **THW is a conditioned sample**: no-leader samples (≈19% at s0 v10, the largest-gap
-   samples) are excluded from THW — mean_thw_s is systematically low.
+7. **THW is a conditioned sample**: no-leader samples (U55 endpoint 3-seed measured
+   s0 v10: 3.1%/9.1%/9.2%, mean ≈7%, the largest-gap samples) are excluded from THW —
+   mean_thw_s is systematically low.
 8. **SUMO integration mode**: HV actionStepLength=1.0 triggers automatic
    step-method.ballistic; the reference baseline was measured under the same condition.
 9. **Detector speed semantics**: mean_speed is an arithmetic (not harmonic) mean over

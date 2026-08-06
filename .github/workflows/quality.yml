@@ -36,7 +36,11 @@ jobs:
         run: mypy scripts/run_spec.py scripts/experiment_config.py scripts/provenance.py
 
   sumo-smoke:
-    runs-on: ubuntu-latest
+    # free-flow artifact 的 sumo_version 为字节锚定（fail-closed 门禁）：artifact
+    # 由 PPA jammy 构建（GNU 11.4.0）。ubuntu-latest(noble) 的 PPA 包构建环境
+    # 不同（GNU 13.3）→ 校验失败。改用 ubuntu-22.04（PPA 装 1.27.1-1~jammy，
+    # 与本地/artifact 构建环境一致，sumo_version 精确匹配）。
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

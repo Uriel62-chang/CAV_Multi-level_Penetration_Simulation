@@ -54,7 +54,7 @@ v0.4.1 completed the measurement-chain upgrade (HV/CAV subgroups, FCD physical t
 | s2 | 32-gon smooth | 2 | 2.0 km | s1→s2 lane count / lateral freedom |
 | s3 | 32-gon + single-lane 125 m bottleneck (e15/e16) | 2 | 2.0 km | s2→s3 forced merge |
 
-### 2.2 Grid (U55)
+### 2.3 Grid (U55)
 
 - **Density axis**: unified 5–55 veh/km/lane (s0/s1 single-lane vehN 10–110 step 10; s2/s3 dual-lane vehN 20–220 step 20); the cap of 55 is set by the measured s2 SSM memory boundary (v220 probe 22.67 GiB).
 - **Penetration**: cav_count 0.1 step, 11 levels (all integers; endpoint assignment deactivated by sentinel).
@@ -82,7 +82,7 @@ CAV mixing stabilizes no slower than pure HV.)
 - **SSM enabled for the whole grid** (merged design): TTC=3.0 s, DRAC=3.0 m/s², range=50 m, greedy mirror dedup 80%, withInternal=true.
 - **Total**: 4 scenarios × 11 vehN levels × 171 runs/treatment = **7,524 runs**.
 
-### 2.3 Metric definitions
+### 2.4 Metric definitions
 
 - **Flow/density**: detector-measured flow is authoritative; the FD x-axis uses the nominal density (vehN / lanes / 2 km) — a nominal-density × measured-point-flow pairing (see §8 limitation 1).
 - **Safety**: whole-network TTC events / whole-network veh-km (withInternal=true space-matched); DRAC, emergency braking, lane-change gaps as supporting metrics.

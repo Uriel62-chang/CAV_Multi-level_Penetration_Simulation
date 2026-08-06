@@ -44,7 +44,8 @@
   结构性封死历史 P0 缩减车队缺陷复发。
 - **设计文档**：设计口径/密度轴/warmup 标定/内存边界/报告边界已并入正式报告
   （report §2/§3/§8）与 README；完整设计基线留本地维护
-  （`docs/internal/experiment-design-v042.md`，gitignored）。
+  （`docs/internal/experiment-design-v042.md`，gitignored）。报告 §3 保留 2 处
+  "并入自 EXPERIMENT_DESIGN" 出处注记（有意 provenance，非失效引用）。
 - A 方案 8,208 为上一版设计（已取代，见下条历史记录）。
 
 ### 正式实验（历史：A 方案 v0.3.1 密度对齐版，已取代）

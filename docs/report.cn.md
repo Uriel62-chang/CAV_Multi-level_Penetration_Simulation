@@ -87,7 +87,7 @@ assignment/sumo 双 seed、SSM 敏感性工具等），但未通过旧资源门�
 | 解析 | 0 INVALID（插入完整性守卫：vehroute 实际车辆数 < vehN → INVALID_DATA，全网格通过） |
 | writer | 0 排除 |
 | 聚合 | 924 组（4 × 11 × 21；interior n=9 / endpoint n=3） |
-| 测试 | 447 passed（门禁基线）；ruff / mypy / compileall / format 全通过 |
+| 测试 | 451 passed（门禁基线，ACC 兼容后）；ruff / mypy / compileall / format 全通过 |
 | 硬件 | 宿主机 32 GB；WSL2 memory=24GB / processors=16 / swap=8GB；SUMO 1.27.1 |
 | 资源 | 最坏档（s2 v220 全 CAV）峰值 RSS 13.64 GiB；raw 76 GB（≈10.1 GB/千 runs） |
 | 数据自洽 | 检测器流量 = 圈时反推流量（偏差 <0.5%）；aggregate 重算 0 diff；HV+CAV 可加性通过 |
@@ -184,8 +184,8 @@ assignment/sumo 双 seed、SSM 敏感性工具等），但未通过旧资源门�
    截断，k≈50 为网格观测最大），基本图方案达成设计意图（覆盖自由流→临界→拥堵
    区上探受限段）。
 3. s3 高密度合流瓶颈反转成立且由流量口径稳健支撑；效率佐证按密度档分层使用。
-4. 项目当前无 P0/P1 级代码逻辑缺陷（管线审查七轮收敛：前四轮代码层收敛、第五至
-   七轮发布文档/图产物层收敛；2 项 P2 与后续文档级 P1 均已修复或文档化闭环）。
+4. 项目当前无 P0/P1 级代码逻辑缺陷（管线审查截至 v0.4.2 发布时七轮收敛、后续
+   复核轮次为数据/文档层闭环；2 项 P2 与文档级 P1 均已修复或文档化闭环）。
 
 ---
 

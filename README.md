@@ -293,7 +293,7 @@ The parser pipeline provides:
 0              INVALID parses (insertion-integrity guard passed)
 0              writer exclusions
 924            aggregated groups (4 scenarios × 11 vehN × 21 per-vehN)
-447            automated tests passed (current gate baseline)
+451            automated tests passed (current gate baseline)
 0              duplicate run IDs
 0              invariant violations
 ```
@@ -356,7 +356,7 @@ python -m compileall -q scripts tests
 Expected result:
 
 ```text
-447 passed
+451 passed
 ```
 
 ### Run one simulation
@@ -448,6 +448,9 @@ scripts/
 │   ├── runner.py
 │   ├── batch.py
 │   ├── detector.py
+│   ├── fcd.py
+│   ├── metrics.py
+│   ├── input_integrity.py
 │   ├── stderr.py
 │   ├── ssm.py
 │   ├── lanechange.py
@@ -461,10 +464,7 @@ scripts/
 
 tests/
 ├── fixtures/
-├── test_ssm_parser.py
-├── test_vehroute_parser.py
-├── test_edge_performance_parser.py
-├── test_edge_emissions_parser.py
+├── (30+ parser/config/resume/writer/aggregate test modules)
 └── run_tests.py
 
 results/
@@ -488,6 +488,8 @@ docs/
     ├── migration.md
     └── release-checklist.md
 ```
+
+> 结构树为代表性展示（省略部分文件；完整清单见 `git ls-files`）。
 
 ---
 

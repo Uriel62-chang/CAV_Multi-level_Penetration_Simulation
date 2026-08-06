@@ -71,7 +71,7 @@ v0.4.1 completed the measurement-chain upgrade (HV/CAV subgroups, FCD physical t
 | Parsing | 0 INVALID (insertion-integrity guard: actual vehicles < vehN → INVALID_DATA; passed the full grid) |
 | Writer | 0 exclusions |
 | Aggregation | 924 groups (4 × 11 × 21; interior n=9 / endpoint n=3) |
-| Tests | 447 passed (gate baseline); ruff / mypy / compileall / format all green |
+| Tests | 451 passed (gate baseline, after ACC support); ruff / mypy / compileall / format all green |
 | Hardware | 32 GB host; WSL2 memory=24GB / processors=16 / swap=8GB; SUMO 1.27.1 |
 | Resources | worst cell (s2 v220 full CAV) peak RSS 13.64 GiB; raw 76 GB (≈10.1 GB per 1,000 runs) |
 | Data consistency | detector flow = lap-time-derived flow (deviation <0.5%); aggregate recompute 0 diff; HV+CAV additivity holds |
@@ -179,9 +179,9 @@ Per-lane grid-observed peaks (veh/h/lane):
    critical → congested with limited high-density reach).
 3. The s3 high-density merge-bottleneck reversal holds and is robustly supported by
    the flow metric; efficiency corroboration is used per density tier.
-4. No P0/P1 code-logic defects remain (seven pipeline-review rounds converged: the
-   first four on the code layer, rounds 5–7 on the release-document/figure layer;
-   the 2 P2 items and subsequent document-level P1s are fixed or closed by
+4. No P0/P1 code-logic defects remain (pipeline review converged after seven rounds
+   at the time of the v0.4.2 release; later review rounds closed data/document-level
+   items; the 2 P2 items and subsequent document-level P1s are fixed or closed by
    documentation).
 
 ---

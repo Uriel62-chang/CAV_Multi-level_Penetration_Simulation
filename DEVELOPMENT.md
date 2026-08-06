@@ -8,7 +8,7 @@
 > 5. 本文“当前交接摘要”
 > 6. 最近相关 Git 提交（至少 `git log --oneline -15`）
 > 7. AGENTS.md（项目约定、CLI 入口）及
->    `docs/development/v0.4.1-stage2-design.md`（批准基线）
+>    `docs/internal/archive/v0.4.1-stage2-design.md`（批准基线，本地维护文档）
 >
 > 补充材料（Git 忽略，本地可用时参考）：
 > `docs/internal/releases/v0.4.1.md`（完整开发计划）、
@@ -307,7 +307,7 @@ Agent 的修改说明只作为索引，Git diff 才是实际依据。核对：�
 ### D-013：SSM-on/off 最小复现先冻结设计，后实现与运行
 
 - **状态**：Implemented（历史）
-- **适用范围**：`docs/development/v0.4.1-post1-ssm-ab-design.md`
+- **适用范围**：`docs/internal/archive/v0.4.1-post1-ssm-ab-design.md`（本地维护文档）
 - **决定**：以已冻结的 s2 CACC/v120/c120/as00/ss102 treatment 为两臂公共输入；A 保持 SSM，B 仅移除 SSM device。SSM-off 的 `ssm.xml` 是意图性缺失，状态机必须显式记录，不得伪装成零事件或证据缺失。
 - **原因**：先隔离 SSM device 才能形成可解释的 upstream 最小复现。
 

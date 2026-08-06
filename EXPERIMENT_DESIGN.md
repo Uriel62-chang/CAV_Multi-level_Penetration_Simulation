@@ -7,8 +7,9 @@
 > writer 0 排除 → 聚合 924 组 → 可视化 5 图），FD 峰位/HV→CACC 移动/s0 转角基线/
 > s3 瓶颈语义全部符合设计。
 >
-> 关联：`docs/development/v0.4.2-grid-design.md`（旧 A 方案冻结记录）、
-> `docs/development/v0.4.2-split-design.md`（合并设计）、CHANGELOG。
+> 关联：`docs/internal/archive/v0.4.2-grid-design.md`（旧 A 方案冻结记录，
+> 本地维护文档）、`docs/internal/archive/v0.4.2-split-design.md`（合并设计，
+> 本地维护文档）、CHANGELOG。
 
 ---
 

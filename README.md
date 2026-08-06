@@ -40,7 +40,7 @@ The v0.4.2 formal grid (**7,524 runs**, U55 fundamental-diagram design, SSM enab
 | s2 (dual-lane) | 3,916 (both lanes 7,833) | 200 / k50 | 4,694 (both lanes 9,387) | 160 / k40 |
 | s3 (merge bottleneck) | 1,952 (both lanes 3,903) | 80 / k20 | 1,292 (both lanes 2,583) | 60 / k15 |
 
-The FD peak shifts with penetration (s1/s2): HV-only peaks at k≈20, IDM p=1.0 at k≈50, CACC p=1.0 at k≈40 — consistent in direction with the theoretical critical densities (HV 17.4 / CAV 39.2 veh/km/lane). s0 is a corner-limited baseline: HV-only flattens at ≈940 veh/h/lane for k≥20 (the 90° turns cap throughput below the 2,400 veh/h/lane τ limit), while full-CAV reaches 1,794 (IDM) / 1,857 (CACC) at k40.
+The FD peak shifts with penetration (s1/s2): HV-only peaks at k≈20 and CACC p=1.0 at k≈40, consistent in direction with the theoretical critical densities (HV 17.4 / CAV 39.2); the IDM p=1.0 branch rises to k≈50 then plateaus — k≈50 is the grid-observed maximum (axis cap 55 = 37.5% of jam density), not a measured capacity peak. s0 is a corner-limited baseline: HV-only flattens at ≈940 veh/h/lane for k≥20 (the 90° turns cap throughput below the 2,400 veh/h/lane τ limit), while full-CAV reaches 1,794 (IDM) / 1,857 (CACC) at k40.
 
 **Merge-bottleneck reversal (s3).** At the top density (k=55, vehN=220, full CAV), IDM sustains 1,620 veh/h/lane with delay 182 s and CO₂ 339 g/veh-km, whereas CACC drops to 756 veh/h/lane with delay 442 s and CO₂ 633 g/veh-km — the high-density forced-merge reversal holds (TTC rate 1,328 vs 2,026 per 1,000 veh-km).
 

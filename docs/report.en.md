@@ -12,7 +12,11 @@
 
 On four progressively constrained road structures (s0 square single-lane → s1 smooth single-lane → s2 dual-lane → s3 merge bottleneck), this experiment systematically compares the IDM and CACC car-following controls across **flow, safety, emissions, and efficiency** on a 7,524-run main grid with a unified density axis 5–55 veh/km/lane, cav_count in 0.1 steps (11 levels) and 3×3 dual seeds. Main findings:
 
-1. **The capacity fundamental diagram holds and the FD peak shifts with penetration**: HV peaks at k≈20, IDM full-CAV at k≈50, CACC full-CAV at k≈40 — consistent in direction with the theoretical critical densities (HV 17.4 / CAV 39.2 veh/km/lane).
+1. **The capacity fundamental diagram holds and the FD peak shifts with penetration**:
+   HV peaks at k≈20 and CACC full-CAV at k≈40, consistent in direction with the
+   theoretical critical densities (HV 17.4 / CAV 39.2 veh/km/lane); the IDM full-CAV
+   high-density branch shows no falling edge inside the axis cap (55 = 37.5% of jam
+   density) — k≈50 is the grid-observed maximum, not a measured capacity peak.
 2. **s0 corner baseline**: the square 90° turns cap free-flow speed at ≈17.9 m/s; HV flow flattens at ≈940 veh/h/lane (k≥20), full-CAV peaks at 1,794 (IDM) / 1,857 (CACC) @ k40.
 3. **s3 high-density merge-bottleneck reversal**: at k=55 full CAV, IDM sustains 1,620 veh/h/lane while CACC drops to 756 veh/h/lane — CACC throughput degrades under forced merging, with delay and emissions rising simultaneously.
 4. **No globally optimal model**: CACC excels in smooth unconstrained environments and deteriorates at forced merges; safety events (TTC) concentrate at high densities (s1/s2 only at k≥35); s3 is the highest-risk scenario.
@@ -21,7 +25,9 @@ On four progressively constrained road structures (s0 square single-lane → s1 
 
 ## 1. Background
 
-Automated and connected vehicles (CAV) are expected to improve capacity and safety, but whether those gains come with safety, emission, or travel-time costs is a central open question. Earlier versions (v0.4.0, 10,080-run grid) primarily evaluated the capacity dimension. v0.4.2 extends the framework to four dimensions (flow / safety / emissions / efficiency) and, after the P0 insertion-defect fix (`departSpeed="0"`) and an empirically calibrated warmup (600 s), redesigns the main grid as a **fundamental-diagram scheme** (U55: free-flow → critical → congested → near-jam density–flow relation).
+Automated and connected vehicles (CAV) are expected to improve capacity and safety, but whether those gains come with safety, emission, or travel-time costs is a central open question. Earlier versions (v0.4.0, 10,080-run grid) primarily evaluated the capacity dimension. v0.4.2 extends the framework to four dimensions (flow / safety / emissions / efficiency) and, after the P0 insertion-defect fix (`departSpeed="0"`) and an empirically calibrated warmup (600 s), redesigns the main grid as a **fundamental-diagram scheme** (U55: free-flow →
+critical → congested with limited high-density reach — axis cap 55 = 37.5% of jam
+density, near-jam segment not covered).
 
 v0.4.1 completed the measurement-chain upgrade (HV/CAV subgroups, FCD physical time headway, independent assignment/sumo dual seeds, SSM sensitivity tooling, etc.) as an internal milestone but did not pass the old resource gate and was not released; its engineering outcomes are folded into this version.
 
@@ -89,9 +95,12 @@ Per-lane grid-observed peaks (veh/h/lane):
 
 ![FD main](../graph/v0.4.2/chart_fundamental_diagram.png)
 
-- **FD peak shifts with penetration** (s1/s2): HV-only k≈20 → IDM p=1.0 k≈50 → CACC
-  p=1.0 k≈40, consistent in direction with the theoretical kc (17.4 / 39.2); CACC
-  peaks higher and closer to its theoretical kc.
+- **FD peak shifts with penetration** (s1/s2): HV-only k≈20 → CACC p=1.0 k≈40,
+  consistent in direction with the theoretical kc (17.4 / 39.2); CACC peaks higher
+  and closer to its theoretical kc. **The IDM full-CAV high-density branch rises
+  monotonically to k50 then plateaus (no falling edge inside the axis) — k≈50 is the
+  grid-observed maximum, not a measured capacity peak (axis cap 55 = 37.5% kj,
+  near-jam segment not covered)**.
 - **s0 corner baseline**: HV-only flattens at ≈940 veh/h/lane (k≥20) — corner
   speed limit rather than the τ limit; full-CAV peaks 1,794 (IDM) / 1,857 (CACC) @ k40,
   both below the τ-limited 2,400.
@@ -141,9 +150,11 @@ Per-lane grid-observed peaks (veh/h/lane):
 
 ## 5. Synthesis
 
-- **FD shape and peak shift**: the right-skewed capacity mountain holds in every
-  scenario; higher penetration moves the peak toward the theoretical kc and raises
-  peak flow — CACC (smaller τ) extends the free-flow–critical branch.
+- **FD shape and peak shift**: HV, CACC and mixed-penetration (p=0.5) show a
+  complete right-skewed mountain (measured p=0.5 peak k30 2,447 → k55 1,991); **the
+  IDM full-CAV high-density branch is truncated by the axis cap (55 = 37.5% kj) with
+  no falling edge inside the axis**. Higher penetration moves the peak toward the
+  theoretical kc and raises peak flow — CACC (smaller τ) extends the free-flow–critical branch.
 - **s0 corner baseline**: corner speed limits cap capacity below the τ-limited 2,400 —
   HV-only plateau ≈940 veh/h/lane (k≥20), full-CAV peaks 1,794/1,857 @ k40 — a
   designed-in independent variable of the s0→s1 geometry smoothing contrast, not a
@@ -162,12 +173,16 @@ Per-lane grid-observed peaks (veh/h/lane):
 1. The 7,524-run U55 main grid completed end-to-end (0 failures, 0 INVALID, 0
    exclusions, 924 groups) with self-consistent data (detector flow = lap-derived
    flow, HV+CAV additivity, aggregate recompute 0 diff).
-2. The FD peak shifts precisely with cav penetration (HV k=20 / IDM-CAV k=50 / CACC
-   k=40); the fundamental-diagram scheme meets its design intent.
+2. The FD peak shifts with cav penetration (HV k=20 / CACC k=40; the IDM full-CAV
+   high-density branch is truncated by the axis cap, k≈50 being the grid-observed
+   maximum); the fundamental-diagram scheme meets its design intent (free-flow →
+   critical → congested with limited high-density reach).
 3. The s3 high-density merge-bottleneck reversal holds and is robustly supported by
    the flow metric; efficiency corroboration is used per density tier.
-4. No P0/P1 code-logic defects remain (four pipeline-review rounds converged: 2 P2
-   fixed; the one remaining P1 is a measurement-inherent limit, closed by documentation).
+4. No P0/P1 code-logic defects remain (seven pipeline-review rounds converged: the
+   first four on the code layer, rounds 5–7 on the release-document/figure layer;
+   the 2 P2 items and subsequent document-level P1s are fixed or closed by
+   documentation).
 
 ---
 

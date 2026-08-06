@@ -61,13 +61,15 @@ jobs:
             --output-root /tmp/cav-smoke \
             --sumo-processes 1
       - name: Diagnose smoke failure
-        if: failure()
+        # batch_run 对 run FAILED 返回 exit 0（RUN 级失败非进程级）——Verify 步骤
+        # 才真正失败，故此处不能用 if: failure()，须 always() 无条件执行
+        if: always()
         run: |
           RUN_DIR=/tmp/cav-smoke/s0_IDM_v010_c005_as01_ss101
           echo "=== simulation_status.json ==="
-          cat "$RUN_DIR/simulation_status.json"
+          cat "$RUN_DIR/simulation_status.json" 2>/dev/null || echo "(run 目录不存在)"
           echo "=== stderr.log (tail 40) ==="
-          tail -40 "$RUN_DIR/stderr.log"
+          tail -40 "$RUN_DIR/stderr.log" 2>/dev/null || echo "(无 stderr)"
           echo "=== sumo version ==="
           sumo --version | head -2
       - name: Verify smoke artifacts

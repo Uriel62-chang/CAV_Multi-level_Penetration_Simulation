@@ -10,7 +10,7 @@
 
 - **结果 ship**：`results/v0.4.2/main/aggregated_results.csv`（924 组 × 329 列）
   纳入公开仓库；raw 76 GB / run-level / subgroup 留外部备份。
-- **报告**：`docs/report.md`（中文）+ `docs/report.en.md`（英文）正式实验报告；
+- **报告**：`docs/report.cn.md`（中文）+ `docs/report.en.md`（英文）正式实验报告；
   README 重写为 U55 正式口径（英文），挂 `graph/v0.4.2/` 5 图。
 - **管线审查四轮收敛**：无 P0/P1 代码逻辑缺陷（2 项 P2 已修复；遗留 P1 为 s3 k≥40
   效率指标测量固有限制，已量化 + 报告层强制指令文档化闭环）。

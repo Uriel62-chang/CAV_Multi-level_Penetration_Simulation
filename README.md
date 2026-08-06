@@ -9,7 +9,7 @@
 [Scenario Design](#scenario-design) ·
 [Metric Methodology](#metric-methodology) ·
 [Quick Start](#quick-start) ·
-[Report (中文)](docs/report.md) ·
+[Report (中文)](docs/report.cn.md) ·
 [Report (English)](docs/report.en.md) ·
 [Engineering Audit](docs/engineering/audit.md) ·
 [Migration](docs/engineering/migration.md) ·
@@ -29,7 +29,7 @@ The project compares **IDM** and **CACC** across four progressively constrained 
 
 ## Key Findings (v0.4.2)
 
-The v0.4.2 formal grid (**7,524 runs**, U55 fundamental-diagram design, SSM enabled across the whole grid) was fully completed in 2026-08: 3 workers / 21.86 h / 0 failures. Results below are computed from the shipped aggregate (`results/v0.4.2/main/aggregated_results.csv`, 924 groups × 329 columns); see [`docs/report.md`](docs/report.md) / [`docs/report.en.md`](docs/report.en.md) for the full analysis.
+The v0.4.2 formal grid (**7,524 runs**, U55 fundamental-diagram design, SSM enabled across the whole grid) was fully completed in 2026-08: 3 workers / 21.86 h / 0 failures. Results below are computed from the shipped aggregate (`results/v0.4.2/main/aggregated_results.csv`, 924 groups × 329 columns); see [`docs/report.cn.md`](docs/report.cn.md) / [`docs/report.en.md`](docs/report.en.md) for the full analysis.
 
 **Flow.** Per-lane grid-observed peaks move with CAV penetration as designed:
 
@@ -355,7 +355,7 @@ Always run with `--resume` from the first launch—it costs nothing on a clean s
 - **Shipped in the repository**: `results/v0.4.2/main/aggregated_results.csv` (924 groups × 329 columns; 3.1 MB) — the publication-level aggregate of the 7,524-run U55 grid.
 - **External backup** (not in Git): `raw/` (76 GB, per-run simulation + parse artifacts), run-level and subgroup CSVs, and the full per-run evidence chain. Regenerate run-level/subgroup outputs from `raw/` via the writer/aggregate pipeline shown in the [full reproduction workflow](#quick-start).
 - **Figures**: `graph/v0.4.2/` (5 charts, tracked).
-- **Reports**: [`docs/report.md`](docs/report.md) (中文) and [`docs/report.en.md`](docs/report.en.md) (English).
+- **Reports**: [`docs/report.cn.md`](docs/report.cn.md) (中文) and [`docs/report.en.md`](docs/report.en.md) (English).
 - The 2026-08 cleanup deleted historical v0.4.0 and earlier-v0.4.2 data (external backup retained); the U55 grid is the current sole formal grid.
 
 ---
@@ -409,7 +409,7 @@ graph/
 
 docs/
 ├── README.md
-├── report.md
+├── report.cn.md
 ├── report.en.md
 └── engineering/
     ├── audit.md
@@ -455,7 +455,7 @@ docs/
 
 | Document | Purpose |
 |---|---|
-| [Report (中文)](docs/report.md) | v0.4.2 正式实验报告（设计、管线质量、结果、综合分析、局限） |
+| [Report (中文)](docs/report.cn.md) | v0.4.2 正式实验报告（设计、管线质量、结果、综合分析、局限） |
 | [Report (English)](docs/report.en.md) | v0.4.2 formal experiment report (English) |
 | [Documentation index](docs/README.md) | Engineering audit, migration and release checklist |
 | `scripts/` source | Inline docstrings; see Repository Structure for module map |

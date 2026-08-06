@@ -4,7 +4,7 @@
 > **Grid**: 7,524-run main factorial (SSM enabled for the full grid — merged design)
 > **Simulation**: SUMO 1.27.1 · 3 workers / 21.86 h / 0 failures · observation window [600, 1800)
 > **Data**: `results/v0.4.2/main/aggregated_results.csv` (924 groups × 329 columns); raw 76 GB kept in external backup
-> **中文版**: `docs/report.md`
+> **中文版**: `docs/report.cn.md`
 
 ---
 

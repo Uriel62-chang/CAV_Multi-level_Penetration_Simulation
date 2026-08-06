@@ -2,7 +2,7 @@
 
 ## v0.4.2 Reports
 
-- [Report (中文)](report.md) — v0.4.2 正式实验报告（设计、管线质量、结果、综合分析、结论、局限、展望、参考文献）。
+- [Report (中文)](report.cn.md) — v0.4.2 正式实验报告（设计、管线质量、结果、综合分析、结论、局限、展望、参考文献）。
 - [Report (English)](report.en.md) — v0.4.2 formal experiment report (English).
 
 ## Engineering

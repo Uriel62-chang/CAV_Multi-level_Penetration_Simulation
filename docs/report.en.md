@@ -306,12 +306,22 @@ communication-degradation work as phase D; v0.7.0 is demoted to a conditional re
   NGSIM/HighD highway-straight data calibrate HV car-following parameters; CAV
   (IDM/ACC/CACC) keeps literature/set values, forming an "HV empirical baseline vs
   CAV model-set" contrast; SUMO reproduction + generalization-boundary report.
+- **v0.5.1**: **HV heterogeneity and CAV spatial-organization mechanisms** —
+  driver types (Aggressive/Normal/Conservative) clustered from the calibration
+  distribution; a CAV spatial-organization dimension (random/clustered/dispersed
+  patterns at equal penetration); process metrics (lane change, speed/acceleration
+  oscillation, queueing, merge pressure) to explain **why** the bottleneck reversal
+  occurs.
 - **v0.6.0**: TraCI-based dynamic control + **single-intersection adaptive signal
   control framework (first application)** — fixed timing (phase A) → actuated/
   adaptive (phase B) → CAV penetration × signal interaction (phase C) →
-  **communication degradation × V2X robustness (phase D, absorbs former v0.7.0)**;
-  efficiency-metric migration (closed-loop lap time → travel time / queueing delay /
-  control delay).
+  **communication degradation × V2X robustness (phase D, absorbs former v0.7.0;
+  benefit-retention ratio and robustness phase diagram quantify the vanishing
+  benefit boundary)**; efficiency-metric migration (closed-loop lap time → travel
+  time / queueing delay / control delay).
+- **v0.6.1**: **final consolidation (thesis freeze)** — five core figures
+  (calibration / benefit phase diagram / mechanism / communication robustness /
+  Pareto) + final sensitivity analysis + thesis and defense material.
 - **v0.7.0**: **conditional reserve** — dedicated CACC communication-degradation
   study (packet loss, latency), enabled only if the v0.6.0 phase D results justify
   an independent track; by default merged into v0.6.0.

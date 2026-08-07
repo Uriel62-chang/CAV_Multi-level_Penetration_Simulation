@@ -99,7 +99,7 @@ CAV mixing stabilizes no slower than pure HV.)
 | Parsing | 0 INVALID (insertion-integrity guard: actual vehicles < vehN → INVALID_DATA; passed the full grid) |
 | Writer | 0 exclusions |
 | Aggregation | 924 groups (4 × 11 × 21; interior n=9 / endpoint n=3) |
-| Tests | 451 passed (gate baseline, after ACC support); ruff / mypy / compileall / format all green |
+| Tests | 490 passed (gate baseline: 451 + 38 analysis layer + 1 R13 zero-variance regression); ruff / mypy / compileall / format all green |
 | Hardware | 32 GB host; WSL2 memory=24GB / processors=16 / swap=8GB; SUMO 1.27.1 |
 | Resources | worst cell (s2 v220 full CAV) peak RSS 13.64 GiB; raw 76 GB (≈10.1 GB per 1,000 runs) |
 | Data consistency | detector flow = lap-time-derived flow (deviation <0.5%); aggregate recompute 0 diff; HV+CAV additivity holds |

@@ -444,7 +444,7 @@ Always run with `--resume` from the first launch—it costs nothing on a clean s
 
 - **Shipped in the repository**: `results/v0.4.2/main/aggregated_results.csv` (924 groups × 329 columns; 3.1 MB) — the publication-level aggregate of the 7,524-run U55 grid.
 - **External backup** (not in Git): `raw/` (76 GB, per-run simulation + parse artifacts), run-level and subgroup CSVs, and the full per-run evidence chain. Regenerate run-level/subgroup outputs from `raw/` via the writer/aggregate pipeline shown in the [full reproduction workflow](#quick-start).
-- **Figures**: `graph/v0.4.2/` (5 charts, tracked).
+- **Figures**: `graph/v0.4.2/` (6 charts, tracked: 5 main-grid + analysis-layer phase diagram).
 - **Reports**: [`docs/report.cn.md`](docs/report.cn.md) (中文) and [`docs/report.en.md`](docs/report.en.md) (English).
 - The 2026-08 cleanup deleted historical v0.4.0 and earlier-v0.4.2 data (external backup retained); the U55 grid is the current sole formal grid.
 

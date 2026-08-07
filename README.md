@@ -541,7 +541,7 @@ docs/
 | v0.5.0 | Real-trajectory-driven **HV** car-following calibration and validation (NGSIM/HighD highway-following segments; CAV parameters stay at literature/set values, so the calibrated HV forms a realistic baseline vs model-set CAV) |
 | v0.5.1 | **Mechanism study: HV heterogeneity and CAV spatial organization** — driver types clustered from the calibrated distribution; CAV patterns (random/clustered/dispersed at equal penetration); process metrics (lane change, speed/acceleration oscillation, queueing, merge pressure) explain **why** the bottleneck reversal occurs |
 | v0.6.0 | **TraCI dynamic control with a single-intersection adaptive signal control framework as the first application** (intersection network + OD flow + efficiency-metric migration from closed-loop lap time to travel/queue delay; fixed → actuated/adaptive → CAV×signal interaction → **communication-degradation robustness**: packet loss/latency/range vs CAV×signal benefits, quantified by benefit-retention ratio and a robustness phase diagram) |
-| v0.6.1 | **Final consolidation (thesis freeze)** — five core figures (calibration / benefit phase diagram / mechanism / communication robustness / Pareto) + final sensitivity analysis |
+| v0.6.1 | **Final consolidation** — five core figures (calibration / benefit phase diagram / mechanism / communication robustness / Pareto) + final sensitivity analysis |
 | v0.7.0 | **Reserved** — communication-degradation deep-dive only if the v0.6.0 phase-D findings justify a standalone follow-up (default: folded into v0.6.0) |
 
 ---

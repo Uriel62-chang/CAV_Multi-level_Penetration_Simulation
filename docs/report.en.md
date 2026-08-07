@@ -319,9 +319,9 @@ communication-degradation work as phase D; v0.7.0 is demoted to a conditional re
   benefit-retention ratio and robustness phase diagram quantify the vanishing
   benefit boundary)**; efficiency-metric migration (closed-loop lap time → travel
   time / queueing delay / control delay).
-- **v0.6.1**: **final consolidation (thesis freeze)** — five core figures
+- **v0.6.1**: **final consolidation** — five core figures
   (calibration / benefit phase diagram / mechanism / communication robustness /
-  Pareto) + final sensitivity analysis + thesis and defense material.
+  Pareto) + final sensitivity analysis.
 - **v0.7.0**: **conditional reserve** — dedicated CACC communication-degradation
   study (packet loss, latency), enabled only if the v0.6.0 phase D results justify
   an independent track; by default merged into v0.6.0.

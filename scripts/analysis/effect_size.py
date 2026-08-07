@@ -38,12 +38,17 @@ _D_LEVELS = (
 
 
 def cohens_d(delta: float, s_cacc: float, s_base: float, n_cacc: int, n_base: int) -> float:
-    """Cohen's d 变体：d = Δ / s_pooled（符号与 Δ 一致，Δ>0 = CACC 更优）。"""
+    """Cohen's d 变体：d = Δ / s_pooled（符号与 Δ 一致，Δ>0 = CACC 更优）。
+
+    R13-P2-①：双组跨 seed 方差均为 0（复现完全确定性）时 s_pooled=0，d 数学上
+    **未定义**（非 0）——返回 NaN，由调用方以 deterministic 标注列显式披露；
+    "零方差 = 效应完全确定"，与 "negligible（可忽略）" 语义相反。
+    """
     n_c = max(n_cacc, 2)
     n_b = max(n_base, 2)
     s_pooled = np.sqrt(((n_c - 1) * s_cacc**2 + (n_b - 1) * s_base**2) / (n_c + n_b - 2))
     if s_pooled == 0.0:
-        return 0.0
+        return float("nan")
     return delta / s_pooled
 
 
@@ -105,15 +110,15 @@ def compute_effect_sizes(df: pd.DataFrame) -> pd.DataFrame:
                 prefix = f"{col}_{baseline}"
                 n_c = int(r["n_cacc"])
                 n_b = int(r["n_idm"] if baseline == "model" else r["n_hv"])
-                d = cohens_d(
-                    float(r[f"{prefix}_delta"]),
-                    _row_std(idx, sc, dens, p, "CACC", col),
-                    _row_std(idx, sc, dens, 0.0 if baseline == "abs" else p, base_model, col),
-                    n_c,
-                    n_b,
-                )
+                s_c = _row_std(idx, sc, dens, p, "CACC", col)
+                s_b = _row_std(idx, sc, dens, 0.0 if baseline == "abs" else p, base_model, col)
+                # R13-P2-①：双组零方差 = 确定性档，d 未定义（NaN）——单独标注
+                # deterministic，不并入 negligible 统计（median/正值占比排除）。
+                deterministic = s_c == 0.0 and s_b == 0.0
+                d = cohens_d(float(r[f"{prefix}_delta"]), s_c, s_b, n_c, n_b)
                 rec[f"{prefix}_d"] = d
-                rec[f"{prefix}_d_label"] = interpret_d(abs(d))
+                rec[f"{prefix}_d_label"] = "" if deterministic else interpret_d(abs(d))
+                rec[f"{prefix}_d_deterministic"] = deterministic
                 rec[f"{prefix}_delta"] = r[f"{prefix}_delta"]
                 rec[f"{prefix}_delta_lo"] = r[f"{prefix}_delta_lo"]
                 rec[f"{prefix}_delta_hi"] = r[f"{prefix}_delta_hi"]

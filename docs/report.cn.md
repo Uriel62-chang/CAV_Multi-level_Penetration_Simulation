@@ -242,8 +242,9 @@ assignment/sumo 双 seed、SSM 敏感性工具等），但未通过旧资源门�
   区间跨 0，不构成正收益声明）；k∈{15,20,25,35,55} 全程无正收益（`p* > 1.0`）；
   仅低密度 k=5/10 高渗透率有正收益（`p* ∈ (0.7,0.8]` / `(0.9,1.0]`）。**k\* 反转
   密度**：p=0.8/0.9 → k* ∈ (5,10]、p=1.0 → (10,15]、p=0.1 → (30,35]；p∈{0.2,…,0.7}
-  全程无收益。效应量佐证：s3 Δq_model 的 Cohen's d 仅 5.5% 为正、中位数 −2.01
-  （large 反转）。
+  全程无收益。效应量佐证：s3 Δq_model 的 Cohen's d 中位数 **−2.74**、仅 6.1% 为正
+  （large 反转；全 CAV 确定性档 44 组跨 seed 方差为零、d 未定义，已排除并以
+  deterministic 标注——零方差 = 效应完全确定，非 negligible）。
 - **Pareto（四维：max flow / min delay / min conflict / min CO₂，无人工权重；
   Pareto 比较限定同 (scenario, density) 组内——density 是外部需求参数非设计变量）**：
   四场景 front 均覆盖全渗透率 [0, 1.0]，无单一全局最优渗透率；**s3 front 规模最小

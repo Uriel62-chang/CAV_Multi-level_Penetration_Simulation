@@ -250,8 +250,10 @@ is illustrative only; step-level thresholds are in the p*/k* tables below):
   only low densities k=5/10 gain at high penetration (`p* ∈ (0.7,0.8]` /
   `(0.9,1.0]`). **k\* reversal densities**: p=0.8/0.9 → k* ∈ (5,10], p=1.0 →
   (10,15], p=0.1 → (30,35]; p∈{0.2,…,0.7} never gain. Effect size corroborates:
-  only 5.5% of s3 Δq_model Cohen's d values are positive, median −2.01 (large
-  reversal).
+  the s3 Δq_model Cohen's d median is **−2.74** with only 6.1% positive (large
+  reversal; the 44 full-CAV deterministic cells with zero cross-seed variance have
+  undefined d and are excluded and flagged — zero variance means the effect is
+  fully determined, not negligible).
 - **Pareto** (four dimensions: max flow / min delay / min conflict / min CO₂, no
   hand-picked weights; comparisons are within the same (scenario, density) group —
   density is an external demand parameter, not a design variable): all four fronts

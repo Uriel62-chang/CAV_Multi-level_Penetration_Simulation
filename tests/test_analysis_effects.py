@@ -1,5 +1,6 @@
 """分析层回归测试：effect_size（效应量）+ interaction_analysis（交互分解）。"""
 
+import numpy as np
 import pandas as pd
 import pytest
 from analysis_fixtures import make_agg_csv, make_agg_df
@@ -16,8 +17,29 @@ def test_cohens_d_basic():
     assert d == pytest.approx(10.0 / 10.0)
     # Δ=0 → d=0
     assert effect_size.cohens_d(0.0, 5.0, 5.0, 9, 9) == 0.0
-    # 零方差 → d=0（防御）
-    assert effect_size.cohens_d(5.0, 0.0, 0.0, 9, 9) == 0.0
+    # R13-P2-①：双组零方差（复现完全确定性）→ d 数学未定义 → NaN（非 0/negligible）
+    assert np.isnan(effect_size.cohens_d(5.0, 0.0, 0.0, 9, 9))
+    # 单组零方差仍可计算（s_pooled > 0）
+    assert np.isfinite(effect_size.cohens_d(5.0, 0.0, 10.0, 9, 9))
+
+
+def test_compute_effect_sizes_deterministic_flag(tmp_path):
+    """R13-P2-① 回归：确定性档（双组零方差）d=NaN + d_deterministic=True +
+    d_label 空；非确定性档正常。fixture 中 flow_std 恒 100 → 全为非确定性，
+    人为置零一档验证标注。"""
+    df = load_aggregated(make_agg_csv(tmp_path))
+    # 人为构造确定性档：density=10 p=0.5 的 CACC 与 IDM 行 flow_std 置 0
+    mask = (df["density_veh_per_km_lane"] == 10.0) & (df["pCAV"] == 0.5)
+    df.loc[mask, "flow_std"] = 0.0
+    es = effect_size.compute_effect_sizes(df)
+    row = es[(es["density_veh_per_km_lane"] == 10.0) & (es["pCAV"] == 0.5)].iloc[0]
+    assert np.isnan(row["flow_model_d"])
+    assert bool(row["flow_model_d_deterministic"])
+    assert row["flow_model_d_label"] == ""
+    # 其他档不受影响（非确定性）
+    other = es[(es["density_veh_per_km_lane"] == 20.0) & (es["pCAV"] == 1.0)].iloc[0]
+    assert not bool(other["flow_model_d_deterministic"])
+    assert other["flow_model_d_label"] != ""
 
 
 def test_interpret_d_thresholds():

@@ -34,7 +34,7 @@
 - **核心产出**：双 Phase Diagram（`graph/v0.4.2/chart_phase_diagrams.png`，挂
   README Core Results）+ p*/k* 阈值表 + Pareto front + 敏感性；s3 高密度
   k∈{30,40,45,50} 检出 CACC 反转（`p* ≤ 0.1`、`p_reversal_start ∈ (0.1,0.2]`）、
-  效应量中位数 −2.01——反转非随机种子偶发现象。
+  效应量中位数 −2.74（确定性档排除）——反转非随机种子偶发现象。
 - **门禁**：新增 38 个分析层测试（总 489 passed）；ruff/mypy/compileall/format +
   dry-run 全绿；报告 §5.1（中英）新增综合分析章节。
 

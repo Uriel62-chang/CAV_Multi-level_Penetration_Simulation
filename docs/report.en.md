@@ -227,7 +227,7 @@ Per-lane grid-observed peaks (veh/h/lane):
 - **Model Effect Surface** (Δq_model = q_CACC,p − q_IDM,p, same-penetration model contrast);
 - **Absolute Benefit Surface** (Δq_abs = q_CACC,p − q_HV,0, absolute benefit over the pure-HV baseline).
 
-![Dual phase diagrams (Model Effect + Absolute Benefit)](graph/v0.4.2/chart_phase_diagrams.png)
+![Dual phase diagrams (Model Effect + Absolute Benefit)](../graph/v0.4.2/chart_phase_diagrams.png)
 
 Measured highlights (the Δq=0 contour is a linear interpolation between steps and
 is illustrative only; step-level thresholds are in the p*/k* tables below):

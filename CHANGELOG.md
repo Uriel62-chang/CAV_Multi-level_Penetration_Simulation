@@ -109,10 +109,10 @@
 
 ### 测试与门禁
 
-- **447 tests（当前基线）：441（2026-08 合并设计 + A 方案后基线 440；收敛审核
+- **490 tests（当前基线）：441（2026-08 合并设计 + A 方案后基线 440；收敛审核
   Phase 2 增补 subgroup 解析质量门禁回归测试 → 441）→ 445（管线审查基线）→
-  447（管线审查 P2-1/P2-2 回归测试 2 条）**；Ruff / mypy / compileall / format
-  全通过
+  447（管线审查 P2-1/P2-2 回归测试 2 条）→ 451（ACC 兼容 +2）→ 489（分析层
+  38）→ 490（R13 零方差回归）**；Ruff / mypy / compileall / format 全通过
 - 纯净分支重构（draft/pure-v042）：移除 v0.4.0~post3 兼容支持——schema=1 契约
   （RUN_LEVEL_COLUMNS/SUMMARY_REQUIRED_KEYS/_build_row_legacy）、PIPELINE_V4_0_POST1
   （_from_dict_legacy/默认值/白名单）、reanalyze_post3.py、FREE_FLOW_LAP_TIME_S

@@ -111,7 +111,7 @@ assignment/sumo 双 seed、SSM 敏感性工具等），但未通过旧资源门�
 | 解析 | 0 INVALID（插入完整性守卫：vehroute 实际车辆数 < vehN → INVALID_DATA，全网格通过） |
 | writer | 0 排除 |
 | 聚合 | 924 组（4 × 11 × 21；interior n=9 / endpoint n=3） |
-| 测试 | 451 passed（门禁基线，ACC 兼容后）；ruff / mypy / compileall / format 全通过 |
+| 测试 | 490 passed（门禁基线：451 + 分析层 38 + R13 回归 1）；ruff / mypy / compileall / format 全通过 |
 | 硬件 | 宿主机 32 GB；WSL2 memory=24GB / processors=16 / swap=8GB；SUMO 1.27.1 |
 | 资源 | 最坏档（s2 v220 全 CAV）峰值 RSS 13.64 GiB；raw 76 GB（≈10.1 GB/千 runs） |
 | 数据自洽 | 检测器流量 = 圈时反推流量（偏差 <0.5%）；aggregate 重算 0 diff；HV+CAV 可加性通过 |
@@ -225,7 +225,7 @@ assignment/sumo 双 seed、SSM 敏感性工具等），但未通过旧资源门�
 - **Model Effect Surface**（Δq_model = q_CACC,p − q_IDM,p，同渗透率控制模型差异）；
 - **Absolute Benefit Surface**（Δq_abs = q_CACC,p − q_HV,0，相对纯 HV 基线的绝对收益）。
 
-![双 Phase Diagram（Model Effect + Absolute Benefit）](graph/v0.4.2/chart_phase_diagrams.png)
+![双 Phase Diagram（Model Effect + Absolute Benefit）](../graph/v0.4.2/chart_phase_diagrams.png)
 
 实测要点（Δq=0 分界线在档位间线性插值仅为可视化示意；档位级阈值见下方 p*/k*）：
 

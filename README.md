@@ -311,7 +311,7 @@ The parser pipeline provides:
 0              INVALID parses (insertion-integrity guard passed)
 0              writer exclusions
 924            aggregated groups (4 scenarios × 11 vehN × 21 per-vehN)
-451            automated tests passed (current gate baseline)
+490            automated tests passed (current gate baseline; 451 + 38 analysis layer + 1 R13 zero-variance regression)
 0              duplicate run IDs
 0              invariant violations
 ```
@@ -374,7 +374,7 @@ python -m compileall -q scripts tests
 Expected result:
 
 ```text
-451 passed
+490 passed
 ```
 
 ### Run one simulation

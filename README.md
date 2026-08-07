@@ -1,6 +1,6 @@
 # CAV Multi-level Penetration Simulation
 
-> A reproducible SUMO experiment platform for evaluating how CAV penetration and car-following control affect **observed flow, safety, emissions, and reference-relative lap time** under different road constraints.
+> A reproducible SUMO experiment platform for CAV/HV mixed-traffic research: how CAV penetration and car-following control affect **observed flow, safety, emissions, and reference-relative lap time** under different road constraints — validated on a **7,524-run formal grid (3×3 dual seeds)** with a statistical analysis layer (dual benefit phase diagrams, benefit boundaries, Pareto fronts).
 
 `SUMO 1.27.1` · `Python 3.10+` · `7,524 simulations · 3×3 dual seeds` · `v0.4.2`
 

@@ -225,7 +225,8 @@ failed gate（该门禁已废止，见 v0.4.2 跳号说明）。
 ### 测试
 
 - 当时基线 **170 tests**（85 legacy + 19 v0.4.1 + 66 stage2）；现行为 498（v0.4.2 发布前修复后基线）
-- Stage 2 设计基线冻结于 `docs/development/v0.4.1-stage2-design.md`
+- Stage 2 设计基线冻结于 `docs/internal/archive/v0.4.1-stage2-design.md`
+  （本地维护文档，不随仓库发布；原 `docs/development/` 路径已于 2026-08 瘦身移入）
 - 门禁：Ruff / mypy / compileall / format 全通过
 
 `v0.4.0.post3` 不重跑 SUMO；它从冻结的 10,080-run raw XML 修正 post2

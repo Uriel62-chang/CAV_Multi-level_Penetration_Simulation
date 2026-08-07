@@ -181,9 +181,9 @@ The FD peak shifts with penetration (s1/s2): HV-only k≈20 → CACC p=1.0 k≈4
 ![Fundamental diagram (main scenarios)](graph/v0.4.2/chart_fundamental_diagram.png)
 ![Fundamental diagram (s3 bottleneck)](graph/v0.4.2/chart_fundamental_diagram_s3.png)
 
-### Analysis Layer: Benefit Phase Diagrams (incremental)
+### Benefit Phase Diagrams
 
-The v0.4.2 analysis layer (`scripts/analysis/`, zero data re-runs — it consumes only the shipped aggregated CSV) adds a **dual phase diagram** read side by side without forcing a single baseline:
+The v0.4.2 analysis layer (`scripts/analysis/`) derives its results **from the shipped aggregated results CSV alone** (the single formal-grid data source; no additional simulation) and adds a **dual phase diagram** read side by side without forcing a single baseline:
 
 - **Model Effect Surface** — Δq_model = q_CACC,p − q_IDM,p (same-penetration model contrast);
 - **Absolute Benefit Surface** — Δq_abs = q_CACC,p − q_HV,0 (absolute benefit over the pure-HV baseline).
@@ -311,7 +311,7 @@ The parser pipeline provides:
 0              INVALID parses (insertion-integrity guard passed)
 0              writer exclusions
 924            aggregated groups (4 scenarios × 11 vehN × 21 per-vehN)
-490            automated tests passed (current gate baseline; 451 + 38 analysis layer + 1 R13 zero-variance regression)
+490            automated tests passed (current gate baseline)
 0              duplicate run IDs
 0              invariant violations
 ```
@@ -537,7 +537,7 @@ docs/
 |---|---|
 | v0.4.0.post3 | Unified observation-window reanalysis of the frozen 10,080-run grid (historical public release; head no longer ships v0.4.0~post3 code support) |
 | v0.4.1 | Measurement and experimental-design upgrade: HV/CAV subgroup metrics, physical THW, compact FCD/TraCI validation, TTC threshold sensitivity, space-matched exposure, independent SUMO/assignment seeds, model-specific free-flow references, and a bounded pilot (internal milestone, **not released**; engineering outcomes folded into v0.4.2) |
-| **v0.4.2** | **Formal grid (jump release, current): 7,524-run U55 main factorial — unified density axis 5–55 veh/km/lane, SSM enabled for the full grid, departSpeed="0", 3×3 dual seeds, observation window [600, 1800); results shipped in `results/v0.4.2/main/`; incremental analysis layer in the observation window (dual phase diagrams: model-effect and absolute-benefit surfaces)** |
+| **v0.4.2** | **Formal grid (jump release, current): 7,524-run U55 main factorial — unified density axis 5–55 veh/km/lane, SSM enabled for the full grid, departSpeed="0", 3×3 dual seeds, observation window [600, 1800); results shipped in `results/v0.4.2/main/`; analysis layer with dual phase diagrams (model-effect and absolute-benefit surfaces)** |
 | v0.5.0 | Real-trajectory-driven **HV** car-following calibration and validation (NGSIM/HighD highway-following segments; CAV parameters stay at literature/set values, so the calibrated HV forms a realistic baseline vs model-set CAV) |
 | v0.6.0 | **TraCI dynamic control with a single-intersection adaptive signal control framework as the first application** (intersection network + OD flow + efficiency-metric migration from closed-loop lap time to travel/queue delay; fixed → actuated/adaptive → CAV×signal interaction → **communication-degradation robustness**: packet loss/latency/range vs CAV×signal benefits) |
 | v0.7.0 | **Reserved** — communication-degradation deep-dive only if the v0.6.0 phase-D findings justify a standalone follow-up (default: folded into v0.6.0) |

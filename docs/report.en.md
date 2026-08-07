@@ -213,11 +213,12 @@ Per-lane grid-observed peaks (veh/h/lane):
 - **No global optimum**: across the four dimensions no single model dominates; CACC
   advantage is scenario-dependent and its weakness concentrates at high-density merges.
 
-### 5.1 Analysis layer (incremental): dual phase diagrams and threshold detection
+### 5.1 Analysis layer: dual phase diagrams and threshold detection
 
-> The analysis layer is an increment developed in the v0.4.2 observation window
-> (`scripts/analysis/`, 7 modules), **zero data re-runs** — it consumes only
-> `results/v0.4.2/main/aggregated_results.csv`. The statistical stance follows §8:
+> The analysis layer (`scripts/analysis/`, 7 modules) is part of v0.4.2; all results
+> are computed from the shipped formal-grid aggregate
+> `results/v0.4.2/main/aggregated_results.csv` alone (single data source, no
+> additional simulation). The statistical stance follows §8:
 > interior cells n=9; effect size + descriptive intervals + cross-seed consistency,
 > **not formal significance testing**; p has a 0.1 step, so thresholds are reported
 > as step intervals (e.g. `p* ∈ (0.5, 0.6]`).

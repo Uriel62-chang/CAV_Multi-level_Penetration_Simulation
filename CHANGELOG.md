@@ -18,9 +18,10 @@
 - **发布动作（用户手动）**：tag v0.4.2、push main + tag、GitHub release——按
   `docs/engineering/release-checklist.md` 执行。
 
-### 分析层（2026-08，增量融入 v0.4.2，观察期内开发 + 管线审查背书）
+### 分析层（2026-08，v0.4.2 统计分析组件，管线审查背书）
 
-- **新增 `scripts/analysis/` 7 模块**（数据零重跑——只消费 shipped aggregated CSV）：
+- **`scripts/analysis/` 7 模块**（全部结果只消费 shipped aggregated CSV，单一
+  数据源、无额外仿真）：
   descriptive_analysis（描述统计增强，替代 mixed_effects 分层描述角色）/
   effect_size（Δ 指标族 + Cohen's d 变体 + 跨 seed 描述性区间）/ interaction_analysis
   （p×density、model×scenario、model×density、三阶分解）/ threshold_detection

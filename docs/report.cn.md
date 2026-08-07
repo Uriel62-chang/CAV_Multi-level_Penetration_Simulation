@@ -213,10 +213,11 @@ assignment/sumo 双 seed、SSM 敏感性工具等），但未通过旧资源门�
 - **无全局最优**：四维评估下无单一模型全局占优；CACC 优势场景依赖（平滑无约束
   环境）、劣势集中于高密度瓶颈。
 
-### 5.1 分析层（增量）：双 Phase Diagram 与阈值检测
+### 5.1 分析层：双 Phase Diagram 与阈值检测
 
-> 分析层是 v0.4.2 观察期内的增量（`scripts/analysis/`，7 模块），**数据零重跑**——
-> 只消费 `results/v0.4.2/main/aggregated_results.csv`。统计口径延续 §8 声明：
+> 分析层是 v0.4.2 的统计分析组件（`scripts/analysis/`，7 模块），全部结果只
+> 消费正式网格 shipped `results/v0.4.2/main/aggregated_results.csv`（单一数据源，
+> 无额外仿真）。统计口径延续 §8 声明：
 > interior cell n=9，效应量 + 描述性区间 + 跨 seed 一致性，**非正式显著性推断**；
 > p 为 0.1 步长，阈值一律报告档位区间（如 `p* ∈ (0.5, 0.6]`）。
 

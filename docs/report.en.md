@@ -232,29 +232,41 @@ Per-lane grid-observed peaks (veh/h/lane):
 Measured highlights (the Δq=0 contour is a linear interpolation between steps and
 is illustrative only; step-level thresholds are in the p*/k* tables below):
 
-- **s0/s1/s2 show no systematic reversal**: no reversal cells in p* detection
-  (s0: all 11 density levels gain/mixed; s1/s2: 5 gain + 4 mixed + 2 no-crossing),
-  while the Δq_model mean is negative (s0 −26 / s1 −93 / s2 −99 veh/h/lane) because
-  the high-density CACC deficit outweighs the low-density advantage — **higher peaks
-  and weaker equal-weight means coexist**, two conclusions supported by different
-  estimands (grid maximum vs equal-weight mean).
+- **s0/s1/s2 show no s3-style all-level reversal** (in the strict status sense: no
+  reversal cells — s0: all 11 density levels gain/mixed; s1/s2: 5 gain + 4 mixed + 2
+  no-crossing) — but **s1/s2 high-density k≥45 levels also lose at every penetration**
+  (no-crossing: Δq_model negative throughout, same nature as the s3 reversal cells
+  except the curve never crosses positive); cross-seed consistency of flow Δq_model
+  is reversal-majority in every scenario (s0 58/41/11, s1 53/47/10, s2 50/51/9,
+  reversal/mixed/gain, 110 cells/scenario); the equal-weight Δq_model mean is
+  negative (s0 −26 / s1 −93 / s2 −99 veh/h/lane) — **higher peaks and weaker
+  equal-weight means coexist**, supported by different estimands (grid maximum vs
+  equal-weight mean).
 - **s3 bottleneck reversal (core finding)**: high densities k∈{30,40,45,50} show
-  **reversal** (`p* ≤ 0.1` with `p_reversal_start ∈ (0.1, 0.2]` — any p>0 CACC mix
-  inverts throughput at the forced-merge bottleneck); k∈{15,20,25,35,55} show no
-  gain throughout (`p* > 1.0`); only low densities k=5/10 gain at high penetration
-  (`p* ∈ (0.7,0.8]` / `(0.9,1.0]`). **k\* reversal densities**: p=0.8/0.9 →
-  k* ∈ (5,10], p=1.0 → (10,15], p=0.1 → (30,35]; p∈{0.2,…,0.7} never gain. Effect
-  size corroborates: only 5.5% of s3 Δq_model Cohen's d values are positive, median
-  −2.01 (large reversal).
+  **reversal** (`p* ≤ 0.1` with `p_reversal_start ∈ (0.1, 0.2]` — **any p≥0.2 mix
+  inverts throughput at the forced-merge bottleneck**; the p=0.1 marginal cell has a
+  slightly positive point estimate (+3.5…+25.3 veh/h/lane) but its interval crosses
+  0, so no positive-benefit claim); k∈{15,20,25,35,55} never gain (`p* > 1.0`);
+  only low densities k=5/10 gain at high penetration (`p* ∈ (0.7,0.8]` /
+  `(0.9,1.0]`). **k\* reversal densities**: p=0.8/0.9 → k* ∈ (5,10], p=1.0 →
+  (10,15], p=0.1 → (30,35]; p∈{0.2,…,0.7} never gain. Effect size corroborates:
+  only 5.5% of s3 Δq_model Cohen's d values are positive, median −2.01 (large
+  reversal).
 - **Pareto** (four dimensions: max flow / min delay / min conflict / min CO₂, no
   hand-picked weights; comparisons are within the same (scenario, density) group —
-  density is an external demand parameter, not a design variable): no single globally
-  optimal penetration; the s3 front concentrates in the high-penetration range,
-  contrasting with s0/s1/s2 fronts spanning all p — different scenarios have different
-  Pareto-optimal regions.
-- **Sensitivity**: under alternative estimands (flow total vs per-lane, delay mean vs
-  p95, TTC vs DRAC) the p* step is unchanged in 109/132 cells — threshold conclusions
-  are robust to estimand choice.
+  density is an external demand parameter, not a design variable): all four fronts
+  span the full penetration range [0, 1.0] and there is no single globally optimal
+  penetration; **the s3 front is the smallest (60 points) and skews toward low- to
+  mid-penetration and IDM configurations** — front pCAV mean 0.473 (lowest of the
+  four), p≥0.6 share 33.3% (s0/s1/s2: 76.8%/59.3%/60.4%), IDM share 76.7% (highest):
+  the high-penetration CACC flow/delay deficit at the bottleneck makes those points
+  dominated within their density groups; s0/s1/s2 fronts carry higher high-p shares
+  — different scenarios have different Pareto-optimal regions.
+- **Sensitivity**: p* steps are unchanged in 109/132 cells under alternative
+  estimands — breakdown: flow total vs per-lane 44/44 unchanged (lane count is
+  constant within a scenario, so this pair is a scale-consistency check whose
+  invariance is expected); delay mean vs p95 34/44 and TTC vs DRAC 31/44 are the
+  discriminating contrasts — threshold conclusions are robust to estimand choice.
 
 **Interim scientific conclusion**: the CACC performance reversal is not an artifact
 of a few random seeds — the s3 high-density reversal reproduces consistently across

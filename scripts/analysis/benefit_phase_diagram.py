@@ -98,23 +98,33 @@ def chart_phase_diagrams(delta_df: pd.DataFrame, out_dir: str | Path) -> Path:
     """双 Phase Diagram 一张图：场景行 × 2 曲面列（Model Effect | Absolute Benefit）。
 
     场景按数据中存在性数据驱动（SCENARIO_LABELS 顺序过滤），单场景 fixture
-    也可出图；行数 = 数据中的场景数。**色标为全局对称半宽**（跨场景×跨曲面
-    统一 vmax）——两曲面在同一 Δ 尺度下可比，图注与 colorbar 一致。
+    也可出图；行数 = 数据中的场景数。
+
+    色标（第十二轮 P2-3 修订）：**Model Effect 与 Absolute Benefit 各用独立对称
+    色标**（各自跨场景统一 vmax）——两曲面语义量级天然不同（model Δq ≈ ±1000
+    vs abs Δq 0–3228），强行同标尺会冲刷 model 面板可读性；同类型曲面跨场景
+    仍可比。图注声明两色标独立。
     """
     out = ensure_dir(out_dir)
     scenarios = [sc for sc in SCENARIO_LABELS if sc in set(delta_df["scenario"])]
     if not scenarios:
         raise ValueError("Δ 长表无场景数据")
-    # 先收集全部 surface + 计算全局 vmax（一次调用，避免重复 pivot）
+    # 先收集全部 surface + 分曲面类型计算全局对称 vmax（一次调用，避免重复 pivot）
     surfaces: dict[tuple[str, str], tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
-    vmax = 0.0
+    vmax_model = 0.0
+    vmax_abs = 0.0
     for sc in scenarios:
         for col in (MODEL_DELTA_COL, ABS_DELTA_COL):
             dens, ps, mat = surface_matrix(delta_df, sc, col)
             surfaces[(sc, col)] = (dens, ps, mat)
             if np.isfinite(mat).any():
-                vmax = max(vmax, float(np.nanmax(np.abs(mat))))
-    vmax = max(vmax, 1e-9)
+                v = float(np.nanmax(np.abs(mat)))
+                if col == MODEL_DELTA_COL:
+                    vmax_model = max(vmax_model, v)
+                else:
+                    vmax_abs = max(vmax_abs, v)
+    vmax_model = max(vmax_model, 1e-9)
+    vmax_abs = max(vmax_abs, 1e-9)
     fig, axes = plt.subplots(
         len(scenarios), 2, figsize=(14, 4.5 * len(scenarios)), constrained_layout=True
     )
@@ -130,15 +140,29 @@ def chart_phase_diagrams(delta_df: pd.DataFrame, out_dir: str | Path) -> Path:
         ):
             ax = axes[row, col]
             dens, ps, mat = surfaces[(sc, delta_col)]
+            vmax = vmax_model if delta_col == MODEL_DELTA_COL else vmax_abs
             _draw_surface(ax, dens, ps, mat, title, vmax=vmax)
-    sm = plt.cm.ScalarMappable(cmap=plt.get_cmap("RdBu_r"), norm=plt.Normalize(-vmax, vmax))
-    sm.set_array([])
-    cbar = fig.colorbar(sm, ax=axes, orientation="vertical", fraction=0.02, pad=0.02)
-    cbar.set_label("Δq (veh/h/lane): warm = CACC benefit, cold = reversal", fontsize=10)
+    # 双色标（左列 model、右列 abs，各对称）
+    sm_model = plt.cm.ScalarMappable(
+        cmap=plt.get_cmap("RdBu_r"), norm=plt.Normalize(-vmax_model, vmax_model)
+    )
+    sm_model.set_array([])
+    cbar_model = fig.colorbar(
+        sm_model, ax=axes[:, 0], orientation="vertical", fraction=0.02, pad=0.02
+    )
+    cbar_model.set_label("Δq_model (veh/h/lane): warm = benefit, cold = reversal", fontsize=10)
+    sm_abs = plt.cm.ScalarMappable(
+        cmap=plt.get_cmap("RdBu_r"), norm=plt.Normalize(-vmax_abs, vmax_abs)
+    )
+    sm_abs.set_array([])
+    cbar_abs = fig.colorbar(sm_abs, ax=axes[:, 1], orientation="vertical", fraction=0.02, pad=0.02)
+    cbar_abs.set_label("Δq_abs (veh/h/lane): warm = benefit, cold = reversal", fontsize=10)
     fig.suptitle(
         "CAV Benefit Phase Diagrams (v0.4.2 main grid)\n"
-        "Model Effect: q_CACC,p − q_IDM,p  |  Absolute Benefit: q_CACC,p − q_HV,0",
-        fontsize=14,
+        "Model Effect: q_CACC,p − q_IDM,p  |  Absolute Benefit: q_CACC,p − q_HV,0\n"
+        "Independent symmetric color scales per surface type (Δq_model ≈ ±1000 vs "
+        "Δq_abs 0–3228 veh/h/lane); contours: Δq=0 (linear interpolation, illustrative)",
+        fontsize=13,
     )
     path = out / "chart_phase_diagrams.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")

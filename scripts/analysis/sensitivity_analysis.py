@@ -115,14 +115,20 @@ def compute_threshold_stability(delta_df: pd.DataFrame) -> pd.DataFrame:
             a, b = p_star_by_k[k_sorted[i]], p_star_by_k[k_sorted[i + 1]]
             if (a is None) != (b is None) or (a is not None and b is not None and a != b):
                 jumps += 1
-        # 曲面梯度幅度（中央差分，边缘 NaN）
+        # 曲面梯度幅度（中央差分，边缘单边；第十二轮 P2-5 修订：np.gradient 传
+        # 物理间距——density 轴真实 veh/km/lane、p 轴真实渗透率，输出为物理单位
+        # 梯度（Δveh/h/lane per veh/km/lane / per p），与 interaction 的
+        # polyfit 斜率口径一致）
         piv = g.pivot_table(
             index="density_veh_per_km_lane", columns="pCAV", values=MODEL_DELTA_COL
         ).sort_index()
         grad_k, grad_p = np.nan, np.nan
         if piv.shape[0] >= 2 and piv.shape[1] >= 2:
-            grad_k = float(np.nanmax(np.abs(np.gradient(piv.to_numpy(dtype=float), axis=0))))
-            grad_p = float(np.nanmax(np.abs(np.gradient(piv.to_numpy(dtype=float), axis=1))))
+            dens_axis = piv.index.to_numpy(dtype=float)
+            p_axis = piv.columns.to_numpy(dtype=float)
+            arr = piv.to_numpy(dtype=float)
+            grad_k = float(np.nanmax(np.abs(np.gradient(arr, dens_axis, axis=0))))
+            grad_p = float(np.nanmax(np.abs(np.gradient(arr, p_axis, axis=1))))
         rows.append(
             {
                 "scenario": sc,

@@ -35,17 +35,18 @@ import pandas as pd
 
 # 分析层只处理正式网格的 model 维度（IDM / CACC）；ACC 非正式比较对象，不入分析层。
 ANALYSIS_MODELS = ("IDM", "CACC")
-MODEL_BASELINE = "IDM"  # 同渗透率模型基线（Δq_model 的减数）
-HV_BASELINE = ("IDM", 0.0)  # 纯 HV 公共 reference：(model=IDM, pCAV=0)
+# 基线语义（口径定稿 1）在 compute_delta_frame 中内联：baseline_model = 同 p 的
+# IDM 行；baseline_abs = p=0 的 IDM（纯 HV）行——不设独立常量，避免死代码。
 
-# 渗透率档位（聚合 CSV 中 CACC 仅 p>0；IDM 含 p=0 sentinel）
+# 渗透率档位步长（口径文档常量：cav_count 0.1 步长 11 档；档位值由数据 pCAV 列
+# 驱动，p* 档位区间表达见 p_star_interval）
 P_STEP = 0.1
-P_LEVELS = tuple(round(i * P_STEP, 2) for i in range(11))  # 0.0 .. 1.0
 
 # 描述性区间 z 值（正态近似；非正式推断——口径定稿 3）
 INTERVAL_Z = 1.96
-REPLICATION_INTERIOR = 9  # interior cell 双 seed 组合数（3×3）
-REPLICATION_ENDPOINT = 3  # p=0 端点 assignment_seed 失活 → 3 个 sumo 组合
+# 双 seed 统计单位（口径定稿 3）：interior n=9 = 3 assignment × 3 sumo；端点
+# p=0 时 assignment_seed 失活 → n=3。实际 n 以 aggregated CSV 的
+# REPLICATION_COLUMN 列值为准（load_aggregated 对非 {3,9} 值发警告）。
 
 # ═══════════════════════════════════════════════════════════════════
 # 指标族规格

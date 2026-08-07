@@ -181,6 +181,24 @@ The FD peak shifts with penetration (s1/s2): HV-only k≈20 → CACC p=1.0 k≈4
 ![Fundamental diagram (main scenarios)](graph/v0.4.2/chart_fundamental_diagram.png)
 ![Fundamental diagram (s3 bottleneck)](graph/v0.4.2/chart_fundamental_diagram_s3.png)
 
+### Analysis Layer: Benefit Phase Diagrams (incremental)
+
+The v0.4.2 analysis layer (`scripts/analysis/`, zero data re-runs — it consumes only the shipped aggregated CSV) adds a **dual phase diagram** read side by side without forcing a single baseline:
+
+- **Model Effect Surface** — Δq_model = q_CACC,p − q_IDM,p (same-penetration model contrast);
+- **Absolute Benefit Surface** — Δq_abs = q_CACC,p − q_HV,0 (absolute benefit over the pure-HV baseline).
+
+![Dual phase diagrams (Model Effect + Absolute Benefit)](graph/v0.4.2/chart_phase_diagrams.png)
+
+Highlights (statistical stance: n=9 interior cells, effect size + descriptive intervals + cross-seed consistency — not formal significance tests; thresholds are step intervals, e.g. `p* ∈ (0.5, 0.6]`):
+
+- s0/s1/s2 show no systematic reversal; the negative equal-weight Δq_model mean coexists with higher grid-observed peaks (peak vs mean estimands differ).
+- **s3 bottleneck reversal**: high densities k∈{30,40,45,50} invert for any p>0 (`p* ≤ 0.1`, `p_reversal_start ∈ (0.1,0.2]`); reversal densities k* = (5,10]–(30,35] depending on p; p∈{0.2,…,0.7} never gain. Cohen's d median −2.01 (large).
+- Pareto (max flow / min delay / min conflict / min CO₂, no hand-picked weights, within-density comparison): no single globally optimal penetration — the s3 front concentrates at high p, s0/s1/s2 fronts span all p.
+- Threshold conclusions are robust to estimand choice (109/132 cells unchanged across flow total/per-lane, delay mean/p95, TTC/DRAC).
+
+Full results: report §5.1 ([中文](docs/report.cn.md) / [English](docs/report.en.md)); analysis artifacts: `out/analysis/` (descriptive deltas, effect sizes, p*/k* tables, Pareto fronts, sensitivity), chart above in `graph/v0.4.2/`.
+
 ---
 
 ## Experiment Design

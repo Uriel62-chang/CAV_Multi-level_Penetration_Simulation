@@ -18,6 +18,26 @@
 - **发布动作（用户手动）**：tag v0.4.2、push main + tag、GitHub release——按
   `docs/engineering/release-checklist.md` 执行。
 
+### 分析层（2026-08，增量融入 v0.4.2，观察期内开发 + 管线审查背书）
+
+- **新增 `scripts/analysis/` 7 模块**（数据零重跑——只消费 shipped aggregated CSV）：
+  descriptive_analysis（描述统计增强，替代 mixed_effects 分层描述角色）/
+  effect_size（Δ 指标族 + Cohen's d 变体 + 跨 seed 描述性区间）/ interaction_analysis
+  （p×density、model×scenario、model×density、三阶分解）/ threshold_detection
+  （Δq=0 交叉点 + p*(k,s)/k*(p,s) 档位区间）/ benefit_phase_diagram（双 Phase
+  Diagram：Model Effect + Absolute Benefit 并列）/ pareto_analysis（四维 Pareto
+  Front，无人工权重，同 (scenario,density) 组内比较）/ sensitivity_analysis
+  （口径替代 + 阈值邻域稳定性）。
+- **四口径定稿落地**：baseline 双概念（Δq_model / Δq_abs 不混用）；p=0 sentinel
+  （模型比较限定 p>0）；n=9 效应量+区间+一致性（非正式推断）；p* 档位区间表达
+  （`p* ∈ (0.5, 0.6]`，插值细值仅 --interpolate 且标注估计）。
+- **核心产出**：双 Phase Diagram（`graph/v0.4.2/chart_phase_diagrams.png`，挂
+  README Core Results）+ p*/k* 阈值表 + Pareto front + 敏感性；s3 高密度
+  k∈{30,40,45,50} 检出 CACC 反转（`p* ≤ 0.1`、`p_reversal_start ∈ (0.1,0.2]`）、
+  效应量中位数 −2.01——反转非随机种子偶发现象。
+- **门禁**：新增 38 个分析层测试（总 489 passed）；ruff/mypy/compileall/format +
+  dry-run 全绿；报告 §5.1（中英）新增综合分析章节。
+
 ### ACC 模型链路兼容（2026-08，拓展）
 
 - ACC 作为**第三个普通模型同权处理**（IDM/ACC/CACC）：自由流参考补齐 `CAV_ACC`

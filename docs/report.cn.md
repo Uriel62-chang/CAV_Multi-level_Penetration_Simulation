@@ -213,6 +213,45 @@ assignment/sumo 双 seed、SSM 敏感性工具等），但未通过旧资源门�
 - **无全局最优**：四维评估下无单一模型全局占优；CACC 优势场景依赖（平滑无约束
   环境）、劣势集中于高密度瓶颈。
 
+### 5.1 分析层（增量）：双 Phase Diagram 与阈值检测
+
+> 分析层是 v0.4.2 观察期内的增量（`scripts/analysis/`，7 模块），**数据零重跑**——
+> 只消费 `results/v0.4.2/main/aggregated_results.csv`。统计口径延续 §8 声明：
+> interior cell n=9，效应量 + 描述性区间 + 跨 seed 一致性，**非正式显著性推断**；
+> p 为 0.1 步长，阈值一律报告档位区间（如 `p* ∈ (0.5, 0.6]`）。
+
+**双 Phase Diagram（并列解读，不强行选 baseline）**：
+
+- **Model Effect Surface**（Δq_model = q_CACC,p − q_IDM,p，同渗透率控制模型差异）；
+- **Absolute Benefit Surface**（Δq_abs = q_CACC,p − q_HV,0，相对纯 HV 基线的绝对收益）。
+
+![双 Phase Diagram（Model Effect + Absolute Benefit）](graph/v0.4.2/chart_phase_diagrams.png)
+
+实测要点（Δq=0 分界线在档位间线性插值仅为可视化示意；档位级阈值见下方 p*/k*）：
+
+- **s0/s1/s2 无系统性反转**：p* 检测无 reversal 档（s0 11 档密度全 gain/mixed；s1/s2
+  5 gain + 4 mixed + 2 no-crossing），Δq_model 均值为负（s0 −26 / s1 −93 / s2 −99
+  veh/h/lane）主要由高密度区域 CACC 相对 IDM 的劣势幅度大于低密度优势幅度所致——
+  **峰值更高与均值更弱并存**，两结论由不同口径支撑（峰值 vs 等权均值）。
+- **s3 瓶颈反转（核心信息）**：高密度 k∈{30,40,45,50} 检出 **reversal**
+  （`p* ≤ 0.1` 且 `p_reversal_start ∈ (0.1, 0.2]`——任何 p>0 的 CACC 混合在强制合流
+  高密度下吞吐即反转）；k∈{15,20,25,35,55} 全程无正收益（`p* > 1.0`）；仅低密度
+  k=5/10 高渗透率有正收益（`p* ∈ (0.7,0.8]` / `(0.9,1.0]`）。**k\* 反转密度**：
+  p=0.8/0.9 → k* ∈ (5,10]、p=1.0 → (10,15]、p=0.1 → (30,35]；p∈{0.2,…,0.7}
+  全程无收益。效应量佐证：s3 Δq_model 的 Cohen's d 仅 5.5% 为正、中位数 −2.01
+  （large 反转）。
+- **Pareto（四维：max flow / min delay / min conflict / min CO₂，无人工权重；
+  Pareto 比较限定同 (scenario, density) 组内——density 是外部需求参数非设计变量）**：
+  无单一全局最优渗透率；s3 的 front 点集中于高渗透率区间，与 s0/s1/s2 覆盖全
+  渗透率形成对照——不同场景存在不同的 Pareto optimal region。
+- **敏感性**：口径替代检验（flow total vs per-lane、delay mean vs p95、TTC vs
+  DRAC）下 109/132 组合 p* 档位不变，阈值结论对口径选择稳健。
+
+**阶段性科研结论**：CACC 性能反转不是个别随机种子导致的偶发现象——s3 高密度
+反转在多档密度与多渗透率下一致复现（跨 seed 一致性 + 档位区间 + 效应量三重
+支撑），与道路瓶颈、交通密度和 CAV 渗透率之间存在可识别的收益边界（p*/k*
+档位区间）。
+
 ---
 
 ## 6. 结论

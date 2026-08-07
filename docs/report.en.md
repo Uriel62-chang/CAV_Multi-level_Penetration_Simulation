@@ -213,6 +213,55 @@ Per-lane grid-observed peaks (veh/h/lane):
 - **No global optimum**: across the four dimensions no single model dominates; CACC
   advantage is scenario-dependent and its weakness concentrates at high-density merges.
 
+### 5.1 Analysis layer (incremental): dual phase diagrams and threshold detection
+
+> The analysis layer is an increment developed in the v0.4.2 observation window
+> (`scripts/analysis/`, 7 modules), **zero data re-runs** — it consumes only
+> `results/v0.4.2/main/aggregated_results.csv`. The statistical stance follows §8:
+> interior cells n=9; effect size + descriptive intervals + cross-seed consistency,
+> **not formal significance testing**; p has a 0.1 step, so thresholds are reported
+> as step intervals (e.g. `p* ∈ (0.5, 0.6]`).
+
+**Dual phase diagrams (read side by side; no single baseline is forced)**:
+
+- **Model Effect Surface** (Δq_model = q_CACC,p − q_IDM,p, same-penetration model contrast);
+- **Absolute Benefit Surface** (Δq_abs = q_CACC,p − q_HV,0, absolute benefit over the pure-HV baseline).
+
+![Dual phase diagrams (Model Effect + Absolute Benefit)](graph/v0.4.2/chart_phase_diagrams.png)
+
+Measured highlights (the Δq=0 contour is a linear interpolation between steps and
+is illustrative only; step-level thresholds are in the p*/k* tables below):
+
+- **s0/s1/s2 show no systematic reversal**: no reversal cells in p* detection
+  (s0: all 11 density levels gain/mixed; s1/s2: 5 gain + 4 mixed + 2 no-crossing),
+  while the Δq_model mean is negative (s0 −26 / s1 −93 / s2 −99 veh/h/lane) because
+  the high-density CACC deficit outweighs the low-density advantage — **higher peaks
+  and weaker equal-weight means coexist**, two conclusions supported by different
+  estimands (grid maximum vs equal-weight mean).
+- **s3 bottleneck reversal (core finding)**: high densities k∈{30,40,45,50} show
+  **reversal** (`p* ≤ 0.1` with `p_reversal_start ∈ (0.1, 0.2]` — any p>0 CACC mix
+  inverts throughput at the forced-merge bottleneck); k∈{15,20,25,35,55} show no
+  gain throughout (`p* > 1.0`); only low densities k=5/10 gain at high penetration
+  (`p* ∈ (0.7,0.8]` / `(0.9,1.0]`). **k\* reversal densities**: p=0.8/0.9 →
+  k* ∈ (5,10], p=1.0 → (10,15], p=0.1 → (30,35]; p∈{0.2,…,0.7} never gain. Effect
+  size corroborates: only 5.5% of s3 Δq_model Cohen's d values are positive, median
+  −2.01 (large reversal).
+- **Pareto** (four dimensions: max flow / min delay / min conflict / min CO₂, no
+  hand-picked weights; comparisons are within the same (scenario, density) group —
+  density is an external demand parameter, not a design variable): no single globally
+  optimal penetration; the s3 front concentrates in the high-penetration range,
+  contrasting with s0/s1/s2 fronts spanning all p — different scenarios have different
+  Pareto-optimal regions.
+- **Sensitivity**: under alternative estimands (flow total vs per-lane, delay mean vs
+  p95, TTC vs DRAC) the p* step is unchanged in 109/132 cells — threshold conclusions
+  are robust to estimand choice.
+
+**Interim scientific conclusion**: the CACC performance reversal is not an artifact
+of a few random seeds — the s3 high-density reversal reproduces consistently across
+density levels and penetrations (cross-seed consistency + step intervals + effect
+size), and shows a recognizable benefit boundary (p*/k* step intervals) driven by
+bottleneck geometry, traffic density and CAV penetration.
+
 ---
 
 ## 6. Conclusion

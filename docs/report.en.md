@@ -298,9 +298,22 @@ bottleneck geometry, traffic density and CAV penetration.
 
 ## 7. Future Work
 
-- v0.5.0: real-trajectory-driven car-following model calibration and validation;
-- v0.6.0: TraCI-based dynamic traffic control;
-- v0.7.0: CACC communication degradation (packet loss, latency).
+(Synced with the internal Roadmap, 2026-08: v0.6.0 absorbs the former v0.7.0
+communication-degradation work as phase D; v0.7.0 is demoted to a conditional reserve.)
+
+- **v0.5.0**: real-trajectory-driven **HV** car-following calibration and validation —
+  NGSIM/HighD highway-straight data calibrate HV car-following parameters; CAV
+  (IDM/ACC/CACC) keeps literature/set values, forming an "HV empirical baseline vs
+  CAV model-set" contrast; SUMO reproduction + generalization-boundary report.
+- **v0.6.0**: TraCI-based dynamic control + **single-intersection adaptive signal
+  control framework (first application)** — fixed timing (phase A) → actuated/
+  adaptive (phase B) → CAV penetration × signal interaction (phase C) →
+  **communication degradation × V2X robustness (phase D, absorbs former v0.7.0)**;
+  efficiency-metric migration (closed-loop lap time → travel time / queueing delay /
+  control delay).
+- **v0.7.0**: **conditional reserve** — dedicated CACC communication-degradation
+  study (packet loss, latency), enabled only if the v0.6.0 phase D results justify
+  an independent track; by default merged into v0.6.0.
 
 ---
 

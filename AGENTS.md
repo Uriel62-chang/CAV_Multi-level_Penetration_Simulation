@@ -196,6 +196,6 @@ release；GitHub 最新公开版本 = v0.4.2，取代 v0.4.0.post3）
 - `docs/internal/releases/pipeline-v042.md` / `pipeline-v050.md` — 管线审查
   记录（v0.4.2 封卷 1–18 轮 / v0.5.0 起，每版本独立文件）
 - `docs/internal/releases/v0.4.2-handover.md` — 唯一交接文档（v0.5.0 启动必读）
-- `docs/internal/LEARNING_PATH.md` / `architecture-layers.md` — 学习路径
-  （阶段一：理解本项目）与体系化架构迁移（阶段二，含 ITS agent 友好范式）
+- `docs/internal/architecture-layers.md` — 体系化架构（阶段二：从理解到迁移，
+  ITS agent 友好架构范式）
 - `docs/internal/README.md` — 本地维护文档与历史归档索引

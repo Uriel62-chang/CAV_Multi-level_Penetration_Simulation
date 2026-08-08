@@ -189,8 +189,8 @@ release；GitHub 最新公开版本 = v0.4.2，取代 v0.4.0.post3）
 
 - `docs/internal/roadmap.md` — 开发路线图（已完成/待办阶段；v0.5.0 及以后
   的版本条目、重跑范围 A/B 决策、真实道路支线）
-- `docs/internal/experiment-design-v042.md` / `analysis-layer-v042-design.md`
-  — 设计基线（正式实验 + 分析层四口径）
+- `docs/internal/experiment-design-v042.md` — v0.4.2 设计基线（实验设计 +
+  分析层设计第十章：四口径 + 7 模块 + 双 Phase Diagram）
 - `docs/internal/experiment-issues.md` — 已完成实验的设计问题与解释边界
 - `docs/internal/engineering-issues.md` — 工程问题与处理记录
 - `docs/internal/releases/pipeline-v042.md` / `pipeline-v050.md` — 管线审查

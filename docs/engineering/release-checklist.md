@@ -77,5 +77,6 @@
 - [ ] Simulation, parsing and writer manifests cover the planned grid.
 - [ ] `failed_runs.csv` is empty or every exclusion is explained.
 - [ ] Writer report is complete and contains no duplicate/missing run IDs.
-- [ ] Historical data is handled according to `migration.md`.
+- [ ] Historical data handling follows `docs/internal/archive/v0.4.0-migration.md`
+      (v0.4.0 数据已清空、外部备份保留；migration 指南 2026-08 归档)。
 - [ ] Resume is tested against an unchanged run and rejects modified inputs.

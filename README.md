@@ -12,7 +12,6 @@
 [Quick Start](#quick-start) ·
 [Report (中文)](docs/report.cn.md) ·
 [Report (English)](docs/report.en.md) ·
-[Engineering Audit](docs/engineering/audit.md) ·
 [Release Checklist](docs/engineering/release-checklist.md)
 
 ---
@@ -502,8 +501,6 @@ docs/
 ├── report.cn.md
 ├── report.en.md
 └── engineering/
-    ├── audit.md
-    ├── migration.md
     └── release-checklist.md
 ```
 

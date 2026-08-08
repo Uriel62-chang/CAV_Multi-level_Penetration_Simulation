@@ -108,8 +108,11 @@ def test_threshold_stability(tmp_path):
     row = stab.iloc[0]
     assert row["n_density_levels"] == 2
     assert row["p_star_jumps_across_density"] == 0  # 两 density 均无负→正交叉
-    # 曲面梯度：density=10 正、20 负 → |∂Δ/∂k| = 50/10 = 5（中央差分边缘 NaN）
-    assert row["max_grad_density"] > 0
+    # R15-P2-1 物理单位回归：fixture Δ 矩阵 [[50,20],[-20,-50]]（density 步长
+    # 10、p 步长 0.5）→ |∂Δ/∂k| = |(-20-50)/10| = 7.0、|∂Δ/∂p| = |(20-50)/0.5| = 60。
+    # 若 np.gradient 回退到索引间距（步长 1），此断言即失败（70/60 → 值不同）。
+    assert row["max_grad_density"] == pytest.approx(7.0)
+    assert row["max_grad_pcav"] == pytest.approx(60.0)
 
 
 def test_sensitivity_missing_delta_col():

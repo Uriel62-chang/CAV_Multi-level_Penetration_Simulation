@@ -21,7 +21,7 @@
 - [ ] `python -m scripts.simulation.batch_run --config configs/smoke.json --dry-run`
       （smoke 配置 ssm_enabled=false / capture TTC=5.0 与 main（true / 3.0）不同——
       **仅冒烟用，勿作比照**；dry-run 不校验该口径）
-- [ ] The complete pytest count matches the README release baseline (v0.4.2: 490).
+- [ ] The complete pytest count matches the README release baseline (v0.4.2: 492).
 - [ ] free-flow artifact 门禁（收敛审核 P2）：`runner.py` 对 `sumo_version` 多行字节精确匹配——**升级/重编译 SUMO 会整批解析失败，需重生成 free-flow artifact**（fail-closed 设计，防跨版本错误复用参考；勿强行绕过）。
 - [ ] `python -m compileall -q scripts tests`
 - [ ] `mypy scripts/run_spec.py scripts/experiment_config.py scripts/provenance.py`
@@ -53,7 +53,7 @@
       `configs/v0.4.2/main.json`、net/、artifacts/free_flow/ 解析依赖）；
       raw 76 GB / run-level / subgroup 留外部备份；历史旧网格数据已清空。
 - [ ] **文档一致性**：README/report 的 v0.4.2 数值为 U55 正式数字（924 组、
-      490 tests）；`--v4-2`/`--outDir` 与 CLI 一致；Markdown 相对链接有效
+      492 tests）；`--v4-2`/`--outDir` 与 CLI 一致；Markdown 相对链接有效
       （含 report 双链与 graph/v0.4.2/ 图引用）；禁止性措辞扫描通过。
 - [ ] **审查冻结**：当前 SHA 获正式 Reviewer 背书（阶段一独立复算 + delta +
       阶段二对账）；打 tag 前无未背书新 commit；tag 精确指向背书 SHA。

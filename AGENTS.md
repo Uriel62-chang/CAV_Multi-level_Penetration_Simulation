@@ -150,8 +150,13 @@ release；GitHub 最新公开版本 = v0.4.2，取代 v0.4.0.post3）
 - SIGINT → CANCELLED 状态机
 - CLI `--assignment-seeds` / `--sumo-seeds` 命名
 
-### 推迟到 1.post1
-- S8 剩余项：PreparedRun.fcd_path（canonical_json_bytes、atomic_write_bytes、--acceptance 已在阶段 2 实现）
+### S8 冻结输入（阶段 2 主体已完成；1 个便利字段未实现，无目标版本）
+- 已实现：`frozen_inputs` 目录（frozen acceptance 输入对，`prepare_post1_frozen_inputs`）、
+  `canonical_json_bytes`（provenance.py）、`atomic_write_bytes`（provenance.py）、
+  `--acceptance` CLI + 非 resume 覆盖保护
+- 唯一未实现：`PreparedRun.fcd_path`——**便利字段**（fcd.xml.gz 路径在调用处
+  构造 `run_dir / "fcd.xml.gz"`，功能无缺口）；原"推迟到 1.post1"已无目标版本
+  （v0.4.1 内部化未发布、v0.4.2 跳号发布取代），随 v0.5.0 重构按需补
 
 ### 测试基线
 - 492 tests passed（当前基线：451 基线 + 38 分析层 + 1 R13 零方差回归 + 2 R16

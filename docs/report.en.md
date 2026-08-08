@@ -290,10 +290,9 @@ bottleneck geometry, traffic density and CAV penetration.
    critical → congested with limited high-density reach).
 3. The s3 high-density merge-bottleneck reversal holds and is robustly supported by
    the flow metric; efficiency corroboration is used per density tier.
-4. No P0/P1 code-logic defects remain (pipeline review converged after seven rounds
-   at the time of the v0.4.2 release; later review rounds closed data/document-level
-   items; the 2 P2 items and subsequent document-level P1s are fixed or closed by
-   documentation).
+4. No P0/P1 code-logic defects remain (pipeline review converged after 18 rounds:
+   code-layer convergence, data/document-layer closure, and release/artifact-state
+   verification; all P1s/P2s fixed or documented closed, none open).
 
 ---
 

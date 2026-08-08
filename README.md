@@ -311,7 +311,7 @@ The parser pipeline provides:
 0              INVALID parses (insertion-integrity guard passed)
 0              writer exclusions
 924            aggregated groups (4 scenarios × 11 vehN × 21 per-vehN)
-490            automated tests passed (current gate baseline)
+492            automated tests passed (current gate baseline)
 0              duplicate run IDs
 0              invariant violations
 ```

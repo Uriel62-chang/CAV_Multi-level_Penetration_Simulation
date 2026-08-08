@@ -151,14 +151,16 @@ python3 -m scripts.results.visualization \
 
 ### 测试基线
 - 492 tests passed（当前基线：451 基线 + 38 分析层 + 1 R13 零方差回归 + 2 R16
-  回归；历史追溯：pipeline-v042.md 第一轮记 445 → 第一轮修订 P2-1/P2-2 回归 2 条
+  回归；历史追溯：管线审查记录（`pipeline-v042.md`，本地维护、gitignored 不随
+  仓库发布）第一轮记 445 → 第一轮修订 P2-1/P2-2 回归 2 条
   → 447 → round 9 free_flow/FCD 回归 2 条 → 449 → ACC 兼容 +2 → 451 → 分析层
   38 → 489 → R13 零方差回归 → 490 → R16 CLI/死分支回归 2 条 → 492）
 - Ruff / mypy / compileall / format 全通过
 - dry-run: main 7,524（U55）/ smoke（configs/smoke.json；v0.4.0 10,080 网格
   数据红线不重跑、本地数据已删（2026-08 用户拍板，外部备份保留）、配置已移除；
   旧独立 safety 84 runs 已随 2026-08 合并设计删除（安全维度并入主网格）；
-  v0.4.1 正式实验配置已归档 docs/internal/archive/configs-v0.4.1/）
+  v0.4.1 正式实验配置已归档（本地维护目录 `docs/internal/archive/configs-v0.4.1/`，
+  gitignored 不随仓库发布））
 - aggregate 现已要求 --schema-version 参数
 - 使用项目根目录的 `.venv` 虚拟环境运行所有 Python 命令（`ruff`、`mypy`、`pytest`、`compileall` 等）
   ```bash

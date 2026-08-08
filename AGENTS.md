@@ -151,7 +151,7 @@ python3 -m scripts.results.visualization \
 
 ### 测试基线
 - 492 tests passed（当前基线：451 基线 + 38 分析层 + 1 R13 零方差回归 + 2 R16
-  回归；历史追溯：pipeline.md 第一轮记 445 → 第一轮修订 P2-1/P2-2 回归 2 条
+  回归；历史追溯：pipeline-v042.md 第一轮记 445 → 第一轮修订 P2-1/P2-2 回归 2 条
   → 447 → round 9 free_flow/FCD 回归 2 条 → 449 → ACC 兼容 +2 → 451 → 分析层
   38 → 489 → R13 零方差回归 → 490 → R16 CLI/死分支回归 2 条 → 492）
 - Ruff / mypy / compileall / format 全通过

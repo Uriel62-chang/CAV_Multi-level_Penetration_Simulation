@@ -6,7 +6,7 @@
 > 门禁；D-012–D-015 技术证据已闭合、治理状态未闭合，本地 tag 已删）。其全部工程成果
 > 并入本版发布说明。本版为 v0.4.0.post3 之后的下一公开版本。
 
-### 发布状态（2026-08，正式实验/发布承接完成，公开发布待执行）
+### 发布状态（2026-08，**正式发布完成**：v0.4.2 tag = cfcfad2 + GitHub release）
 
 - **结果 ship**：`results/v0.4.2/main/aggregated_results.csv`（924 组 × 329 列）
   纳入公开仓库；raw 76 GB / run-level / subgroup 留外部备份。
@@ -17,8 +17,8 @@
   发布文档/图产物/数据出处层收敛、R12–R14 分析层背书、R15 发布/产物状态复核、R16 辅助 CLI/RunSpec 清理；
   2 项 P2 与后续文档级 P1（s3 模型归属/吞吐口径/subgroup 重解析等）均已修复或
   文档化闭环）。
-- **发布动作（用户手动）**：tag v0.4.2、push main + tag、GitHub release——按
-  `docs/engineering/release-checklist.md` 执行。
+- **发布动作 ✅ 已完成（2026-08-08）**：tag v0.4.2（annotated，指向 cfcfad2）
+  + push main + push tag（远端 peeled 双核验一致）+ GitHub release。
 
 ### 分析层（2026-08，v0.4.2 统计分析组件，管线审查背书）
 

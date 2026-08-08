@@ -48,7 +48,8 @@
 - [ ] **正式输入字节锚点**：`net/scenario_{1,2,3}/net.json` 的 `-text` 豁免生效，
       HEAD blob 与正式运行字节 SHA 一致。
 - [ ] **数据与归档边界（2026-08 正式网格）**：Git 内 = 工具链 + 正式网格结果
-      （`results/v0.4.2/main/aggregated_results.csv` 已 ship、`graph/v0.4.2/` 5 图、
+      （`results/v0.4.2/main/aggregated_results.csv` 已 ship、`graph/v0.4.2/` 6 图
+      （5 main-grid + 1 analysis）、
       `configs/v0.4.2/main.json`、net/、artifacts/free_flow/ 解析依赖）；
       raw 76 GB / run-level / subgroup 留外部备份；历史旧网格数据已清空。
 - [ ] **文档一致性**：README/report 的 v0.4.2 数值为 U55 正式数字（924 组、

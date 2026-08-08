@@ -90,10 +90,11 @@ python3 -m scripts.results.visualization \
 > （基本图方案：密度轴至 55 veh/km/道；s0/s1 单车道 10–110、s2/s3 双车道 20–220；
 > departSpeed="0" + warmup=600（9 档标定 ≤120 s 稳定）；SSM 全开、合并设计）。
 > **2026-08 正式重跑：7,524/7,524 全 SUCCESS**（3 workers / 21.86 h / 0 失败；
-> 解析 0 INVALID + 插入完整性守卫通过；writer 0 排除；聚合 924 组；可视化 5 图
+> 解析 0 INVALID + 插入完整性守卫通过；writer 0 排除；聚合 924 组；可视化 5 主图
 > ——FD 峰位/HV→CACC 移动/s0 转角基线/s3 瓶颈语义全部符合设计）。产物：
 > out/（run-level 7,524×80、subgroup 782,496 行、aggregated 924 组）、
-> graph/v0.4.2/（5 图）、raw/（76 GB，外部备份待处置）。
+> graph/v0.4.2/（6 图：5 main-grid + 分析层双 Phase Diagram）、raw/（76 GB，
+> 外部备份待处置）。
 > **2026-08 发布承接完成（管线审查第五轮）**：aggregated CSV 已 ship 至
 > `results/v0.4.2/main/`（924 组 × 329 列，跟踪文件）；报告 `docs/report.cn.md`
 > （中文）+ `docs/report.en.md`（英文）；README 重写为 U55 正式口径。

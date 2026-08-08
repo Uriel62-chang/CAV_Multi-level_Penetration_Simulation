@@ -303,8 +303,22 @@ def main():
     parser.add_argument("--edge-length", type=float, default=500.0, help="每条边长/m (默认: 500)")
     parser.add_argument("--scenario", default="scenario_0", help="场景标识 (默认: scenario_0)")
     parser.add_argument("--num-lanes", type=int, default=1, help="车道数 (默认: 1)")
+    parser.add_argument(
+        "--cav-count",
+        type=int,
+        default=None,
+        help="CAV 数量（权威来源，P0-2 纯管线必填——不传时按 half-up 从 pCAV×vehN 推导并显式传入）",
+    )
     args = parser.parse_args()
 
+    # R16-P2-1：generate_flow 的 cav_count 为必需关键字参数（None 会抛错）；
+    # CLI 显式传入——优先 --cav-count，否则按 single_run 同款 half-up 推导
+    # int(vehN*pCAV+0.5)，避免 round 银行家舍入二义性。
+    cav_count = args.cav_count if args.cav_count is not None else int(args.vehN * args.pCAV + 0.5)
+    print(
+        f"CAV count = {cav_count} (vehN={args.vehN}, pCAV={args.pCAV}, "
+        f"realized pCAV={cav_count / args.vehN:.4f})"
+    )
     generate_flow(
         args.vehN,
         args.pCAV,
@@ -316,6 +330,7 @@ def main():
         args.edge_length,
         args.scenario,
         args.num_lanes,
+        cav_count=cav_count,
     )
 
 

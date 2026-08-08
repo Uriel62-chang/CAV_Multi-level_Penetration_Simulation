@@ -198,10 +198,11 @@ class RunSpec:
                 f"pcav={self.pcav} inconsistent with cav_count={self.cav_count} "
                 f"(vehicle_count={self.vehicle_count}, expected pcav={expected})"
             )
-        # 旧式构造（cav_count 未显式）时 requested_pcav 回退到 pcav；cav_count
-        # 网格模式（cav_count 显式、requested_pcav=None）保持 None（v0.4.1 语义）
-        if self.requested_pcav is None and self.cav_count is None:
-            object.__setattr__(self, "requested_pcav", self.pcav)
+        # R16-P2-2（死分支清理）：此处 cav_count 必非 None（上方已推导/校验），
+        # 故 "requested_pcav is None and cav_count is None" 永假——旧式构造
+        # requested_pcav 回退到 pcav 的兼容行为从未生效。纯净分支已放弃该兼容
+        # 语义：requested_pcav 仅网格显式模式有意义（v0.4.1 语义，保持 None），
+        # cav_count 为权威来源（P0-2）。删除不可达回退，不改变正式显式 count 哈希。
         if self.sumo_seed < 0:
             raise ValueError(f"sumo_seed must be non-negative, got {self.sumo_seed}")
         # 阶段 1 新增字段校验

@@ -105,7 +105,9 @@ release；GitHub 最新公开版本 = v0.4.2，取代 v0.4.0.post3）
 > 旧 A 方案 8,208 为上一版设计（已取代）。
 > 公开基线 = v0.4.2（2026-08-08 发布）；**2026-08 数据清空**：v0.4.0 与 v0.4.2 历史数据
 > （raw_v0.4.2/ 34 GB、raw/、results/v0.4.2/、graph/v0.4.2/、docs/report.md）已删
-> （用户拍板，外部备份保留）；仓库为纯工具链 + 未来重跑定义（main 全开 SSM）。
+> （用户拍板；v0.4.0 全量数据已彻底删除，可经远端 `v0.4.0.post3` tag 重跑
+> 复现；v0.4.2 旧网格/历史产物外部备份保留）；仓库为纯工具链 + 未来重跑定义
+> （main 全开 SSM）。
 > 以下为**外部备份保留**的旧结果清单（仓库内已清空，重跑后按
 > writer/aggregate/handover/inventory 链路重建）：aggregated_results.csv、
 > result_handover.json、raw_status_inventory.jsonl、result_analysis.md、

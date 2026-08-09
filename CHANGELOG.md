@@ -171,7 +171,7 @@
 ### 不做的事情（显式排除）
 
 - 不重跑 v0.4.0 10,080-run 网格，不修改其配置/哈希/命令字节
-- **v0.4.0 本地数据与图表已移除（2026-08 用户拍板，外部备份保留）**：`graph/v0.4.0/`
+- **v0.4.0 本地数据与图表已移除且本地残留已彻底删除（2026-08 用户拍板；可经远端 `v0.4.0.post3` tag 重跑复现）**：`graph/v0.4.0/`
   图、`results/` 根 v0.4.0 产物（aggregated_results.csv / reanalysis_manifest.json /
   raw_input_inventory.jsonl）删除；README v0.4.0 Historical Baseline 章节移除；
   visualization `--v4` 模式与依赖 v0.4.0 数据的测试/fixture 清理。历史复现需

@@ -28,9 +28,10 @@
 - [ ] GitHub Actions `python-quality` succeeds.
 - [ ] GitHub Actions `sumo-smoke` succeeds with `data_quality=ok`.
 
-> **v0.4.0 数据状态（2026-08 更新）**：v0.4.0 本地数据与图表已移除（用户拍板，
-> 外部备份保留）——不再存在 v0.4.0.post2/post3 preservation gates 的核验对象；
-> 历史复现需 checkout `v0.4.0.post3` tag（该 tag 保留完整工具链与数据）。
+> **v0.4.0 数据状态（2026-08 更新）**：v0.4.0 本地数据与图表已移除且本地残留
+> 已彻底删除（用户拍板）——不再存在 v0.4.0.post2/post3 preservation gates 的
+> 核验对象；历史复现需 checkout `v0.4.0.post3` tag（该 tag 保留完整工具链与
+> 网格配置，可重跑复现）。
 
 ## v0.4.2 release gates
 
@@ -78,5 +79,6 @@
 - [ ] `failed_runs.csv` is empty or every exclusion is explained.
 - [ ] Writer report is complete and contains no duplicate/missing run IDs.
 - [ ] Historical data handling follows `docs/internal/archive/v0.4.0-migration.md`
-      (v0.4.0 数据已清空、外部备份保留；migration 指南 2026-08 归档)。
+      (v0.4.0 数据已清空且残留已彻底删除，可经 v0.4.0.post3 tag 重跑复现；
+      migration 指南 2026-08 归档)。
 - [ ] Resume is tested against an unchanged run and rejects modified inputs.

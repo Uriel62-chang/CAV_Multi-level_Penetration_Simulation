@@ -168,7 +168,8 @@ release；GitHub 最新公开版本 = v0.4.2，取代 v0.4.0.post3）
   38 → 489 → R13 零方差回归 → 490 → R16 CLI/死分支回归 2 条 → 492）
 - Ruff / mypy / compileall / format 全通过
 - dry-run: main 7,524（U55）/ smoke（configs/smoke.json；v0.4.0 10,080 网格
-  数据红线不重跑、本地数据已删（2026-08 用户拍板，外部备份保留）、配置已移除；
+  数据红线不重跑、本地数据已删且残留已彻底删除（2026-08 用户拍板，可经
+  v0.4.0.post3 tag 重跑复现）、配置已移除；
   旧独立 safety 84 runs 已随 2026-08 合并设计删除（安全维度并入主网格）；
   v0.4.1 正式实验配置已归档（本地维护目录 `docs/internal/archive/configs-v0.4.1/`，
   gitignored 不随仓库发布））

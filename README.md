@@ -1,6 +1,10 @@
-# CAV Multi-level Penetration Simulation
+# CAV Mixed-Traffic Lab
 
-> A reproducible SUMO experiment platform for CAV/HV mixed-traffic research: how CAV penetration and car-following control affect **observed flow, safety, emissions, and reference-relative lap time** under different road constraints — validated on a **7,524-run formal grid (3×3 dual seeds)** with a statistical analysis layer (dual benefit phase diagrams, benefit boundaries, Pareto fronts).
+> A reproducible SUMO platform for CAV/HV mixed-traffic experiments: how CAV penetration and car-following control affect **observed flow, safety, emissions, and reference-relative lap time** under different road constraints — validated on a **7,524-run formal grid (3×3 dual seeds)** with a statistical analysis layer (dual benefit phase diagrams, benefit boundaries, Pareto fronts).
+
+> **Project identity:** renamed from *CAV Multi-level Penetration Simulation* after
+> v0.4.2. The v0.4.2 tag, release and formal reports retain the name under which
+> they were published; code, data schemas and scientific results are unchanged.
 
 `SUMO 1.27.1` · `Python 3.10+` · `7,524 simulations · 3×3 dual seeds` · `v0.4.2`
 
@@ -556,15 +560,19 @@ docs/
 
 ## Citation
 
-When using this project, please cite the repository and release version:
+When using this project, please cite the repository and release version. v0.4.2 was
+published under the former project name; the note below preserves that provenance
+while using the repository's current identity:
 
 ```bibtex
-@software{cav_multi_level_penetration_simulation_2026,
+@software{cav_mixed_traffic_lab_2026,
   author  = {Uriel62-chang},
-  title   = {CAV Multi-level Penetration Simulation},
+  title   = {CAV Mixed-Traffic Lab},
   version = {v0.4.2},
   year    = {2026},
-  url     = {https://github.com/Uriel62-chang/CAV_Multi-level_Penetration_Simulation}
+  url     = {https://github.com/Uriel62-chang/cav-mixed-traffic-lab},
+  note    = {Project renamed after v0.4.2; the tagged release was published as
+             CAV Multi-level Penetration Simulation}
 }
 ```
 

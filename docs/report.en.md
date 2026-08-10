@@ -1,5 +1,10 @@
 # v0.4.2 Formal Experiment Report: CAV Multi-level Penetration Simulation (U55 Fundamental-Diagram Design)
 
+> **Project-name history**: this report was published with v0.4.2 under the former
+> name *CAV Multi-level Penetration Simulation*. The project was renamed **CAV
+> Mixed-Traffic Lab** after v0.4.2. To preserve release provenance, the report title,
+> citation, experimental results and conclusions remain as published.
+
 > **Version**: v0.4.2 (jump release; v0.4.1 was an internal milestone, **not released**, outcomes folded into this version)
 > **Grid**: 7,524-run main factorial (SSM enabled for the full grid — merged design)
 > **Simulation**: SUMO 1.27.1 · 3 workers / 21.86 h / 0 failures · observation window [600, 1800)

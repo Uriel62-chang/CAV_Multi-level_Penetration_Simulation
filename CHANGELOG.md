@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### 项目名称重构（v0.5.0 开发前置）
+
+- 项目名称由 **CAV Multi-level Penetration Simulation** 更改为
+  **CAV Mixed-Traffic Lab**；canonical repository slug 与 Python distribution
+  名统一为 `cav-mixed-traffic-lab`。
+- 本次只迁移项目身份，不修改 `scripts.*` Python 包、`cav-*` CLI、run ID、CSV
+  schema、实验配置、正式数据或科研结论。
+- v0.4.2 tag、GitHub release 与中英文正式报告保留发布时的原名称；报告正文仅增加
+  名称沿革说明。v0.4.2 仍为最新公开版本，本条目在 v0.5.0 开发前先行落地于
+  `main`。
+
 ## v0.4.2 (2026-08，跳号发布)
 
 > **跳号发布说明**：v0.4.1 是本地内部里程碑，**未对外发布**（Level 2 pilot 未过旧资源

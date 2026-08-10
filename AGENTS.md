@@ -1,5 +1,17 @@
 # 项目约定 (Project Conventions)
 
+## 项目身份与版本边界
+
+- **当前项目名**：CAV Mixed-Traffic Lab
+- **canonical repository / Python distribution**：`cav-mixed-traffic-lab`
+- **历史名称**：CAV Multi-level Penetration Simulation（沿用至 v0.4.2 发布）
+- 名称迁移在 v0.4.2 发布后、v0.5.0 开发前直接落地 `main`。v0.4.2 tag、GitHub
+  release 与中英文正式报告保留发布时的历史名称；不得追改历史 tag 或将报告伪装成
+  新名称下发布。
+- `scripts.*` Python 包、`cav-*` CLI、HV/CAV/`pCAV` 领域术语、run ID、CSV schema、
+  版本化实验配置和正式结果均不随品牌名称改变。现有 clone 的顶层目录名可暂时保留；
+  如移动目录，必须重建 `.venv` 或重新安装 editable package，清除旧绝对路径。
+
 ## 脚本架构
 
 `scripts/` 为 Python 包（含 `__init__.py`），按领域分为三个子包，Python

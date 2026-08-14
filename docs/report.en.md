@@ -314,21 +314,21 @@ bottleneck geometry, traffic density and CAV penetration.
   oscillation, queueing, merge pressure) to explain **why** the bottleneck reversal
   occurs.
 - **v0.6.0**: **TraCI foundation + efficiency-metric migration + fixed-timing
-  baseline (phase A)** — a decoupled TraCI control interface; single-intersection
+  baseline** — a decoupled TraCI control interface; single-intersection
   network + OD flow generation; efficiency-metric migration (closed-loop lap time
   → travel time / queueing delay / control delay); a fixed-timing signal baseline
   (the migrated framework is independently validated before any adaptive control).
-- **v0.6.1**: **signal-control research (phases B+C)** — actuated/adaptive signal
+- **v0.6.1**: **signal-control research** — actuated/adaptive signal
   control → CAV penetration × signal-control interaction, quantifying the
   incremental benefit of CAV information over an actuated/adaptive baseline.
-- **v0.6.2**: **communication-degradation robustness (phase D)** — packet loss /
+- **v0.6.2**: **communication-degradation robustness** — packet loss /
   latency / range attenuation × V2X benefits, quantified by benefit-retention
   ratio and a robustness phase diagram (the vanishing-benefit boundary).
 - **v0.7.0**: **final consolidation** — five core figures
   (calibration / benefit phase diagram / mechanism / communication robustness /
   Pareto) + final sensitivity analysis.
 - **v0.8.0**: **conditional reserve** — dedicated CACC communication-degradation
-  deep-dive, enabled only if the v0.6.2 phase D results justify an independent
+  deep-dive, enabled only if the v0.6.2 results justify an independent
   track; by default merged into v0.6.2.
 
 ---

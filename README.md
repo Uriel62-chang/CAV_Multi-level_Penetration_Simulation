@@ -541,11 +541,11 @@ docs/
 | **v0.4.2** | **Formal grid (jump release, current): 7,524-run U55 main factorial — unified density axis 5–55 veh/km/lane, SSM enabled for the full grid, departSpeed="0", 3×3 dual seeds, observation window [600, 1800); results shipped in `results/v0.4.2/main/`; analysis layer with dual phase diagrams (model-effect and absolute-benefit surfaces)** |
 | v0.5.0 | Real-trajectory-driven **HV** car-following calibration and validation (NGSIM/HighD highway-following segments; CAV parameters stay at literature/set values, so the calibrated HV forms a realistic baseline vs model-set CAV) |
 | v0.5.1 | **Mechanism study: HV heterogeneity and CAV spatial organization** — driver types clustered from the calibrated distribution; CAV patterns (random/clustered/dispersed at equal penetration); process metrics (lane change, speed/acceleration oscillation, queueing, merge pressure) explain **why** the bottleneck reversal occurs |
-| v0.6.0 | **TraCI foundation + efficiency-metric migration + fixed-timing baseline (phase A)** — decoupled TraCI control interface; single-intersection network + OD flow generation; efficiency metrics migrated from closed-loop lap time to travel/queue/control delay; fixed-timing signal baseline (migrated framework validated before any adaptive control) |
-| v0.6.1 | **Signal-control research (phases B+C)** — actuated/adaptive signal control → CAV-penetration × signal-control interaction, quantifying the incremental benefit of CAV information over an actuated/adaptive baseline |
-| v0.6.2 | **Communication-degradation robustness (phase D)** — packet loss / latency / range attenuation versus CAV×signal benefits, quantified by benefit-retention ratio and a robustness phase diagram |
+| v0.6.0 | **TraCI foundation + efficiency-metric migration + fixed-timing baseline** — decoupled TraCI control interface; single-intersection network + OD flow generation; efficiency metrics migrated from closed-loop lap time to travel/queue/control delay; fixed-timing signal baseline (migrated framework validated before any adaptive control) |
+| v0.6.1 | **Signal-control research** — actuated/adaptive signal control → CAV-penetration × signal-control interaction, quantifying the incremental benefit of CAV information over an actuated/adaptive baseline |
+| v0.6.2 | **Communication-degradation robustness** — packet loss / latency / range attenuation versus CAV×signal benefits, quantified by benefit-retention ratio and a robustness phase diagram |
 | v0.7.0 | **Final consolidation** — five core figures (calibration / benefit phase diagram / mechanism / communication robustness / Pareto) + final sensitivity analysis |
-| v0.8.0 | **Reserved** — communication-degradation deep-dive only if the v0.6.2 phase-D findings justify a standalone follow-up (default: folded into v0.6.2) |
+| v0.8.0 | **Reserved** — communication-degradation deep-dive only if the v0.6.2 findings justify a standalone follow-up (default: folded into v0.6.2) |
 
 ---
 

@@ -303,11 +303,6 @@ bottleneck geometry, traffic density and CAV penetration.
 
 ## 7. Future Work
 
-(Synced with the internal Roadmap, 2026-08: v0.6.0 is split into three phase
-versions — v0.6.0 phase A, v0.6.1 phases B+C, v0.6.2 phase D; the former v0.6.1
-final consolidation moves to v0.7.0, and the former v0.7.0 conditional reserve
-moves to v0.8.0.)
-
 - **v0.5.0**: real-trajectory-driven **HV** car-following calibration and validation —
   NGSIM/HighD highway-straight data calibrate HV car-following parameters; CAV
   (IDM/ACC/CACC) keeps literature/set values, forming an "HV empirical baseline vs
